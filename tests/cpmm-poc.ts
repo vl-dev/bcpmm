@@ -34,12 +34,11 @@ describe("cpmm-poc", () => {
     }
   });
 
-  it("Is initialized!", async () => {
+  it("Can swap acs to ct", async () => {
     const provider = anchor.getProvider();
     const payer = await provider.wallet.payer;
-
     // Create ACS token mint and mint tokens
-    const acsMint = await createMint(
+    const aMint = await createMint(
       provider.connection as any,
       payer,
       provider.wallet.publicKey,
@@ -47,151 +46,137 @@ describe("cpmm-poc", () => {
       6
     );
 
-    const acsAta = await createAssociatedTokenAccount(
+    const payerAta = await createAssociatedTokenAccount(
       provider.connection as any,
       payer,
-      acsMint,
+      aMint,
       provider.wallet.publicKey
     );
 
     await mintTo(
       provider.connection as any,
       payer,
-      acsMint,
-      acsAta,
+      aMint,
+      payerAta,
       payer, // Use payer as the mint authority signer
       1_000_000_000, // 1B tokens
     );
 
-    // PDA for the page visits account
-    const [centralStatePDA] = PublicKey.findProgramAddressSync([Buffer.from('central_state')], program.programId);
-
-    // Check if account already exists
-    const exists = await accountExists(centralStatePDA);
-    if (exists) {
-      console.log("Central state already initialized");
-      return;
-    }
-
-    const centralStateAta = await getAssociatedTokenAddress(acsMint, centralStatePDA, true)
-    const accounts = {
-      payer: provider.wallet.publicKey,
-      centralState: centralStatePDA,
-      centralStateAta: centralStateAta,
-      systemProgram: SystemProgram.programId,
-      acsMint: acsMint,
-      tokenProgram: TOKEN_PROGRAM_ID,
-    };
-
-    try {
-      const tx = await program.methods.initialize().accounts(accounts).rpc();
-      console.log("Your transaction signature", tx);
-    } catch (e) {
-      if (e.message.includes("already in use")) {
-        console.log("Central state already initialized");
-        return;
-      }
-      throw e;
-    }
-  });
-  it("Can swap acs to ct", async () => {
-    const provider = anchor.getProvider();
-    const payer = await provider.wallet.payer;
-
-    // Central state is already initialized from the previous test
-    const [centralStatePDA] = PublicKey.findProgramAddressSync([Buffer.from('central_state')], program.programId);
-    const centralStateAccount = await program.account.centralState.fetch(centralStatePDA);
-    const acsMint = centralStateAccount.acsMint;
-
+    const bMintKeypair = new Keypair();
+    const bMint = bMintKeypair.publicKey;
     // Create CPMM Pool
     console.log("Creating CPMM Pool");
-    const [cpmmPoolPDA] = PublicKey.findProgramAddressSync(
-      [Buffer.from('cpmm_pool'), new BN(0).toArrayLike(Buffer, 'le', 8)],
+    const [pool] = PublicKey.findProgramAddressSync(
+      [Buffer.from('bcpmm_pool'), bMint.toBuffer()],
       program.programId
     );
+
+    const poolAta = await getAssociatedTokenAddress(
+      aMint,
+      pool,
+      true
+    );
+
     const createPoolAccounts = {
-      centralState: centralStatePDA,
-      cpmmPool: cpmmPoolPDA,
       payer: provider.wallet.publicKey,
+      aMint: aMint,
+      bMint: bMint,
+      pool: pool,
+      poolAta: poolAta,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     };
+    const createPoolArgs = {
+      aVirtualReserve: new BN(20_000_000),
+      bInitialSupply: new BN(10_000_000),
+    };
+
     await program.methods
-      .createPool(new BN(100), new BN(20))
+      .createPool(createPoolArgs)
       .accounts(createPoolAccounts)
       .rpc();
 
     // Create CT Account
     console.log("Creating CT Account");
-    const [ctAccountPDA] = PublicKey.findProgramAddressSync(
-      [Buffer.from('token_account'), cpmmPoolPDA.toBuffer(), provider.wallet.publicKey.toBuffer()],
+    const [virtualTokenAccountAddress] = PublicKey.findProgramAddressSync(
+      [Buffer.from('virtual_token_account'), pool.toBuffer(), provider.wallet.publicKey.toBuffer()],
       program.programId
     );
-    const initCtAccounts = {
-      tokenAccount: ctAccountPDA,
+    const initVirtualTokenAccountAccounts = {
       payer: provider.wallet.publicKey,
+      virtualTokenAccount: virtualTokenAccountAddress,
+      pool: pool,
       systemProgram: SystemProgram.programId,
-      cpmmPool: cpmmPoolPDA,
     };
     await program.methods
-      .initializeCtAccount()
-      .accounts(initCtAccounts)
+      .initializeVirtualTokenAccount()
+      .accounts(initVirtualTokenAccountAccounts)
       .rpc();
 
     // Buy tokens
     console.log("Buying tokens");
-    const centralStateAta = await getAssociatedTokenAddress(acsMint, centralStatePDA, true)
-    const acsAta = await getAssociatedTokenAddress(acsMint, provider.wallet.publicKey, true)
-    const buyTokenAccounts = {
-      ctAccount: ctAccountPDA,
-      cpmmPool: cpmmPoolPDA,
-      acsMint: acsMint,
-      acsAta: acsAta,
-      centralStateAta: centralStateAta,
+    const buyVirtualTokenArgs = {
+      aAmount: new BN(1000),
+    };
+    const buyVirtualTokenAccounts = {
+      payer: provider.wallet.publicKey,
+      payerAta: payerAta,
+      virtualTokenAccount: virtualTokenAccountAddress,
+      pool: pool,
+      poolAta: poolAta,
+      aMint: aMint,
+      bMint: bMint,
+      tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     };
     await program.methods
-      .buyToken(new BN(1000))
-      .accounts(buyTokenAccounts)
+      .buyVirtualToken(buyVirtualTokenArgs)
+      .accounts(buyVirtualTokenAccounts)
       .signers([payer])
       .rpc();
 
     // Verify the swap was successful
     console.log("Verifying the swap was successful");
-    let ctAccount = await program.account.ctAccount.fetch(ctAccountPDA);
-    assert(ctAccount.balance.toNumber() > 0, "CT balance should be greater than 0");
-    console.log("CT balance: ", ctAccount.balance.toNumber());
+    let virtualTokenAccount = await program.account.virtualTokenAccount.fetch(virtualTokenAccountAddress);
+    assert(virtualTokenAccount.balance.toNumber() > 0, "CT balance should be greater than 0"); // todo verify exactly
+    console.log("CT balance: ", virtualTokenAccount.balance.toNumber());
 
     // Print whole pool formatted fields
-    const cpmmPool = await program.account.cpmmPool.fetch(cpmmPoolPDA);
-    console.log("Pool:");
-    console.log("Micro ACS Reserve: ", cpmmPool.microAcsReserve.toString());
-    console.log("CT Reserve: ", cpmmPool.ctReserve.toString());
-    console.log("Virtual ACS Reserve: ", cpmmPool.virtualAcsReserve.toString());
-    console.log("Mint Index: ", cpmmPool.mintIndex.toString());
+    const poolAccount = await program.account.bcpmmPool.fetch(pool);
+    console.log(`Pool ${pool.toBase58()}:`);
+    console.log("Mint A Reserve: ", poolAccount.aReserve.toString());
+    console.log("Mint B Reserve: ", poolAccount.bReserve.toString());
+    console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
+    console.log("Mint A: ", poolAccount.aMint.toBase58());
+    console.log("Mint B: ", poolAccount.bMint.toBase58());
 
     // Sell tokens
     console.log("Selling tokens");
-    const sellTokenAccounts = {
-      ctAccount: ctAccountPDA,
-      cpmmPool: cpmmPoolPDA,
-      acsMint: acsMint,
-      centralState: centralStatePDA,
-      centralStateAta: centralStateAta,
-      acsAta: acsAta,
-      systemProgram: SystemProgram.programId,
+    const sellVirtualTokenArgs = {
+      bAmount: new BN(virtualTokenAccount.balance.toNumber()),
+    };
+    const sellVirtualTokenAccounts = {
       payer: provider.wallet.publicKey,
+      payerAta: payerAta,
+      virtualTokenAccount: virtualTokenAccountAddress,
+      pool: pool,
+      poolAta: poolAta,
+      aMint: aMint,
+      bMint: bMint,
       tokenProgram: TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
     };
     await program.methods
-      .sellToken(new BN(1000))
-      .accounts(sellTokenAccounts)
+      .sellVirtualToken(sellVirtualTokenArgs)
+      .accounts(sellVirtualTokenAccounts)
       .signers([payer])
       .rpc();
 
     // Verify the swap was successful
     console.log("Verifying the swap was successful");
-    ctAccount = await program.account.ctAccount.fetch(ctAccountPDA);
-    assert(ctAccount.balance.toNumber() < 1_000_000_000, "CT balance should be less than 1B");
-    console.log("CT balance: ", ctAccount.balance.toNumber());
+    virtualTokenAccount = await program.account.virtualTokenAccount.fetch(virtualTokenAccountAddress);
+    assert(virtualTokenAccount.balance.toNumber() < 1_000_000_000, "CT balance should be less than 1B");
+    console.log("CT balance: ", virtualTokenAccount.balance.toNumber());
   });
 });

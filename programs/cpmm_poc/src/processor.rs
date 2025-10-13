@@ -10,216 +10,218 @@ use anchor_spl::{
 
 const CT_MINT_DECIMALS: u8 = 6;
 
-#[derive(Accounts)]
-pub struct Initialize<'info> {
-    #[account(
-        init,
-        payer = payer,
-        space = CentralState::INIT_SPACE + 8,
-        seeds = [b"central_state"],
-        bump
-    )]
-    pub central_state: Account<'info, CentralState>,
-
-    pub acs_mint: InterfaceAccount<'info, Mint>,
-
-    // todo: check init if needed
-    #[account(
-        init,
-        payer = payer,
-        associated_token::mint = acs_mint,
-        associated_token::authority = central_state,
-        associated_token::token_program = token_program        
-    )]
-    pub central_state_ata: InterfaceAccount<'info, TokenAccount>,
-
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    pub system_program: Program<'info, System>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
-    pub token_program: Program<'info, Token>,
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct CreatePoolArgs {
+    pub b_initial_supply: u64,
+    pub a_virtual_reserve: u64,
 }
-
-pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-    let central_state = &mut ctx.accounts.central_state;
-    central_state.acs_mint = ctx.accounts.acs_mint.key();
-    central_state.mint_counter = 0;
-    central_state.acs_mint_decimals = ctx.accounts.acs_mint.decimals;
-    Ok(())
-}
-
 #[derive(Accounts)]
 pub struct CreatePool<'info> {
     #[account(mut)]
-    pub central_state: Account<'info, CentralState>,
-    #[account(init, payer = payer, space = CpmmPool::INIT_SPACE + 8, seeds = [b"cpmm_pool", central_state.mint_counter.to_le_bytes().as_ref()], bump)]
-    pub cpmm_pool: Account<'info, CpmmPool>,
-    #[account(mut)]
     pub payer: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}
-
-pub fn create_pool(
-    ctx: Context<CreatePool>,
-    initial_supply: u64, // todo decimals
-    virtual_base_reserve: u64,
-) -> Result<()> {
-    let cpmm_pool = &mut ctx.accounts.cpmm_pool;
-    cpmm_pool.virtual_acs_reserve = virtual_base_reserve;
-    cpmm_pool.micro_acs_reserve = 0;
-    cpmm_pool.ct_reserve = initial_supply * 10u64.pow(CT_MINT_DECIMALS as u32);
-    cpmm_pool.mint_index = ctx.accounts.central_state.mint_counter;
-
-    let central_state = &mut ctx.accounts.central_state;
-    central_state.mint_counter += 1;
-    Ok(())
-}
-
-#[derive(Accounts)]
-pub struct InitializeCtAccount<'info> {
-    // todo: check init if needed
-    #[account(init, payer = payer, space = CtAccount::INIT_SPACE + 8, seeds = [b"token_account", cpmm_pool.key().as_ref(), payer.key().as_ref()], bump)]
-    pub token_account: Account<'info, CtAccount>,
     #[account(mut)]
-    pub payer: Signer<'info>,
-    pub system_program: Program<'info, System>,
-    pub cpmm_pool: Account<'info, CpmmPool>,
-}
-
-pub fn initialize_ct_account(ctx: Context<InitializeCtAccount>) -> Result<()> {
-    let token_account = &mut ctx.accounts.token_account;
-    token_account.balance = 0;
-    token_account.pool = ctx.accounts.cpmm_pool.key();
-    Ok(())
-}
-
-#[derive(Accounts)]
-pub struct BuyToken<'info> {
+    pub a_mint: InterfaceAccount<'info, Mint>,
+    // todo add empty mint check and move mint authority to program (or pool)
+    /// UNCHECKED: this is a virtual mint so it doesn't really exist
     #[account(mut)]
-    pub ct_account: Account<'info, CtAccount>,
-    #[account(mut)]
-    pub central_state_ata: InterfaceAccount<'info, TokenAccount>,
-    #[account(mut)]
-    pub cpmm_pool: Account<'info, CpmmPool>,
-    pub acs_mint: InterfaceAccount<'info, Mint>,
-    #[account(mut)]
-    pub acs_ata: InterfaceAccount<'info, TokenAccount>,
-    pub system_program: Program<'info, System>,
-    #[account(mut)]
-    pub payer: Signer<'info>,
+    pub b_mint: AccountInfo<'info>,
+    #[account(init, payer = payer, space = BcpmmPool::INIT_SPACE + 8, seeds = [BCPMM_POOL_SEED, b_mint.key().as_ref()], bump)]
+    pub pool: Account<'info, BcpmmPool>,
+        // todo: check init if needed
+    #[account(
+        init,
+        payer = payer,
+        associated_token::mint = a_mint,
+        associated_token::authority = pool,
+        associated_token::token_program = token_program        
+    )]
+    pub pool_ata: InterfaceAccount<'info, TokenAccount>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
 }
 
-// todo pool should have its own ata - performance reasons
-// todo check the rigthh floor/ceil
-// todo check the micro ACS and decimal stuff
-pub fn buy_token(ctx: Context<BuyToken>, amount_micro_acs: u64) -> Result<()> {
-    let ct_account = &mut ctx.accounts.ct_account;    
+pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
+    // todo account checks
+    let pool = &mut ctx.accounts.pool;
+    pool.a_mint = ctx.accounts.a_mint.to_account_info().key();
+    pool.a_reserve = 0;
+    pool.b_mint = ctx.accounts.b_mint.to_account_info().key();
+    pool.b_reserve = args.b_initial_supply;
+    pool.a_virtual_reserve = args.a_virtual_reserve;
+
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct InitializeVirtualTokenAccount<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(init, payer = payer, space = VirtualTokenAccount::INIT_SPACE + 8, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump)]
+    pub virtual_token_account: Account<'info, VirtualTokenAccount>,
+    pub pool: Account<'info, BcpmmPool>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn initialize_virtual_token_account(ctx: Context<InitializeVirtualTokenAccount>) -> Result<()> {
+    let virtual_token_account = &mut ctx.accounts.virtual_token_account;
+    virtual_token_account.balance = 0;
+    virtual_token_account.pool = ctx.accounts.pool.key();
+    Ok(())
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct BuyVirtualTokenArgs {
+    pub a_amount: u64,
+}
+#[derive(Accounts)]
+pub struct BuyVirtualToken<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(mut)]
+    pub payer_ata: InterfaceAccount<'info, TokenAccount>,
+    // todo check owner (or maybe not? can buy for other user)
+    #[account(mut)]
+    pub virtual_token_account: Account<'info, VirtualTokenAccount>,        
+    #[account(mut, seeds = [BCPMM_POOL_SEED, b_mint.key().as_ref()], bump)]
+    pub pool: Account<'info, BcpmmPool>,
+    // todo check owner
+    #[account(mut)]
+    pub pool_ata: InterfaceAccount<'info, TokenAccount>,
+    pub a_mint: InterfaceAccount<'info, Mint>,    
+    /// UNCHECKED: this is a virtual mint so it doesn't really exist
+    pub b_mint: AccountInfo<'info>,
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,    
+}
+
+// todo check the right floor/ceil
+// todo check the decimals
+pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArgs) -> Result<()> {
+    let virtual_token_account = &mut ctx.accounts.virtual_token_account;
     let output_amount = calculate_buy_output_amount(
-        amount_micro_acs,
-        ctx.accounts.cpmm_pool.micro_acs_reserve,
-        ctx.accounts.cpmm_pool.ct_reserve,
-        ctx.accounts.cpmm_pool.virtual_acs_reserve,
+        args.a_amount,
+        ctx.accounts.pool.a_reserve,
+        ctx.accounts.pool.b_reserve,
+        ctx.accounts.pool.a_virtual_reserve,
     );
-    ct_account.balance += output_amount;
-    ctx.accounts.cpmm_pool.micro_acs_reserve += amount_micro_acs;
-    ctx.accounts.cpmm_pool.ct_reserve -= output_amount;    
+    virtual_token_account.balance += output_amount;
+    ctx.accounts.pool.a_reserve += args.a_amount;
+    ctx.accounts.pool.b_reserve -= output_amount;
 
     let cpi_accounts = TransferChecked {
-        mint: ctx.accounts.acs_mint.to_account_info(),
-        from: ctx.accounts.acs_ata.to_account_info(),
-        to: ctx.accounts.central_state_ata.to_account_info(),
+        mint: ctx.accounts.a_mint.to_account_info(),
+        from: ctx.accounts.payer_ata.to_account_info(),
+        to: ctx.accounts.pool_ata.to_account_info(),
         authority: ctx.accounts.payer.to_account_info(),
     };
     let cpi_program = ctx.accounts.token_program.to_account_info();
     let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
-    transfer_checked(
-        cpi_context,
-        amount_micro_acs,
-        ctx.accounts.acs_mint.decimals,
-    )?;
+    transfer_checked(cpi_context, args.a_amount, ctx.accounts.a_mint.decimals)?;
+    Ok(())
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct SellVirtualTokenArgs {
+    pub b_amount: u64,
+}
+
+#[derive(Accounts)]
+pub struct SellVirtualToken<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(mut)]
+    pub payer_ata: InterfaceAccount<'info, TokenAccount>,
+    #[account(mut)]
+    pub virtual_token_account: Account<'info, VirtualTokenAccount>,
+    #[account(mut, seeds = [BCPMM_POOL_SEED, b_mint.key().as_ref()], bump)]
+    pub pool: Account<'info, BcpmmPool>,
+    #[account(mut)]
+    pub pool_ata: InterfaceAccount<'info, TokenAccount>,
+    pub a_mint: InterfaceAccount<'info, Mint>,    
+    /// UNCHECKED: this is a virtual mint so it doesn't really exist
+    pub b_mint: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,    
+    pub token_program: Program<'info, Token>,
+}
+
+pub fn sell_virtual_token(ctx: Context<SellVirtualToken>, args: SellVirtualTokenArgs) -> Result<()> {
+    let virtual_token_account = &mut ctx.accounts.virtual_token_account;
+    require!(
+        virtual_token_account.balance >= args.b_amount,
+        ErrorCode::InvalidNumericConversion
+    ); // todo real error
+    let output_amount = calculate_sell_output_amount(
+        args.b_amount,
+        ctx.accounts.pool.b_reserve,
+        ctx.accounts.pool.a_reserve,
+        ctx.accounts.pool.a_virtual_reserve,
+    );
+    msg!("Selling amount: {}", args.b_amount);
+    msg!("Output amount: {}", output_amount);
+    virtual_token_account.balance -= args.b_amount;
+    msg!("Virtual token account balance: {}", virtual_token_account.balance);
+    msg!("Pool a reserve before: {}", ctx.accounts.pool.a_reserve);
+    ctx.accounts.pool.a_reserve -= output_amount;
+    msg!("Pool a reserve after: {}", ctx.accounts.pool.a_reserve);
+    msg!("Pool b reserve before: {}", ctx.accounts.pool.b_reserve);
+    ctx.accounts.pool.b_reserve += args.b_amount;
+    msg!("Pool b reserve: {}", ctx.accounts.pool.b_reserve);
+    msg!("Pool b reserve after: {}", ctx.accounts.pool.b_reserve);
+
+    let cpi_accounts = TransferChecked {
+        mint: ctx.accounts.a_mint.to_account_info(),
+        from: ctx.accounts.pool_ata.to_account_info(),
+        to: ctx.accounts.payer_ata.to_account_info(),
+        authority: ctx.accounts.pool.to_account_info(),
+    };
+    let cpi_program = ctx.accounts.token_program.to_account_info();
+    let bump_seed = ctx.bumps.pool;
+    let b_mint_key = ctx.accounts.b_mint.to_account_info().key();
+    let signer_seeds: &[&[&[u8]]] = &[&[BCPMM_POOL_SEED, b_mint_key.as_ref(), &[bump_seed]]];
+    let cpi_context = CpiContext::new(cpi_program, cpi_accounts).with_signer(signer_seeds);
+    let decimals = ctx.accounts.a_mint.decimals;
+    transfer_checked(cpi_context, output_amount, decimals)?;
     Ok(())
 }
 
 // todo safe math, u128
-fn calculate_buy_output_amount(amount_micro_acs: u64, micro_acs_reserve: u64, ct_reserve: u64, virtual_micro_acs_reserve: u64) -> u64 {
-    let virtual_x = micro_acs_reserve + virtual_micro_acs_reserve;
-    msg!("virtual_x: {}", virtual_x);
-    let y = ct_reserve;
-    msg!("y: {}", y);
+fn calculate_buy_output_amount(
+    a_amount: u64,
+    a_reserve: u64,
+    b_reserve: u64,
+    a_virtual_reserve: u64,
+) -> u64 {
+    let virtual_x = a_reserve + a_virtual_reserve;
+    msg!("Virtual x: {}", virtual_x);
+    let y = b_reserve;
+    msg!("Y: {}", y);
     let k = (virtual_x) * y;
-    msg!("k: {}", k);
-    let delta_x = amount_micro_acs;
-    msg!("delta_x: {}", delta_x);
-    let delta_y = y - k / (virtual_x + delta_x);
-    msg!("delta_y: {}", delta_y);
+    msg!("K: {}", k);
+    let delta_x = a_amount;
+    msg!("Delta x: {}", delta_x);
+    // can be simplified, but that would make ceil instead of floor as k / (virtual_x + delta_x) would be a floor
+    let delta_y = (y * (virtual_x + delta_x) - k) / (virtual_x + delta_x);
+    msg!("Delta y: {}", delta_y);
     return delta_y;
 }
 
-#[derive(Accounts)]
-pub struct SellToken<'info> {
-    #[account(mut)]
-    pub ct_account: Account<'info, CtAccount>,
-    #[account(mut)]
-    pub central_state_ata: InterfaceAccount<'info, TokenAccount>,
-    #[account(
-        seeds = [b"central_state"],
-        bump,
-    )]
-    pub central_state: Account<'info, CentralState>,
-    pub cpmm_pool: Account<'info, CpmmPool>,
-    pub acs_mint: InterfaceAccount<'info, Mint>,
-    #[account(mut)]
-    pub acs_ata: InterfaceAccount<'info, TokenAccount>,
-    pub system_program: Program<'info, System>,
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    pub token_program: Program<'info, Token>,
-}
-
-pub fn sell_token(ctx: Context<SellToken>, amount_ct: u64) -> Result<()> {
-    let ct_account = &mut ctx.accounts.ct_account;    
-    require!(ct_account.balance >= amount_ct, ErrorCode::InvalidNumericConversion); // todo real error
-    let output_amount = calculate_sell_output_amount(
-        amount_ct,
-        ctx.accounts.cpmm_pool.ct_reserve,
-        ctx.accounts.cpmm_pool.micro_acs_reserve,
-        ctx.accounts.cpmm_pool.virtual_acs_reserve,
-    );
-    msg!("current amount of ct: {}", ct_account.balance);
-    ct_account.balance -= amount_ct;
-    ctx.accounts.cpmm_pool.micro_acs_reserve -= output_amount;
-    ctx.accounts.cpmm_pool.ct_reserve += amount_ct;    
-
-    let cpi_accounts = TransferChecked {
-        mint: ctx.accounts.acs_mint.to_account_info(),
-        from: ctx.accounts.central_state_ata.to_account_info(),
-        to: ctx.accounts.acs_ata.to_account_info(),
-        authority: ctx.accounts.central_state.to_account_info(),
-    };
-    let cpi_program = ctx.accounts.token_program.to_account_info();
-    let bump_seed = ctx.bumps.central_state;
-    let signer_seeds: &[&[&[u8]]] = &[&[b"central_state".as_ref(), &[bump_seed]]];
-    let cpi_context = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
-    transfer_checked(
-        cpi_context,
-        output_amount,
-        ctx.accounts.acs_mint.decimals,
-    )?;
-    Ok(())
-}
-
-// todo maybe 
-fn calculate_sell_output_amount(amount_ct: u64, ct_reserve: u64, micro_acs_reserve: u64, virtual_acs_reserve: u64) -> u64 {
-    let virtual_x = micro_acs_reserve + virtual_acs_reserve;
-    msg!("virtual_x: {}", virtual_x);
-    let y = ct_reserve;
-    msg!("y: {}", y);
+// todo safe math, u128
+fn calculate_sell_output_amount(
+    b_amount: u64,
+    b_reserve: u64,
+    a_reserve: u64,
+    a_virtual_reserve: u64,
+) -> u64 {
+    let virtual_x = a_reserve + a_virtual_reserve;
+    msg!("Virtual x: {}", virtual_x);
+    let y = b_reserve;
+    msg!("Y: {}", y);
     let k = (virtual_x) * y;
-    msg!("k: {}", k);
-    let delta_y = amount_ct;
-    msg!("delta_y: {}", delta_y);
-    let delta_x =  virtual_x -k / (y + delta_y);
-    msg!("delta_x: {}", delta_x);
+    msg!("K: {}", k);
+    let delta_y = b_amount;
+    msg!("Delta y: {}", delta_y);
+    let delta_x = (virtual_x * (y + delta_y) - k) / (y + delta_y);
+    msg!("Delta x: {}", delta_x);
     return delta_x;
 }
