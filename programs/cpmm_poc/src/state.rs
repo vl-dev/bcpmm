@@ -12,6 +12,13 @@ pub struct BcpmmPool {
     pub a_virtual_reserve: u64,
     pub b_mint: Pubkey,
     pub b_reserve: u64,
+
+    pub creator_fees_balance: u64,
+    pub buyback_fees_balance: u64,
+
+    pub creator_fee_basis_points: u16,
+    pub buyback_fee_basis_points: u16,
+    pub creator: Pubkey,
 }
 
 #[account]
@@ -19,4 +26,6 @@ pub struct BcpmmPool {
 pub struct VirtualTokenAccount {
     pub pool: Pubkey,
     pub balance: u64,
+    pub owner: Pubkey,
+    pub fees_collected: u64,
 }

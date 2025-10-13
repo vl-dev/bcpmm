@@ -90,6 +90,8 @@ describe("cpmm-poc", () => {
     const createPoolArgs = {
       aVirtualReserve: new BN(20_000_000),
       bInitialSupply: new BN(10_000_000),
+      creatorFeeBasisPoints: 500,
+      buybackFeeBasisPoints: 100,
     };
 
     await program.methods
@@ -141,6 +143,7 @@ describe("cpmm-poc", () => {
     let virtualTokenAccount = await program.account.virtualTokenAccount.fetch(virtualTokenAccountAddress);
     assert(virtualTokenAccount.balance.toNumber() > 0, "CT balance should be greater than 0"); // todo verify exactly
     console.log("CT balance: ", virtualTokenAccount.balance.toNumber());
+    console.log("Fees collected: ", virtualTokenAccount.feesCollected.toNumber());
 
     // Print whole pool formatted fields
     const poolAccount = await program.account.bcpmmPool.fetch(pool);
@@ -150,6 +153,10 @@ describe("cpmm-poc", () => {
     console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
     console.log("Mint A: ", poolAccount.aMint.toBase58());
     console.log("Mint B: ", poolAccount.bMint.toBase58());
+    console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
+    console.log("Buyback Fees Balance: ", poolAccount.buybackFeesBalance.toString());
+    console.log("Creator Fee Basis Points: ", poolAccount.creatorFeeBasisPoints.toString());
+    console.log("Buyback Fee Basis Points: ", poolAccount.buybackFeeBasisPoints.toString());
 
     // Sell tokens
     console.log("Selling tokens");
@@ -178,5 +185,6 @@ describe("cpmm-poc", () => {
     virtualTokenAccount = await program.account.virtualTokenAccount.fetch(virtualTokenAccountAddress);
     assert(virtualTokenAccount.balance.toNumber() < 1_000_000_000, "CT balance should be less than 1B");
     console.log("CT balance: ", virtualTokenAccount.balance.toNumber());
+    console.log("Fees collected: ", virtualTokenAccount.feesCollected.toNumber());
   });
 });

@@ -14,6 +14,8 @@ const CT_MINT_DECIMALS: u8 = 6;
 pub struct CreatePoolArgs {
     pub b_initial_supply: u64,
     pub a_virtual_reserve: u64,
+    pub creator_fee_basis_points: u16,
+    pub buyback_fee_basis_points: u16,
 }
 #[derive(Accounts)]
 pub struct CreatePool<'info> {
@@ -35,7 +37,7 @@ pub struct CreatePool<'info> {
         associated_token::authority = pool,
         associated_token::token_program = token_program        
     )]
-    pub pool_ata: InterfaceAccount<'info, TokenAccount>,
+    pub pool_ata: InterfaceAccount<'info, TokenAccount>,    
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
@@ -49,7 +51,11 @@ pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()>
     pool.b_mint = ctx.accounts.b_mint.to_account_info().key();
     pool.b_reserve = args.b_initial_supply;
     pool.a_virtual_reserve = args.a_virtual_reserve;
-
+    pool.creator_fee_basis_points = args.creator_fee_basis_points;
+    pool.buyback_fee_basis_points = args.buyback_fee_basis_points;
+    pool.creator = ctx.accounts.payer.key();
+    pool.creator_fees_balance = 0;
+    pool.buyback_fees_balance = 0;
     Ok(())
 }
 
@@ -67,6 +73,9 @@ pub fn initialize_virtual_token_account(ctx: Context<InitializeVirtualTokenAccou
     let virtual_token_account = &mut ctx.accounts.virtual_token_account;
     virtual_token_account.balance = 0;
     virtual_token_account.pool = ctx.accounts.pool.key();
+    virtual_token_account.owner = ctx.accounts.payer.key();
+    virtual_token_account.fees_collected = 0;
+    
     Ok(())
 }
 
@@ -99,15 +108,28 @@ pub struct BuyVirtualToken<'info> {
 // todo check the decimals
 pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArgs) -> Result<()> {
     let virtual_token_account = &mut ctx.accounts.virtual_token_account;
-    let output_amount = calculate_buy_output_amount(
+
+    let fees = calculate_fees(
         args.a_amount,
+        ctx.accounts.pool.creator_fee_basis_points,
+        ctx.accounts.pool.buyback_fee_basis_points,
+    );
+
+    let swap_amount = args.a_amount - fees.creator_fees_amount - fees.buyback_fees_amount;
+
+    let output_amount = calculate_buy_output_amount(
+        swap_amount,
         ctx.accounts.pool.a_reserve,
         ctx.accounts.pool.b_reserve,
         ctx.accounts.pool.a_virtual_reserve,
     );
+
     virtual_token_account.balance += output_amount;
-    ctx.accounts.pool.a_reserve += args.a_amount;
+    virtual_token_account.fees_collected += fees.creator_fees_amount + fees.buyback_fees_amount;
+    ctx.accounts.pool.a_reserve += swap_amount;
     ctx.accounts.pool.b_reserve -= output_amount;
+    ctx.accounts.pool.creator_fees_balance += fees.creator_fees_amount;
+    ctx.accounts.pool.buyback_fees_balance += fees.buyback_fees_amount;
 
     let cpi_accounts = TransferChecked {
         mint: ctx.accounts.a_mint.to_account_info(),
@@ -147,23 +169,38 @@ pub struct SellVirtualToken<'info> {
 
 pub fn sell_virtual_token(ctx: Context<SellVirtualToken>, args: SellVirtualTokenArgs) -> Result<()> {
     let virtual_token_account = &mut ctx.accounts.virtual_token_account;
+
     require!(
         virtual_token_account.balance >= args.b_amount,
         ErrorCode::InvalidNumericConversion
     ); // todo real error
+
     let output_amount = calculate_sell_output_amount(
         args.b_amount,
         ctx.accounts.pool.b_reserve,
         ctx.accounts.pool.a_reserve,
         ctx.accounts.pool.a_virtual_reserve,
-    );
+    );    
+
     require!(
         ctx.accounts.pool.a_reserve >= output_amount,
         ErrorCode::InvalidNumericConversion
     ); // prevent underflow on a_reserve
+
     virtual_token_account.balance -= args.b_amount;
     ctx.accounts.pool.a_reserve -= output_amount;
     ctx.accounts.pool.b_reserve += args.b_amount;
+
+    let fees = calculate_fees(
+        output_amount,
+        ctx.accounts.pool.creator_fee_basis_points,
+        ctx.accounts.pool.buyback_fee_basis_points,
+    );
+    virtual_token_account.fees_collected += fees.creator_fees_amount + fees.buyback_fees_amount;
+    ctx.accounts.pool.creator_fees_balance += fees.creator_fees_amount;
+    ctx.accounts.pool.buyback_fees_balance += fees.buyback_fees_amount;
+
+    let output_amount_less_fees = output_amount - fees.creator_fees_amount - fees.buyback_fees_amount;
 
     let cpi_accounts = TransferChecked {
         mint: ctx.accounts.a_mint.to_account_info(),
@@ -177,8 +214,27 @@ pub fn sell_virtual_token(ctx: Context<SellVirtualToken>, args: SellVirtualToken
     let signer_seeds: &[&[&[u8]]] = &[&[BCPMM_POOL_SEED, b_mint_key.as_ref(), &[bump_seed]]];
     let cpi_context = CpiContext::new(cpi_program, cpi_accounts).with_signer(signer_seeds);
     let decimals = ctx.accounts.a_mint.decimals;
-    transfer_checked(cpi_context, output_amount, decimals)?;
+    transfer_checked(cpi_context, output_amount_less_fees, decimals)?;
     Ok(())
+}
+
+pub struct Fees {
+    pub creator_fees_amount: u64,
+    pub buyback_fees_amount: u64,
+}
+
+fn calculate_fees(
+    a_amount: u64,
+    creator_fee_basis_points: u16,
+    buyback_fee_basis_points: u16,
+) -> Fees {
+    // Use ceiling division for fees to avoid rounding down: ceil(x / d) = (x + d - 1) / d
+    let creator_fees_amount = ((a_amount as u128 * creator_fee_basis_points as u128 + 9999) / 10000) as u64;
+    let buyback_fees_amount = ((a_amount as u128 * buyback_fee_basis_points as u128 + 9999) / 10000) as u64;
+    Fees {
+        creator_fees_amount,
+        buyback_fees_amount,
+    }
 }
 
 fn calculate_buy_output_amount(
