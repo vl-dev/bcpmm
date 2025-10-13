@@ -116,6 +116,32 @@ describe("cpmm-poc", () => {
       .accounts(initVirtualTokenAccountAccounts)
       .rpc();
 
+    // Burn tokens
+    console.log("Burning tokens");
+    const burnVirtualTokenArgs = {
+      bAmountBasisPoints: new BN(9000),
+    };
+    const burnVirtualTokenAccounts = {
+      payer: provider.wallet.publicKey,
+      pool: pool,
+    };
+    await program.methods
+      .burnVirtualToken(burnVirtualTokenArgs)
+      .accounts(burnVirtualTokenAccounts)
+      .signers([payer])
+      .rpc();
+
+    // Verify the burn was successful and pool updated
+    console.log("Verifying the burn was successful and pool updated");
+    let poolAccount = await program.account.bcpmmPool.fetch(pool);
+    assert(poolAccount.bReserve.toNumber() < 10_000_000, "B reserve should be less than 10M");
+    console.log("B reserve: ", poolAccount.bReserve.toString());
+    console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
+    console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
+    console.log("Buyback Fees Balance: ", poolAccount.buybackFeesBalance.toString());
+    console.log("Creator Fee Basis Points: ", poolAccount.creatorFeeBasisPoints.toString());
+    console.log("Buyback Fee Basis Points: ", poolAccount.buybackFeeBasisPoints.toString());
+
     // Buy tokens
     console.log("Buying tokens");
     const buyVirtualTokenArgs = {
@@ -146,7 +172,7 @@ describe("cpmm-poc", () => {
     console.log("Fees collected: ", virtualTokenAccount.feesCollected.toNumber());
 
     // Print whole pool formatted fields
-    const poolAccount = await program.account.bcpmmPool.fetch(pool);
+    poolAccount = await program.account.bcpmmPool.fetch(pool);
     console.log(`Pool ${pool.toBase58()}:`);
     console.log("Mint A Reserve: ", poolAccount.aReserve.toString());
     console.log("Mint B Reserve: ", poolAccount.bReserve.toString());

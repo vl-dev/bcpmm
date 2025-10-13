@@ -34,4 +34,11 @@ pub mod cpmm_poc {
     ) -> Result<()> {
         processor::sell_virtual_token(ctx, args)
     }
+
+    pub fn burn_virtual_token(
+        ctx: Context<BurnVirtualToken>,
+        args: BurnVirtualTokenArgs,
+    ) -> Result<()> {
+        processor::burn_virtual_token(ctx, args)
+    }
 }

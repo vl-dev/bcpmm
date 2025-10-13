@@ -218,6 +218,32 @@ pub fn sell_virtual_token(ctx: Context<SellVirtualToken>, args: SellVirtualToken
     Ok(())
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize)]
+pub struct BurnVirtualTokenArgs {
+    pub b_amount_basis_points: u16, // 1 not small enough, todo change some micro units
+}
+
+#[derive(Accounts)]
+pub struct BurnVirtualToken<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(mut)]
+    pub pool: Account<'info, BcpmmPool>,
+}
+
+pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, args: BurnVirtualTokenArgs) -> Result<()> {
+    let burn_amount = calculate_burn_amount(
+        args.b_amount_basis_points,
+        ctx.accounts.pool.b_reserve,
+    );    
+    ctx.accounts.pool.a_virtual_reserve = calculate_new_virtual_reserve(
+        ctx.accounts.pool.a_virtual_reserve,
+        ctx.accounts.pool.b_reserve,
+        burn_amount,
+    );
+    ctx.accounts.pool.b_reserve -= burn_amount;
+    Ok(())
+}
 pub struct Fees {
     pub creator_fees_amount: u64,
     pub buyback_fees_amount: u64,
@@ -257,4 +283,19 @@ fn calculate_sell_output_amount(
     let numerator = (a_virtual_reserve as u128 - a_reserve as u128) * b_amount as u128;
     let denominator = b_reserve as u128 + b_amount as u128;
     (numerator / denominator) as u64
+}
+
+fn calculate_burn_amount(
+    b_amount_basis_points: u16,
+    b_reserve: u64,
+) -> u64 {
+    (b_reserve as u128 * b_amount_basis_points as u128 / 10000 as u128) as u64
+}
+
+fn calculate_new_virtual_reserve(
+    a_virtual_reserve: u64,
+    b_reserve: u64,
+    b_burn_amount: u64,
+) -> u64 {
+    (a_virtual_reserve as u128 * (b_reserve as u128 - b_burn_amount as u128) / b_reserve as u128) as u64
 }
