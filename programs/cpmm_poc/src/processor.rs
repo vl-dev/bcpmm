@@ -157,17 +157,13 @@ pub fn sell_virtual_token(ctx: Context<SellVirtualToken>, args: SellVirtualToken
         ctx.accounts.pool.a_reserve,
         ctx.accounts.pool.a_virtual_reserve,
     );
-    msg!("Selling amount: {}", args.b_amount);
-    msg!("Output amount: {}", output_amount);
+    require!(
+        ctx.accounts.pool.a_reserve >= output_amount,
+        ErrorCode::InvalidNumericConversion
+    ); // prevent underflow on a_reserve
     virtual_token_account.balance -= args.b_amount;
-    msg!("Virtual token account balance: {}", virtual_token_account.balance);
-    msg!("Pool a reserve before: {}", ctx.accounts.pool.a_reserve);
     ctx.accounts.pool.a_reserve -= output_amount;
-    msg!("Pool a reserve after: {}", ctx.accounts.pool.a_reserve);
-    msg!("Pool b reserve before: {}", ctx.accounts.pool.b_reserve);
     ctx.accounts.pool.b_reserve += args.b_amount;
-    msg!("Pool b reserve: {}", ctx.accounts.pool.b_reserve);
-    msg!("Pool b reserve after: {}", ctx.accounts.pool.b_reserve);
 
     let cpi_accounts = TransferChecked {
         mint: ctx.accounts.a_mint.to_account_info(),
@@ -185,43 +181,24 @@ pub fn sell_virtual_token(ctx: Context<SellVirtualToken>, args: SellVirtualToken
     Ok(())
 }
 
-// todo safe math, u128
 fn calculate_buy_output_amount(
     a_amount: u64,
     a_reserve: u64,
     b_reserve: u64,
     a_virtual_reserve: u64,
 ) -> u64 {
-    let virtual_x = a_reserve + a_virtual_reserve;
-    msg!("Virtual x: {}", virtual_x);
-    let y = b_reserve;
-    msg!("Y: {}", y);
-    let k = (virtual_x) * y;
-    msg!("K: {}", k);
-    let delta_x = a_amount;
-    msg!("Delta x: {}", delta_x);
-    // can be simplified, but that would make ceil instead of floor as k / (virtual_x + delta_x) would be a floor
-    let delta_y = (y * (virtual_x + delta_x) - k) / (virtual_x + delta_x);
-    msg!("Delta y: {}", delta_y);
-    return delta_y;
+    let numerator = b_reserve as u128 * a_amount as u128;
+    let denominator = a_reserve as u128 + a_virtual_reserve as u128 + a_amount as u128;
+    (numerator / denominator) as u64
 }
 
-// todo safe math, u128
 fn calculate_sell_output_amount(
     b_amount: u64,
     b_reserve: u64,
     a_reserve: u64,
     a_virtual_reserve: u64,
 ) -> u64 {
-    let virtual_x = a_reserve + a_virtual_reserve;
-    msg!("Virtual x: {}", virtual_x);
-    let y = b_reserve;
-    msg!("Y: {}", y);
-    let k = (virtual_x) * y;
-    msg!("K: {}", k);
-    let delta_y = b_amount;
-    msg!("Delta y: {}", delta_y);
-    let delta_x = (virtual_x * (y + delta_y) - k) / (y + delta_y);
-    msg!("Delta x: {}", delta_x);
-    return delta_x;
+    let numerator = (a_virtual_reserve as u128 - a_reserve as u128) * b_amount as u128;
+    let denominator = b_reserve as u128 + b_amount as u128;
+    (numerator / denominator) as u64
 }
