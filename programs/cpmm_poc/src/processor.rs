@@ -8,13 +8,21 @@ use anchor_spl::{
     token_interface::{transfer_checked, Mint, TokenAccount, TransferChecked},
 };
 
-const CT_MINT_DECIMALS: u8 = 6;
-
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct CreatePoolArgs {
+    /// b_initial_supply is the initial supply of the B mint including decimals
     pub b_initial_supply: u64,
+
+    /// b_decimals is the decimals of the B mint.
+    pub b_decimals: u8,
+
+    /// a_virtual_reserve is the virtual reserve of the A mint including decimals
     pub a_virtual_reserve: u64,
+
+    /// creator_fee_basis_points is the fee basis points for the creator.
     pub creator_fee_basis_points: u16,
+
+    /// buyback_fee_basis_points is the fee basis points for the buyback.
     pub buyback_fee_basis_points: u16,
 }
 #[derive(Accounts)]
@@ -48,9 +56,12 @@ pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()>
     let pool = &mut ctx.accounts.pool;
     pool.a_mint = ctx.accounts.a_mint.to_account_info().key();
     pool.a_reserve = 0;
-    pool.b_mint = ctx.accounts.b_mint.to_account_info().key();
-    pool.b_reserve = args.b_initial_supply;
     pool.a_virtual_reserve = args.a_virtual_reserve;
+
+    pool.b_mint = ctx.accounts.b_mint.to_account_info().key();
+    pool.b_mint_decimals = args.b_decimals;
+    pool.b_reserve = args.b_initial_supply;
+
     pool.creator_fee_basis_points = args.creator_fee_basis_points;
     pool.buyback_fee_basis_points = args.buyback_fee_basis_points;
     pool.creator = ctx.accounts.payer.key();
@@ -63,6 +74,8 @@ pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()>
 pub struct InitializeVirtualTokenAccount<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
+    /// CHECK: No check needed, owner can be any account
+    pub owner: AccountInfo<'info>,
     #[account(init, payer = payer, space = VirtualTokenAccount::INIT_SPACE + 8, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump)]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
     pub pool: Account<'info, BcpmmPool>,
@@ -71,16 +84,17 @@ pub struct InitializeVirtualTokenAccount<'info> {
 
 pub fn initialize_virtual_token_account(ctx: Context<InitializeVirtualTokenAccount>) -> Result<()> {
     let virtual_token_account = &mut ctx.accounts.virtual_token_account;
-    virtual_token_account.balance = 0;
     virtual_token_account.pool = ctx.accounts.pool.key();
-    virtual_token_account.owner = ctx.accounts.payer.key();
-    virtual_token_account.fees_collected = 0;
+    virtual_token_account.owner = ctx.accounts.owner.key();
+    virtual_token_account.balance = 0;
+    virtual_token_account.fees_paid = 0;
     
     Ok(())
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct BuyVirtualTokenArgs {
+    /// a_amount is the amount of Mint A to swap for Mint B. Includes decimals.
     pub a_amount: u64,
 }
 #[derive(Accounts)]
@@ -124,8 +138,12 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
         ctx.accounts.pool.a_virtual_reserve,
     );
 
+    if output_amount == 0 {
+        return Err(ErrorCode::InvalidNumericConversion.into()); //
+    }
+
     virtual_token_account.balance += output_amount;
-    virtual_token_account.fees_collected += fees.creator_fees_amount + fees.buyback_fees_amount;
+    virtual_token_account.fees_paid += fees.creator_fees_amount + fees.buyback_fees_amount;
     ctx.accounts.pool.a_reserve += swap_amount;
     ctx.accounts.pool.b_reserve -= output_amount;
     ctx.accounts.pool.creator_fees_balance += fees.creator_fees_amount;
@@ -196,7 +214,7 @@ pub fn sell_virtual_token(ctx: Context<SellVirtualToken>, args: SellVirtualToken
         ctx.accounts.pool.creator_fee_basis_points,
         ctx.accounts.pool.buyback_fee_basis_points,
     );
-    virtual_token_account.fees_collected += fees.creator_fees_amount + fees.buyback_fees_amount;
+    virtual_token_account.fees_paid += fees.creator_fees_amount + fees.buyback_fees_amount;
     ctx.accounts.pool.creator_fees_balance += fees.creator_fees_amount;
     ctx.accounts.pool.buyback_fees_balance += fees.buyback_fees_amount;
 
@@ -263,24 +281,26 @@ fn calculate_fees(
     }
 }
 
+/// Calculates the amount of Mint B received when spending Mint A.
 fn calculate_buy_output_amount(
     a_amount: u64,
     a_reserve: u64,
     b_reserve: u64,
-    a_virtual_reserve: u64,
+    a_virtual_reserve: u64    
 ) -> u64 {
     let numerator = b_reserve as u128 * a_amount as u128;
     let denominator = a_reserve as u128 + a_virtual_reserve as u128 + a_amount as u128;
     (numerator / denominator) as u64
 }
 
+/// Calculates the amount of Mint A received when selling Mint B.
 fn calculate_sell_output_amount(
     b_amount: u64,
     b_reserve: u64,
     a_reserve: u64,
     a_virtual_reserve: u64,
 ) -> u64 {
-    let numerator = (a_virtual_reserve as u128 - a_reserve as u128) * b_amount as u128;
+    let numerator = b_amount as u128 * (a_reserve as u128 + a_virtual_reserve as u128);
     let denominator = b_reserve as u128 + b_amount as u128;
     (numerator / denominator) as u64
 }

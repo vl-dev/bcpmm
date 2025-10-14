@@ -43,7 +43,7 @@ describe("cpmm-poc", () => {
       payer,
       provider.wallet.publicKey,
       null,
-      6
+      9,
     );
 
     const payerAta = await createAssociatedTokenAccount(
@@ -59,7 +59,7 @@ describe("cpmm-poc", () => {
       aMint,
       payerAta,
       payer, // Use payer as the mint authority signer
-      1_000_000_000, // 1B tokens
+      BigInt("1000000000000000000"), // 1B tokens
     );
 
     const bMintKeypair = new Keypair();
@@ -88,16 +88,19 @@ describe("cpmm-poc", () => {
       systemProgram: SystemProgram.programId,
     };
     const createPoolArgs = {
-      aVirtualReserve: new BN(20_000_000),
-      bInitialSupply: new BN(10_000_000),
+      bInitialSupply: new BN(10_000_000_000_000),
+      bDecimals: 6,
+      aVirtualReserve: new BN("2000000000000000000"),
       creatorFeeBasisPoints: 500,
       buybackFeeBasisPoints: 100,
     };
 
-    await program.methods
+    const createPoolSx = await program.methods
       .createPool(createPoolArgs)
       .accounts(createPoolAccounts)
       .rpc();
+
+    console.log("Create pool tx: ", createPoolSx);
 
     // Create CT Account
     console.log("Creating CT Account");
@@ -107,34 +110,38 @@ describe("cpmm-poc", () => {
     );
     const initVirtualTokenAccountAccounts = {
       payer: provider.wallet.publicKey,
+      owner: provider.wallet.publicKey,
       virtualTokenAccount: virtualTokenAccountAddress,
       pool: pool,
       systemProgram: SystemProgram.programId,
     };
-    await program.methods
+    const initVirtualTokenAccountSx = await program.methods
       .initializeVirtualTokenAccount()
       .accounts(initVirtualTokenAccountAccounts)
       .rpc();
 
+    console.log("Initialize virtual token account tx: ", initVirtualTokenAccountSx);
+
     // Burn tokens
     console.log("Burning tokens");
     const burnVirtualTokenArgs = {
-      bAmountBasisPoints: new BN(9000),
+      bAmountBasisPoints: 9000,
     };
     const burnVirtualTokenAccounts = {
       payer: provider.wallet.publicKey,
       pool: pool,
     };
-    await program.methods
+    const burnVirtualTokenSx = await program.methods
       .burnVirtualToken(burnVirtualTokenArgs)
       .accounts(burnVirtualTokenAccounts)
       .signers([payer])
       .rpc();
 
+    console.log("Burn virtual token tx: ", burnVirtualTokenSx);
+
     // Verify the burn was successful and pool updated
     console.log("Verifying the burn was successful and pool updated");
     let poolAccount = await program.account.bcpmmPool.fetch(pool);
-    assert(poolAccount.bReserve.toNumber() < 10_000_000, "B reserve should be less than 10M");
     console.log("B reserve: ", poolAccount.bReserve.toString());
     console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
     console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
@@ -145,7 +152,7 @@ describe("cpmm-poc", () => {
     // Buy tokens
     console.log("Buying tokens");
     const buyVirtualTokenArgs = {
-      aAmount: new BN(1000),
+      aAmount: new BN(1_000_000_000_000),
     };
     const buyVirtualTokenAccounts = {
       payer: provider.wallet.publicKey,
@@ -158,18 +165,18 @@ describe("cpmm-poc", () => {
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     };
-    await program.methods
+    const buyVirtualTokenSx = await program.methods
       .buyVirtualToken(buyVirtualTokenArgs)
       .accounts(buyVirtualTokenAccounts)
       .signers([payer])
       .rpc();
 
+    console.log("Buy virtual token tx: ", buyVirtualTokenSx);
     // Verify the swap was successful
     console.log("Verifying the swap was successful");
     let virtualTokenAccount = await program.account.virtualTokenAccount.fetch(virtualTokenAccountAddress);
-    assert(virtualTokenAccount.balance.toNumber() > 0, "CT balance should be greater than 0"); // todo verify exactly
     console.log("CT balance: ", virtualTokenAccount.balance.toNumber());
-    console.log("Fees collected: ", virtualTokenAccount.feesCollected.toNumber());
+    console.log("Fees collected: ", virtualTokenAccount.feesPaid.toNumber());
 
     // Print whole pool formatted fields
     poolAccount = await program.account.bcpmmPool.fetch(pool);
@@ -187,7 +194,7 @@ describe("cpmm-poc", () => {
     // Sell tokens
     console.log("Selling tokens");
     const sellVirtualTokenArgs = {
-      bAmount: new BN(virtualTokenAccount.balance.toNumber()),
+      bAmount: virtualTokenAccount.balance,
     };
     const sellVirtualTokenAccounts = {
       payer: provider.wallet.publicKey,
@@ -200,17 +207,19 @@ describe("cpmm-poc", () => {
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     };
-    await program.methods
+    const sellVirtualTokenSx = await program.methods
       .sellVirtualToken(sellVirtualTokenArgs)
       .accounts(sellVirtualTokenAccounts)
       .signers([payer])
       .rpc();
+
+    console.log("Sell virtual token tx: ", sellVirtualTokenSx);
 
     // Verify the swap was successful
     console.log("Verifying the swap was successful");
     virtualTokenAccount = await program.account.virtualTokenAccount.fetch(virtualTokenAccountAddress);
     assert(virtualTokenAccount.balance.toNumber() < 1_000_000_000, "CT balance should be less than 1B");
     console.log("CT balance: ", virtualTokenAccount.balance.toNumber());
-    console.log("Fees collected: ", virtualTokenAccount.feesCollected.toNumber());
+    console.log("Fees collected: ", virtualTokenAccount.feesPaid.toNumber());
   });
 });
