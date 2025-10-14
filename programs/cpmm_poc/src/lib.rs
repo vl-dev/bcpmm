@@ -41,4 +41,8 @@ pub mod cpmm_poc {
     ) -> Result<()> {
         processor::burn_virtual_token(ctx, args)
     }
+
+    pub fn close_virtual_token_account(ctx: Context<CloseVirtualTokenAccount>) -> Result<()> {
+        processor::close_virtual_token_account(ctx)
+    }
 }

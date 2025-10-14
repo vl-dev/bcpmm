@@ -1,7 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { CpmmPoc } from "../target/types/cpmm_poc";
-import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
 import { createMint, createAssociatedTokenAccount, mintTo } from "@solana/spl-token";
 import { BN } from "bn.js";
 import { assert } from "chai";
@@ -37,6 +37,11 @@ describe("cpmm-poc", () => {
   it("Can swap acs to ct", async () => {
     const provider = anchor.getProvider();
     const payer = await provider.wallet.payer;
+    const secondPayer = new Keypair();
+
+    // Top up second payer
+    await provider.connection.requestAirdrop(secondPayer.publicKey, LAMPORTS_PER_SOL * 10);
+
     // Create ACS token mint and mint tokens
     const aMint = await createMint(
       provider.connection as any,
@@ -221,5 +226,23 @@ describe("cpmm-poc", () => {
     assert(virtualTokenAccount.balance.toNumber() < 1_000_000_000, "CT balance should be less than 1B");
     console.log("CT balance: ", virtualTokenAccount.balance.toNumber());
     console.log("Fees collected: ", virtualTokenAccount.feesPaid.toNumber());
+
+    // Close virtual token account
+    console.log("Closing virtual token account");
+    const closeVirtualTokenAccountAccounts = {
+      owner: provider.wallet.publicKey,
+      virtualTokenAccount: virtualTokenAccountAddress,
+    };
+    const closeVirtualTokenAccountSx = await program.methods
+      .closeVirtualTokenAccount()
+      .accounts(closeVirtualTokenAccountAccounts)
+      .signers([payer])
+      .rpc();
+    console.log("Close virtual token account tx: ", closeVirtualTokenAccountSx);
+
+    // Verify the virtual token account was closed
+    console.log("Verifying the virtual token account was closed");
+    const virtualTokenAccountExists = await accountExists(virtualTokenAccountAddress);
+    assert(!virtualTokenAccountExists, "Virtual token account should not exist");
   });
 });
