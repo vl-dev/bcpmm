@@ -4,8 +4,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::Token,
-    token_interface::{transfer_checked, Mint, TokenAccount, TransferChecked},
+    token_interface::{transfer_checked, Mint, TokenAccount, TransferChecked, TokenInterface},
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -47,7 +46,7 @@ pub struct CreatePool<'info> {
     )]
     pub pool_ata: InterfaceAccount<'info, TokenAccount>,    
     pub associated_token_program: Program<'info, AssociatedToken>,
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
@@ -114,7 +113,7 @@ pub struct BuyVirtualToken<'info> {
     pub a_mint: InterfaceAccount<'info, Mint>,    
     /// UNCHECKED: this is a virtual mint so it doesn't really exist
     pub b_mint: AccountInfo<'info>,
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,    
 }
 
@@ -182,7 +181,7 @@ pub struct SellVirtualToken<'info> {
     /// UNCHECKED: this is a virtual mint so it doesn't really exist
     pub b_mint: AccountInfo<'info>,
     pub system_program: Program<'info, System>,    
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 pub fn sell_virtual_token(ctx: Context<SellVirtualToken>, args: SellVirtualTokenArgs) -> Result<()> {
