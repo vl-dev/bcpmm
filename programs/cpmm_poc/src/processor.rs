@@ -1,4 +1,5 @@
 use crate::state::*;
+use crate::errors::BcpmmError;
 use anchor_lang::error::ErrorCode;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program;
@@ -138,7 +139,7 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
     );
 
     if output_amount == 0 {
-        return Err(ErrorCode::InvalidNumericConversion.into()); //
+        return Err(BcpmmError::AmountTooSmall.into());
     }
 
     virtual_token_account.balance += output_amount;
@@ -189,8 +190,8 @@ pub fn sell_virtual_token(ctx: Context<SellVirtualToken>, args: SellVirtualToken
 
     require!(
         virtual_token_account.balance >= args.b_amount,
-        ErrorCode::InvalidNumericConversion
-    ); // todo real error
+        BcpmmError::InsufficientVirtualTokenBalance
+    );
 
     let output_amount = calculate_sell_output_amount(
         args.b_amount,
@@ -242,8 +243,8 @@ pub struct CloseVirtualTokenAccount<'info> {
     #[account(
         mut,
         close = owner,
-        constraint = virtual_token_account.owner == owner.key(),
-        constraint = virtual_token_account.balance == 0
+        constraint = virtual_token_account.owner == owner.key() @ BcpmmError::InvalidOwner,
+        constraint = virtual_token_account.balance == 0 @ BcpmmError::NonzeroBalance
     )]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,    
 }
