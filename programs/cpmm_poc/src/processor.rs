@@ -57,6 +57,7 @@ pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()>
     pool.a_mint = ctx.accounts.a_mint.to_account_info().key();
     pool.a_reserve = 0;
     pool.a_virtual_reserve = args.a_virtual_reserve;
+    pool.a_remaining_topup = 0;
 
     pool.b_mint = ctx.accounts.b_mint.to_account_info().key();
     pool.b_mint_decimals = args.b_decimals;
@@ -146,8 +147,16 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
     virtual_token_account.fees_paid += fees.creator_fees_amount + fees.buyback_fees_amount;
     ctx.accounts.pool.a_reserve += swap_amount;
     ctx.accounts.pool.b_reserve -= output_amount;
-    ctx.accounts.pool.creator_fees_balance += fees.creator_fees_amount;
-    ctx.accounts.pool.buyback_fees_balance += fees.buyback_fees_amount;
+    ctx.accounts.pool.creator_fees_balance += fees.creator_fees_amount;    
+    let remaining_topup_amount = ctx.accounts.pool.a_remaining_topup;
+    if remaining_topup_amount > 0 {        
+        let buyback_fees_amount = fees.buyback_fees_amount;
+        let real_topup_amount = if remaining_topup_amount > buyback_fees_amount { buyback_fees_amount } else { remaining_topup_amount };
+        ctx.accounts.pool.a_remaining_topup = ctx.accounts.pool.a_remaining_topup - real_topup_amount;
+        ctx.accounts.pool.a_reserve += real_topup_amount;
+    } else {
+        ctx.accounts.pool.buyback_fees_balance += fees.buyback_fees_amount;
+    }
 
     let cpi_accounts = TransferChecked {
         mint: ctx.accounts.a_mint.to_account_info(),
@@ -216,7 +225,14 @@ pub fn sell_virtual_token(ctx: Context<SellVirtualToken>, args: SellVirtualToken
     );
     virtual_token_account.fees_paid += fees.creator_fees_amount + fees.buyback_fees_amount;
     ctx.accounts.pool.creator_fees_balance += fees.creator_fees_amount;
-    ctx.accounts.pool.buyback_fees_balance += fees.buyback_fees_amount;
+    if ctx.accounts.pool.a_remaining_topup > 0 {
+        let remaining_topup_amount = ctx.accounts.pool.a_remaining_topup;
+        let real_topup_amount = if remaining_topup_amount > fees.buyback_fees_amount { fees.buyback_fees_amount } else { remaining_topup_amount };
+        ctx.accounts.pool.a_remaining_topup = ctx.accounts.pool.a_remaining_topup - real_topup_amount;
+        ctx.accounts.pool.a_reserve += real_topup_amount;
+    } else {
+        ctx.accounts.pool.buyback_fees_balance += fees.buyback_fees_amount;
+    }
 
     let output_amount_less_fees = output_amount - fees.creator_fees_amount - fees.buyback_fees_amount;
 
@@ -233,6 +249,7 @@ pub fn sell_virtual_token(ctx: Context<SellVirtualToken>, args: SellVirtualToken
     let cpi_context = CpiContext::new(cpi_program, cpi_accounts).with_signer(signer_seeds);
     let decimals = ctx.accounts.a_mint.decimals;
     transfer_checked(cpi_context, output_amount_less_fees, decimals)?;
+
     Ok(())
 }
 
@@ -272,11 +289,13 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, args: BurnVirtualToken
         args.b_amount_basis_points,
         ctx.accounts.pool.b_reserve,
     );    
-    ctx.accounts.pool.a_virtual_reserve = calculate_new_virtual_reserve(
+    let new_virtual_reserve = calculate_new_virtual_reserve(
         ctx.accounts.pool.a_virtual_reserve,
         ctx.accounts.pool.b_reserve,
         burn_amount,
     );
+    ctx.accounts.pool.a_remaining_topup += ctx.accounts.pool.a_virtual_reserve - new_virtual_reserve;
+    ctx.accounts.pool.a_virtual_reserve = new_virtual_reserve;
     ctx.accounts.pool.b_reserve -= burn_amount;
     Ok(())
 }

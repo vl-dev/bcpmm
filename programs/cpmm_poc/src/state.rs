@@ -17,6 +17,8 @@ pub struct BcpmmPool {
     pub a_reserve: u64,
     /// A virtual reserve including decimals
     pub a_virtual_reserve: u64,
+    // A remaining topup to compensate for the virtual reserve reduction happening on burn
+    pub a_remaining_topup: u64,
 
     /// B mint address
     pub b_mint: Pubkey,
