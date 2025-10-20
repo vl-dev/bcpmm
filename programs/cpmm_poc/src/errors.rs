@@ -10,4 +10,8 @@ pub enum BcpmmError {
     InvalidOwner,
     #[msg("Nonzero balance")]
     NonzeroBalance,
+    #[msg("Invalid fee basis points")]
+    InvalidFeeBasisPoints,
+    #[msg("Amount too big")]
+    AmountTooBig,
 }
