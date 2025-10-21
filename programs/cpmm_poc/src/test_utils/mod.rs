@@ -187,6 +187,7 @@ mod test_runner {
             pool: Pubkey,
             virtual_token_account: Pubkey,
             a_amount: u64,
+            b_amount_min: u64,
             b_mint: Pubkey,
         ) -> Result<()> {
             // Helper function to calculate instruction discriminator
@@ -215,7 +216,10 @@ mod test_runner {
                 AccountMeta::new(solana_sdk_ids::system_program::ID, false),
             ];
 
-            let args = BuyVirtualTokenArgs { a_amount };
+            let args = BuyVirtualTokenArgs {
+                a_amount,
+                b_amount_min,
+            };
 
             let instruction = Instruction {
                 program_id: self.program_id,

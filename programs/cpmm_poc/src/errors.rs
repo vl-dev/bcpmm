@@ -14,4 +14,6 @@ pub enum BcpmmError {
     InvalidFeeBasisPoints,
     #[msg("Amount too big")]
     AmountTooBig,
+    #[msg("Slippage exceeded")]
+    SlippageExceeded,
 }
