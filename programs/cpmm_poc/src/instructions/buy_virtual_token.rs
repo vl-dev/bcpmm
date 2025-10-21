@@ -95,9 +95,14 @@ mod tests {
     fn test_buy_virtual_token() {
         // Initialize the test environment
         let mut runner = TestRunner::new(9);
-        let pool = runner.create_pool_mock(0, 1000000, 2000000, 6, 200, 600, 0, 0);
-        let virtual_token_account = runner.create_virtual_token_account_mock(pool, 0, 0);
-        let result = runner.buy_virtual_token(pool, virtual_token_account, 5000);
+        let test_pool = runner.create_pool_mock(0, 1000000, 2000000, 6, 200, 600, 0, 0);
+        let virtual_token_account = runner.create_virtual_token_account_mock(test_pool.pool, 0, 0);
+        let result = runner.buy_virtual_token(
+            test_pool.pool,
+            virtual_token_account,
+            5000,
+            test_pool.b_mint,
+        );
         assert!(result.is_ok());
     }
 }

@@ -20,6 +20,11 @@ mod test_runner {
         pub payer_ata: Pubkey,
     }
 
+    pub struct TestPool {
+        pub pool: Pubkey,
+        pub b_mint: Pubkey,
+    }
+
     impl TestRunner {
         pub fn new(a_mint_decimals: u8) -> Self {
             let mut svm = LiteSVM::new();
@@ -44,6 +49,11 @@ mod test_runner {
                 .send()
                 .unwrap();
 
+            MintTo::new(&mut svm, &payer, &a_mint, &payer_ata, 10_000_000_000)
+                .owner(&payer)
+                .send()
+                .unwrap();
+
             Self {
                 svm,
                 payer,
@@ -63,7 +73,7 @@ mod test_runner {
             buyback_fee_basis_points: u16,
             creator_fees_balance: u64,
             buyback_fees_balance: u64,
-        ) -> Pubkey {
+        ) -> TestPool {
             let mock_b_mint = Pubkey::new_unique();
 
             // Setup PDAs consistent with on-chain seeds
@@ -123,7 +133,10 @@ mod test_runner {
             .send()
             .unwrap();
 
-            pool_pda
+            TestPool {
+                pool: pool_pda,
+                b_mint: mock_b_mint,
+            }
         }
 
         pub fn create_virtual_token_account_mock(
@@ -174,6 +187,7 @@ mod test_runner {
             pool: Pubkey,
             virtual_token_account: Pubkey,
             a_amount: u64,
+            b_mint: Pubkey,
         ) -> Result<()> {
             // Helper function to calculate instruction discriminator
             fn get_discriminator(instruction_name: &str) -> [u8; 8] {
@@ -193,7 +207,7 @@ mod test_runner {
                 AccountMeta::new(pool, false),
                 AccountMeta::new(self.payer_ata, false), // pool_ata - using payer_ata for simplicity
                 AccountMeta::new(self.a_mint, false),
-                AccountMeta::new(Pubkey::new_unique(), false), // mock_b_mint
+                AccountMeta::new(b_mint, false),
                 AccountMeta::new_readonly(
                     Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
                     false,
@@ -222,7 +236,8 @@ mod test_runner {
             );
 
             // todo return different errors, now only returns AccountDidNotDeserialize
-            self.svm.send_transaction(tx).map_err(|_| {
+            self.svm.send_transaction(tx).map_err(|err| {
+                println!("Transaction failed: {:?}", err);
                 anchor_lang::error::Error::from(
                     anchor_lang::error::ErrorCode::AccountDidNotDeserialize,
                 )
