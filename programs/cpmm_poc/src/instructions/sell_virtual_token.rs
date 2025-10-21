@@ -110,6 +110,7 @@ mod tests {
     fn test_sell_virtual_token() {
         // Parameters
         let b_amount = 1000;
+        let b_sell_amount = 500;
         let a_reserve = 5000;
         let a_virtual_reserve = 1_000_000;
         let b_reserve = 2_000_000;
@@ -141,15 +142,7 @@ mod tests {
             creator_fees_balance,
             buyback_fees_balance,
         );
-
-        // Calculate expected output amount
-        let calculated_a_amount = calculate_sell_output_amount(
-            b_amount,
-            b_reserve,
-            a_reserve,
-            a_virtual_reserve,
-        );
-
+        
         // Create virtual token account with some balance to sell
         let virtual_token_account = runner.create_virtual_token_account_mock(
             payer.pubkey(),
@@ -194,6 +187,18 @@ mod tests {
         );
         assert!(result_sell_wrong_owner.is_err());
 
+        // Test trying to sell more than user has
+        let result_sell_above_balance = runner.sell_virtual_token(
+            &payer,
+            payer_ata,
+            a_mint,
+            test_pool.pool,
+            virtual_token_account,
+            b_amount + 1,
+            test_pool.b_mint,
+        );
+        assert!(result_sell_above_balance.is_err());
+
         // Test successful sell
         let result_sell = runner.sell_virtual_token(
             &payer,
@@ -201,7 +206,7 @@ mod tests {
             a_mint,
             test_pool.pool,
             virtual_token_account,
-            1,
+            b_sell_amount,
             test_pool.b_mint,
         );
         assert!(result_sell.is_ok());
@@ -210,19 +215,15 @@ mod tests {
         let pool_account = runner.svm.get_account(&test_pool.pool).unwrap();
         let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         
-        // Calculate fees for verification
-        let sell_fees = calculate_fees(
-            calculated_a_amount,
-            creator_fee_basis_points,
-            buyback_fee_basis_points
-        ).unwrap();
-        let a_amount_after_fees = calculated_a_amount - sell_fees.creator_fees_amount - sell_fees.buyback_fees_amount;
-        
-        // // Check that the reserves are updated correctly
-        // assert_eq!(pool_data.a_reserve, a_reserve - a_amount_after_fees);
-        // assert_eq!(pool_data.b_reserve, b_reserve + b_amount);
-        // assert_eq!(pool_data.a_virtual_reserve, a_virtual_reserve); // Unchanged
-        // assert_eq!(pool_data.creator_fees_balance, sell_fees.creator_fees_amount);
-        // assert_eq!(pool_data.buyback_fees_balance, sell_fees.buyback_fees_amount);
+        // Check that the reserves are updated correctly
+        let output_amount = calculate_sell_output_amount(
+            b_sell_amount,
+            b_reserve,
+            a_reserve,
+            a_virtual_reserve,
+        );
+        assert_eq!(pool_data.a_reserve, a_reserve - output_amount);
+        assert_eq!(pool_data.b_reserve, b_reserve + b_sell_amount);
+        assert_eq!(pool_data.a_virtual_reserve, a_virtual_reserve); // Unchanged
     }
 }
