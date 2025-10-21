@@ -107,8 +107,6 @@ mod tests {
 
     #[test]
     fn test_buy_virtual_token() {
-        let mut svm = LiteSVM::new();
-
         // Parameters
         let a_amount = 5000;
         let a_reserve = 0;
@@ -119,10 +117,13 @@ mod tests {
         let buyback_fee_basis_points = 600;
         let creator_fees_balance = 0;
         let buyback_fees_balance = 0;
+
+        // Initialize the test environment and related accounts
         let payer = Keypair::new();
-               // Initialize the test environment
+        let another_wallet = Keypair::new();
         let mut runner = TestRunner::new();
         runner.airdrop(&payer.pubkey(), 10_000_000_000);
+        runner.airdrop(&another_wallet.pubkey(), 10_000_000_000);
         let a_mint = runner.create_mint(&payer, 9);
         let payer_ata = runner.create_associated_token_account(&payer, a_mint);
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
@@ -168,6 +169,24 @@ mod tests {
             test_pool.b_mint,
         );
         assert!(result_buy_min_too_high.is_err());
+
+        let virtual_token_account_another_wallet = runner.create_virtual_token_account_mock(
+            another_wallet.pubkey(),
+            test_pool.pool,
+            0,
+            0,
+        );
+        let result_buy_another_virtual_account = runner.buy_virtual_token(
+            &payer,
+            payer_ata,
+            a_mint,
+            test_pool.pool,
+            virtual_token_account_another_wallet,
+            a_amount,
+            calculated_b_amount_min,
+            test_pool.b_mint,
+        );
+        assert!(result_buy_another_virtual_account.is_err());
 
         let result_buy = runner.buy_virtual_token(
             &payer,
