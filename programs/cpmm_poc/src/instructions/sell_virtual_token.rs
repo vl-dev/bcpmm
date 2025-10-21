@@ -17,7 +17,7 @@ pub struct SellVirtualToken<'info> {
     pub payer: Signer<'info>,
     #[account(mut)]
     pub payer_ata: InterfaceAccount<'info, TokenAccount>,
-    #[account(mut)]
+    #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump)]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
     #[account(mut, seeds = [BCPMM_POOL_SEED, b_mint.key().as_ref()], bump)]
     pub pool: Account<'info, BcpmmPool>,
