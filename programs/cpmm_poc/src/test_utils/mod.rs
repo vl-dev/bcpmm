@@ -11,13 +11,11 @@ mod test_runner {
         signature::{Keypair, Signer},
         transaction::Transaction,
     };
+    use anchor_spl::associated_token::get_associated_token_address;
 
     pub struct TestRunner {
         pub svm: LiteSVM,
-        pub payer: Keypair,
         pub program_id: Pubkey,
-        pub a_mint: Pubkey,
-        pub payer_ata: Pubkey,
     }
 
     pub struct TestPool {
@@ -26,45 +24,53 @@ mod test_runner {
     }
 
     impl TestRunner {
-        pub fn new(a_mint_decimals: u8) -> Self {
+
+        pub fn new() -> Self {
             let mut svm = LiteSVM::new();
-            let payer = Keypair::new();
-            svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
 
             // Deploy your program to the test environment
             let program_id = Pubkey::from(crate::ID.to_bytes());
             let program_bytes = include_bytes!("../../../../target/deploy/cpmm_poc.so");
             svm.add_program(program_id, program_bytes).unwrap();
 
-            // Create a mint
-            let a_mint = CreateMint::new(&mut svm, &payer)
+            Self {
+                svm,
+                program_id,
+            }
+        }
+
+        pub fn create_mint(&mut self, payer: &Keypair, a_mint_decimals: u8) -> Pubkey {
+            let a_mint = CreateMint::new(&mut self.svm, &payer)
                 .authority(&payer.pubkey())
                 .decimals(a_mint_decimals)
                 .send()
                 .unwrap();
+            return a_mint;
+        }
 
-            // Create an ATA for the payer
-            let payer_ata = CreateAssociatedTokenAccount::new(&mut svm, &payer, &a_mint)
-                .owner(&payer.pubkey())
-                .send()
-                .unwrap();
-
-            MintTo::new(&mut svm, &payer, &a_mint, &payer_ata, 10_000_000_000)
+        pub fn mint_to(&mut self, payer: &Keypair, mint: &Pubkey, payer_ata: Pubkey, amount: u64) {
+            MintTo::new(&mut self.svm, &payer, &mint, &payer_ata, amount)
                 .owner(&payer)
                 .send()
                 .unwrap();
+        }
 
-            Self {
-                svm,
-                payer,
-                payer_ata,
-                program_id,
-                a_mint,
-            }
+        pub fn create_associated_token_account(&mut self, payer: &Keypair, mint: Pubkey) -> Pubkey {
+            let ata = CreateAssociatedTokenAccount::new(&mut self.svm, &payer, &mint)
+                .owner(&payer.pubkey())
+                .send()
+                .unwrap();
+            return ata;
+        }
+
+        pub fn airdrop(&mut self, receiver: &Pubkey, amount: u64) {
+            self.svm.airdrop(receiver, amount).unwrap();
         }
 
         pub fn create_pool_mock(
             &mut self,
+            payer: &Keypair,
+            a_mint: Pubkey,
             a_reserve: u64,
             a_virtual_reserve: u64,
             b_reserve: u64,
@@ -84,8 +90,8 @@ mod test_runner {
 
             // Create pool PDA account with BcpmmPool structure
             let pool_data = cpmm_state::BcpmmPool {
-                creator: anchor_lang::prelude::Pubkey::from(self.payer.pubkey().to_bytes()),
-                a_mint: anchor_lang::prelude::Pubkey::from(self.a_mint.to_bytes()),
+                creator: anchor_lang::prelude::Pubkey::from(payer.pubkey().to_bytes()),
+                a_mint: anchor_lang::prelude::Pubkey::from(a_mint.to_bytes()),
                 a_reserve,
                 a_virtual_reserve,
                 a_remaining_topup: 0,
@@ -102,7 +108,7 @@ mod test_runner {
             pool_data.try_serialize(&mut pool_account_data).unwrap();
 
             let pool_ata_pubkey =
-                CreateAssociatedTokenAccount::new(&mut self.svm, &self.payer, &self.a_mint)
+                CreateAssociatedTokenAccount::new(&mut self.svm, &payer, &a_mint)
                     .owner(&pool_pda)
                     .send()
                     .unwrap();
@@ -124,12 +130,12 @@ mod test_runner {
             // mint appropriate amount of A tokens to pool
             MintTo::new(
                 &mut self.svm,
-                &self.payer,
-                &self.a_mint,
+                &payer,
+                &a_mint,
                 &pool_ata_pubkey,
                 needed_balance,
             )
-            .owner(&self.payer)
+            .owner(&payer)
             .send()
             .unwrap();
 
@@ -141,6 +147,7 @@ mod test_runner {
 
         pub fn create_virtual_token_account_mock(
             &mut self,
+            owner: Pubkey,
             pool: Pubkey,
             balance: u64,
             fees_paid: u64,
@@ -150,7 +157,7 @@ mod test_runner {
                 &[
                     cpmm_state::VIRTUAL_TOKEN_ACCOUNT_SEED,
                     pool.as_ref(),
-                    self.payer.pubkey().as_ref(),
+                    owner.as_ref(),
                 ],
                 &self.program_id,
             );
@@ -158,7 +165,7 @@ mod test_runner {
             // Create VTA PDA account with VirtualTokenAccount structure
             let vta_data = cpmm_state::VirtualTokenAccount {
                 pool: anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
-                owner: anchor_lang::prelude::Pubkey::from(self.payer.pubkey().to_bytes()),
+                owner: anchor_lang::prelude::Pubkey::from(owner.to_bytes()),
                 balance,
                 fees_paid,
             };
@@ -184,6 +191,9 @@ mod test_runner {
 
         pub fn buy_virtual_token(
             &mut self,
+            payer: &Keypair,
+            payer_ata: Pubkey,
+            mint: Pubkey,
             pool: Pubkey,
             virtual_token_account: Pubkey,
             a_amount: u64,
@@ -201,13 +211,14 @@ mod test_runner {
                 discriminator
             }
 
+
             let accounts = vec![
-                AccountMeta::new(self.payer.pubkey(), true),
-                AccountMeta::new(self.payer_ata, false),
+                AccountMeta::new(payer.pubkey(), true),
+                AccountMeta::new(payer_ata, false),
                 AccountMeta::new(virtual_token_account, false),
                 AccountMeta::new(pool, false),
-                AccountMeta::new(self.payer_ata, false), // pool_ata - using payer_ata for simplicity
-                AccountMeta::new(self.a_mint, false),
+                AccountMeta::new(payer_ata, false), // pool_ata - using payer_ata for simplicity
+                AccountMeta::new(mint, false),
                 AccountMeta::new(b_mint, false),
                 AccountMeta::new_readonly(
                     Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
@@ -234,8 +245,8 @@ mod test_runner {
 
             let tx = Transaction::new_signed_with_payer(
                 &[instruction],
-                Some(&self.payer.pubkey()),
-                &[&self.payer],
+                Some(&payer.pubkey()),
+                &[&payer],
                 self.svm.latest_blockhash(),
             );
 
