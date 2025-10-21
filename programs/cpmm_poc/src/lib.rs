@@ -5,6 +5,9 @@ mod helpers;
 mod instructions;
 mod state;
 
+#[cfg(test)]
+mod test_utils;
+
 use instructions::*;
 
 declare_id!("2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz");
