@@ -97,8 +97,6 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
 
 #[cfg(test)]
 mod tests {
-    use litesvm::LiteSVM;
-    use litesvm_token::CreateAssociatedTokenAccount;
     use crate::helpers::{calculate_buy_output_amount, calculate_fees};
     use crate::state::BcpmmPool;
     use crate::test_utils::TestRunner;

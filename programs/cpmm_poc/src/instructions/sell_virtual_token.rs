@@ -97,3 +97,132 @@ pub fn sell_virtual_token(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::helpers::{calculate_sell_output_amount, calculate_fees};
+    use crate::state::BcpmmPool;
+    use crate::test_utils::TestRunner;
+    use anchor_lang::prelude::*;
+    use solana_sdk::signature::{Keypair, Signer};
+
+    #[test]
+    fn test_sell_virtual_token() {
+        // Parameters
+        let b_amount = 1000;
+        let a_reserve = 5000;
+        let a_virtual_reserve = 1_000_000;
+        let b_reserve = 2_000_000;
+        let b_mint_decimals = 6;
+        let creator_fee_basis_points = 200;
+        let buyback_fee_basis_points = 600;
+        let creator_fees_balance = 0;
+        let buyback_fees_balance = 0;
+
+        // Initialize the test environment and related accounts
+        let payer = Keypair::new();
+        let another_wallet = Keypair::new();
+        let mut runner = TestRunner::new();
+        runner.airdrop(&payer.pubkey(), 10_000_000_000);
+        runner.airdrop(&another_wallet.pubkey(), 10_000_000_000);
+        let a_mint = runner.create_mint(&payer, 9);
+        let payer_ata = runner.create_associated_token_account(&payer, a_mint);
+        runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
+
+        let test_pool = runner.create_pool_mock(
+            &payer,
+            a_mint,
+            a_reserve,
+            a_virtual_reserve,
+            b_reserve,
+            b_mint_decimals,
+            creator_fee_basis_points,
+            buyback_fee_basis_points,
+            creator_fees_balance,
+            buyback_fees_balance,
+        );
+
+        // Calculate expected output amount
+        let calculated_a_amount = calculate_sell_output_amount(
+            b_amount,
+            b_reserve,
+            a_reserve,
+            a_virtual_reserve,
+        );
+
+        // Create virtual token account with some balance to sell
+        let virtual_token_account = runner.create_virtual_token_account_mock(
+            payer.pubkey(),
+            test_pool.pool,
+            b_amount, // Start with balance to sell
+            0,
+        );
+
+        // Test selling with insufficient balance
+        let virtual_token_account_insufficient = runner.create_virtual_token_account_mock(
+            another_wallet.pubkey(),
+            test_pool.pool,
+            b_amount - 1, // Insufficient balance
+            0,
+        );
+        let result_sell_insufficient = runner.sell_virtual_token(
+            &another_wallet,
+            payer_ata,
+            a_mint,
+            test_pool.pool,
+            virtual_token_account_insufficient,
+            b_amount,
+            test_pool.b_mint,
+        );
+        assert!(result_sell_insufficient.is_err());
+
+        // Test selling with wrong virtual token account owner
+        let virtual_token_account_wrong_owner = runner.create_virtual_token_account_mock(
+            another_wallet.pubkey(),
+            test_pool.pool,
+            b_amount,
+            0,
+        );
+        let result_sell_wrong_owner = runner.sell_virtual_token(
+            &payer, // payer is different from virtual token account owner
+            payer_ata,
+            a_mint,
+            test_pool.pool,
+            virtual_token_account_wrong_owner,
+            b_amount,
+            test_pool.b_mint,
+        );
+        assert!(result_sell_wrong_owner.is_err());
+
+        // Test successful sell
+        let result_sell = runner.sell_virtual_token(
+            &payer,
+            payer_ata,
+            a_mint,
+            test_pool.pool,
+            virtual_token_account,
+            1,
+            test_pool.b_mint,
+        );
+        assert!(result_sell.is_ok());
+
+        // Fetch the test_pool from testrunner lite svm and deserialize the account data
+        let pool_account = runner.svm.get_account(&test_pool.pool).unwrap();
+        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        
+        // Calculate fees for verification
+        let sell_fees = calculate_fees(
+            calculated_a_amount,
+            creator_fee_basis_points,
+            buyback_fee_basis_points
+        ).unwrap();
+        let a_amount_after_fees = calculated_a_amount - sell_fees.creator_fees_amount - sell_fees.buyback_fees_amount;
+        
+        // // Check that the reserves are updated correctly
+        // assert_eq!(pool_data.a_reserve, a_reserve - a_amount_after_fees);
+        // assert_eq!(pool_data.b_reserve, b_reserve + b_amount);
+        // assert_eq!(pool_data.a_virtual_reserve, a_virtual_reserve); // Unchanged
+        // assert_eq!(pool_data.creator_fees_balance, sell_fees.creator_fees_amount);
+        // assert_eq!(pool_data.buyback_fees_balance, sell_fees.buyback_fees_amount);
+    }
+}

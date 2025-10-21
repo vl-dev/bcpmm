@@ -11,7 +11,6 @@ mod test_runner {
         signature::{Keypair, Signer},
         transaction::Transaction,
     };
-    use anchor_spl::associated_token::get_associated_token_address;
 
     pub struct TestRunner {
         pub svm: LiteSVM,
@@ -238,6 +237,81 @@ mod test_runner {
                 data: {
                     let mut data = Vec::new();
                     data.extend_from_slice(&get_discriminator("buy_virtual_token"));
+                    args.serialize(&mut data).unwrap();
+                    data
+                },
+            };
+
+            let tx = Transaction::new_signed_with_payer(
+                &[instruction],
+                Some(&payer.pubkey()),
+                &[&payer],
+                self.svm.latest_blockhash(),
+            );
+
+            // todo return different errors, now only returns AccountDidNotDeserialize
+            self.svm.send_transaction(tx).map_err(|err| {
+                println!("Transaction failed: {:?}", err);
+                anchor_lang::error::Error::from(
+                    anchor_lang::error::ErrorCode::AccountDidNotDeserialize,
+                )
+            })?;
+            Ok(())
+        }
+
+        pub fn sell_virtual_token(
+            &mut self,
+            payer: &Keypair,
+            payer_ata: Pubkey,
+            mint: Pubkey,
+            pool: Pubkey,
+            virtual_token_account: Pubkey,
+            b_amount: u64,
+            b_mint: Pubkey,
+        ) -> Result<()> {
+            // Helper function to calculate instruction discriminator
+            fn get_discriminator(instruction_name: &str) -> [u8; 8] {
+                use sha2::{Digest, Sha256};
+                let mut hasher = Sha256::new();
+                hasher.update(format!("global:{}", instruction_name));
+                let result = hasher.finalize();
+                let mut discriminator = [0u8; 8];
+                discriminator.copy_from_slice(&result[..8]);
+                discriminator
+            }
+
+            // Derive the pool ATA using the same logic as create_pool_mock
+            let pool_ata = anchor_spl::associated_token::get_associated_token_address(
+                &anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
+                &anchor_lang::prelude::Pubkey::from(mint.to_bytes())
+            );
+            let pool_ata_account_meta = AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false); // Use the derived pool ATA
+
+            let accounts = vec![
+                AccountMeta::new(payer.pubkey(), true),
+                AccountMeta::new(payer_ata, false),
+                AccountMeta::new(virtual_token_account, false),
+                AccountMeta::new(pool, false),
+                pool_ata_account_meta,
+                AccountMeta::new(mint, false),
+                AccountMeta::new(b_mint, false),
+                AccountMeta::new(solana_sdk_ids::system_program::ID, false),
+                AccountMeta::new_readonly(
+                    Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
+                    false,
+                ),
+            ];
+
+            let args = crate::instructions::SellVirtualTokenArgs {
+                b_amount,
+            };
+
+            let instruction = Instruction {
+                program_id: self.program_id,
+                accounts: accounts,
+                data: {
+                    let mut data = Vec::new();
+                    data.extend_from_slice(&get_discriminator("sell_virtual_token"));
                     args.serialize(&mut data).unwrap();
                     data
                 },
