@@ -101,6 +101,8 @@ mod test_runner {
                 buyback_fees_balance,
                 creator_fee_basis_points,
                 buyback_fee_basis_points,
+                burns_today: 0,
+                last_burn_timestamp: 0,
             };
 
             let mut pool_account_data = Vec::new();

@@ -100,7 +100,7 @@ pub fn sell_virtual_token(
 
 #[cfg(test)]
 mod tests {
-    use crate::helpers::{calculate_sell_output_amount, calculate_fees};
+    use crate::helpers::{calculate_sell_output_amount};
     use crate::state::BcpmmPool;
     use crate::test_utils::TestRunner;
     use anchor_lang::prelude::*;
@@ -216,6 +216,7 @@ mod tests {
         let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         
         // Check that the reserves are updated correctly
+        // Check this matches by pen and paper TODO(sal)
         let output_amount = calculate_sell_output_amount(
             b_sell_amount,
             b_reserve,

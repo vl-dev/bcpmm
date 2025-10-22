@@ -16,4 +16,10 @@ pub enum BcpmmError {
     AmountTooBig,
     #[msg("Slippage exceeded")]
     SlippageExceeded,
+    #[msg("Insufficient burn allowance")]
+    InsufficientBurnAllowance,
+    #[msg("Cannot close active burn allowance")]
+    CannotCloseActiveBurnAllowance,
+    #[msg("Invalid burn account payer")]
+    InvalidBurnAccountPayer,
 }

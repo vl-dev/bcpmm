@@ -3,26 +3,27 @@ use anchor_lang::prelude::*;
 pub const CENTRAL_STATE_SEED: &[u8] = b"central_state";
 pub const BCPMM_POOL_SEED: &[u8] = b"bcpmm_pool";
 pub const VIRTUAL_TOKEN_ACCOUNT_SEED: &[u8] = b"virtual_token_account";
+pub const USER_BURN_ALLOWANCE_SEED: &[u8] = b"user_burn_allowance";
 
 #[account]
 #[derive(Default, InitSpace)]
 pub struct CentralState {
     pub admin: Pubkey,
-    pub daily_burn_allowance: u64,
-    pub creator_daily_burn_allowance: u64,
-    pub user_burn_bp: u16,    // todo change some micro units
-    pub creator_burn_bp: u16, // todo change some micro units
-    pub burn_reset_time: u64,
+    pub daily_burn_allowance: u16,
+    pub creator_daily_burn_allowance: u16,
+    pub user_burn_bp: u16, 
+    pub creator_burn_bp: u16,
+    pub burn_reset_time_of_day_seconds: u32, // Seconds from midnight
 }
 
 impl CentralState {
     pub fn new(
         admin: Pubkey,
-        daily_burn_allowance: u64,
-        creator_daily_burn_allowance: u64,
+        daily_burn_allowance: u16,
+        creator_daily_burn_allowance: u16,
         user_burn_bp: u16,
         creator_burn_bp: u16,
-        burn_reset_time: u64,
+        burn_reset_time_of_day_seconds: u32,
     ) -> Self {
         Self {
             admin,
@@ -30,8 +31,13 @@ impl CentralState {
             creator_daily_burn_allowance,
             user_burn_bp,
             creator_burn_bp,
-            burn_reset_time,
+            burn_reset_time_of_day_seconds,
         }
+    }
+
+    pub fn is_after_burn_reset(&self, current_time: i64) -> bool {
+        let seconds_since_midnight = (current_time % 86400) as u32;
+        seconds_since_midnight >= self.burn_reset_time_of_day_seconds
     }
 }
 
@@ -71,7 +77,7 @@ pub struct BcpmmPool {
 
     /// Burn allowance for the pool
     pub burns_today: u16,
-    pub last_burn_timestamp: u64,
+    pub last_burn_timestamp: i64,
 }
 
 #[account]
@@ -91,5 +97,17 @@ pub struct VirtualTokenAccount {
 #[derive(Default, InitSpace)]
 pub struct UserBurnAllowance {
     pub user: Pubkey,
-    pub allowance: u64, // todo change some micro units
+    pub payer: Pubkey, // Wallet that receives funds when this account is closed
+    pub burns_today: u16,
+
+    pub last_burn_timestamp: i64,
+}
+
+impl UserBurnAllowance {
+    pub fn new(
+        user: Pubkey,
+        payer: Pubkey,
+    ) -> Self {
+        Self { user, payer, burns_today: 0, last_burn_timestamp: 0 }
+    }
 }
