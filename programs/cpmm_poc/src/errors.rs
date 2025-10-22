@@ -22,4 +22,8 @@ pub enum BcpmmError {
     CannotCloseActiveBurnAllowance,
     #[msg("Invalid burn account payer")]
     InvalidBurnAccountPayer,
+    #[msg("Invalid virtual reserve")]
+    InvalidVirtualReserve,
+    #[msg("Invalid buyback fee basis points")]
+    InvalidBuybackFeeBasisPoints,
 }
