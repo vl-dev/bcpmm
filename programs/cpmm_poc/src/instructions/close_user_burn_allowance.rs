@@ -16,6 +16,7 @@ pub struct CloseUserBurnAllowance<'info> {
     )]
     pub user_burn_allowance: Account<'info, UserBurnAllowance>,
 
+    /// CHECK: Checked that it's the same as the payer in the user burn allowance account.
     #[account(address = user_burn_allowance.payer @ BcpmmError::InvalidBurnAccountPayer)]
     pub burn_allowance_open_payer: AccountInfo<'info>,
 

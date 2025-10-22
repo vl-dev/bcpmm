@@ -94,7 +94,7 @@ mod test_runner {
                 a_reserve,
                 a_virtual_reserve,
                 a_remaining_topup: 0,
-                b_mint: anchor_lang::prelude::Pubkey::from(mock_b_mint.to_bytes()),
+                b_mint_index: 0,
                 b_mint_decimals,
                 b_reserve,
                 creator_fees_balance,
