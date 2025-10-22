@@ -1,13 +1,18 @@
+use crate::errors::BcpmmError;
 use anchor_lang::prelude::*;
 
 pub const CENTRAL_STATE_SEED: &[u8] = b"central_state";
 pub const BCPMM_POOL_SEED: &[u8] = b"bcpmm_pool";
 pub const VIRTUAL_TOKEN_ACCOUNT_SEED: &[u8] = b"virtual_token_account";
 
+pub const DEFAULT_B_MINT_DECIMALS: u8 = 6;
+pub const DEFAULT_B_MINT_RESERVE: u64 = 1_000_000_000 * 10u64.pow(DEFAULT_B_MINT_DECIMALS as u32);
+
 #[account]
 #[derive(Default, InitSpace)]
 pub struct CentralState {
     pub admin: Pubkey,
+    pub b_mint_index: u64,
     pub daily_burn_allowance: u64,
     pub creator_daily_burn_allowance: u64,
     pub user_burn_bp: u16,    // todo change some micro units
@@ -26,6 +31,7 @@ impl CentralState {
     ) -> Self {
         Self {
             admin,
+            b_mint_index: 0,
             daily_burn_allowance,
             creator_daily_burn_allowance,
             user_burn_bp,
@@ -52,8 +58,8 @@ pub struct BcpmmPool {
     // A remaining topup to compensate for the virtual reserve reduction happening on burn
     pub a_remaining_topup: u64,
 
-    /// B mint address
-    pub b_mint: Pubkey,
+    /// B mint is virtual and denoted by index
+    pub b_mint_index: u64,
     /// B mint decimals
     pub b_mint_decimals: u8,
     /// B reserve including decimals
@@ -72,6 +78,40 @@ pub struct BcpmmPool {
     /// Burn allowance for the pool
     pub burns_today: u16,
     pub last_burn_timestamp: u64,
+}
+
+impl BcpmmPool {
+    pub fn try_new(
+        creator: Pubkey,
+        a_mint: Pubkey,
+        a_virtual_reserve: u64,
+        b_mint_index: u64,
+        creator_fee_basis_points: u16,
+        buyback_fee_basis_points: u16,
+    ) -> Result<Self> {
+        require!(a_virtual_reserve > 0, BcpmmError::InvalidVirtualReserve);
+        require!(
+            buyback_fee_basis_points > 0,
+            BcpmmError::InvalidBuybackFeeBasisPoints
+        );
+
+        Ok(Self {
+            creator,
+            a_mint,
+            a_reserve: 0,
+            a_virtual_reserve,
+            a_remaining_topup: 0,
+            b_mint_index,
+            b_mint_decimals: DEFAULT_B_MINT_DECIMALS,
+            b_reserve: DEFAULT_B_MINT_RESERVE,
+            creator_fees_balance: 0,
+            buyback_fees_balance: 0,
+            creator_fee_basis_points,
+            buyback_fee_basis_points,
+            burns_today: 0,
+            last_burn_timestamp: 0,
+        })
+    }
 }
 
 #[account]

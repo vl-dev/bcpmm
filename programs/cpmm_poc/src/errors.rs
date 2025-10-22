@@ -16,4 +16,8 @@ pub enum BcpmmError {
     AmountTooBig,
     #[msg("Slippage exceeded")]
     SlippageExceeded,
+    #[msg("Invalid virtual reserve")]
+    InvalidVirtualReserve,
+    #[msg("Invalid buyback fee basis points")]
+    InvalidBuybackFeeBasisPoints,
 }
