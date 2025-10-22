@@ -1,7 +1,39 @@
 use anchor_lang::prelude::*;
 
+pub const CENTRAL_STATE_SEED: &[u8] = b"central_state";
 pub const BCPMM_POOL_SEED: &[u8] = b"bcpmm_pool";
 pub const VIRTUAL_TOKEN_ACCOUNT_SEED: &[u8] = b"virtual_token_account";
+
+#[account]
+#[derive(Default, InitSpace)]
+pub struct CentralState {
+    pub admin: Pubkey,
+    pub daily_burn_allowance: u64,
+    pub creator_daily_burn_allowance: u64,
+    pub user_burn_bp: u16,    // todo change some micro units
+    pub creator_burn_bp: u16, // todo change some micro units
+    pub burn_reset_time: u64,
+}
+
+impl CentralState {
+    pub fn new(
+        admin: Pubkey,
+        daily_burn_allowance: u64,
+        creator_daily_burn_allowance: u64,
+        user_burn_bp: u16,
+        creator_burn_bp: u16,
+        burn_reset_time: u64,
+    ) -> Self {
+        Self {
+            admin,
+            daily_burn_allowance,
+            creator_daily_burn_allowance,
+            user_burn_bp,
+            creator_burn_bp,
+            burn_reset_time,
+        }
+    }
+}
 
 // A is the real SPL token
 // B is the virtual token
@@ -36,6 +68,10 @@ pub struct BcpmmPool {
     pub creator_fee_basis_points: u16,
     /// Buyback fee basis points
     pub buyback_fee_basis_points: u16,
+
+    /// Burn allowance for the pool
+    pub burns_today: u16,
+    pub last_burn_timestamp: u64,
 }
 
 #[account]
@@ -49,4 +85,11 @@ pub struct VirtualTokenAccount {
     pub balance: u64,
     /// All fees paid when buying and selling tokens to this account. Denominated in Mint A including decimals
     pub fees_paid: u64,
+}
+
+#[account]
+#[derive(Default, InitSpace)]
+pub struct UserBurnAllowance {
+    pub user: Pubkey,
+    pub allowance: u64, // todo change some micro units
 }

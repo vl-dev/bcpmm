@@ -16,6 +16,13 @@ declare_id!("2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz");
 pub mod cpmm_poc {
     use super::*;
 
+    pub fn initialize_central_state(
+        ctx: Context<InitializeCentralState>,
+        args: InitializeCentralStateArgs,
+    ) -> Result<()> {
+        instructions::initialize_central_state(ctx, args)
+    }
+
     pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
         instructions::create_pool(ctx, args)
     }
