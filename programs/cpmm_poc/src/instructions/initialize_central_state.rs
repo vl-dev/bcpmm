@@ -25,6 +25,7 @@ pub fn initialize_central_state(
     args: InitializeCentralStateArgs,
 ) -> Result<()> {
     ctx.accounts.central_state.set_inner(CentralState::new(
+        ctx.bumps.central_state,
         ctx.accounts.admin.key(),
         args.daily_burn_allowance,
         args.creator_daily_burn_allowance,

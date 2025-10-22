@@ -20,4 +20,6 @@ pub enum BcpmmError {
     InvalidVirtualReserve,
     #[msg("Invalid buyback fee basis points")]
     InvalidBuybackFeeBasisPoints,
+    #[msg("Underflow")]
+    Underflow,
 }

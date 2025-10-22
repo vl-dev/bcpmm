@@ -1,4 +1,7 @@
 use crate::errors::BcpmmError;
+use anchor_lang::prelude::*;
+
+#[derive(Debug)]
 pub struct Fees {
     pub creator_fees_amount: u64,
     pub buyback_fees_amount: u64,
@@ -8,7 +11,7 @@ pub fn calculate_fees(
     a_amount: u64,
     creator_fee_basis_points: u16,
     buyback_fee_basis_points: u16,
-) -> Result<Fees, BcpmmError> {
+) -> Result<Fees> {
     if creator_fee_basis_points > 10000 || buyback_fee_basis_points > 10000 {
         return Err(BcpmmError::InvalidFeeBasisPoints.into());
     }
@@ -40,6 +43,7 @@ pub fn calculate_buy_output_amount(
     (numerator / denominator) as u64
 }
 
+// todo overflow and underflow checks
 /// Calculates the amount of Mint A received when selling Mint B.
 pub fn calculate_sell_output_amount(
     b_amount: u64,
@@ -81,26 +85,26 @@ mod tests {
     fn test_calculate_amount_too_big() {
         let result = calculate_fees(u64::MAX, 10000, 10000);
         assert!(result.is_err());
-        assert!(matches!(result.err().unwrap(), BcpmmError::AmountTooBig));
+        assert_eq!(result.unwrap_err(), BcpmmError::AmountTooBig.into());
     }
 
     #[test]
     fn test_calculate_fees_creator_fee_basis_points_overflow() {
         let result = calculate_fees(1_000_000_000, 10000, 10001);
         assert!(result.is_err());
-        assert!(matches!(
-            result.err().unwrap(),
-            BcpmmError::InvalidFeeBasisPoints
-        ));
+        assert_eq!(
+            result.unwrap_err(),
+            BcpmmError::InvalidFeeBasisPoints.into()
+        );
     }
 
     #[test]
     fn test_calculate_fees_buyback_fee_basis_points_overflow() {
         let result = calculate_fees(1_000_000_000, 10001, 10000);
         assert!(result.is_err());
-        assert!(matches!(
-            result.err().unwrap(),
-            BcpmmError::InvalidFeeBasisPoints
-        ));
+        assert_eq!(
+            result.unwrap_err(),
+            BcpmmError::InvalidFeeBasisPoints.into()
+        );
     }
 }

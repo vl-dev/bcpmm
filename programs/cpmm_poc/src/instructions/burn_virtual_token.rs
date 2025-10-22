@@ -11,7 +11,7 @@ pub struct BurnVirtualTokenArgs {
 pub struct BurnVirtualToken<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
-    #[account(mut)]
+    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
 }
 

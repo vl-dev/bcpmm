@@ -77,9 +77,10 @@ mod test_runner {
             creator_burn_bp: u16,
             burn_reset_time: u64,
         ) -> Pubkey {
-            let central_state_pda =
-                Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id).0;
+            let (central_state_pda, central_state_bump) =
+                Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
             let central_state = cpmm_state::CentralState::new(
+                central_state_bump,
                 anchor_lang::prelude::Pubkey::from(payer.pubkey().to_bytes()),
                 daily_burn_allowance,
                 creator_daily_burn_allowance,
@@ -152,7 +153,7 @@ mod test_runner {
                 .unwrap();
 
             // Setup PDAs consistent with on-chain seeds
-            let (pool_pda, _pool_bump) = Pubkey::find_program_address(
+            let (pool_pda, pool_bump) = Pubkey::find_program_address(
                 &[
                     cpmm_state::BCPMM_POOL_SEED,
                     b_mint_index.to_le_bytes().as_ref(),
@@ -162,6 +163,7 @@ mod test_runner {
 
             // Create pool PDA account with BcpmmPool structure
             let pool_data = cpmm_state::BcpmmPool {
+                bump: pool_bump,
                 creator: anchor_lang::prelude::Pubkey::from(payer.pubkey().to_bytes()),
                 a_mint: anchor_lang::prelude::Pubkey::from(a_mint.to_bytes()),
                 a_reserve,
@@ -224,7 +226,7 @@ mod test_runner {
             fees_paid: u64,
         ) -> Pubkey {
             // Derive the VirtualTokenAccount PDA using pool + owner seeds
-            let (vta_pda, _vta_bump) = Pubkey::find_program_address(
+            let (vta_pda, vta_bump) = Pubkey::find_program_address(
                 &[
                     cpmm_state::VIRTUAL_TOKEN_ACCOUNT_SEED,
                     pool.as_ref(),
@@ -235,6 +237,7 @@ mod test_runner {
 
             // Create VTA PDA account with VirtualTokenAccount structure
             let vta_data = cpmm_state::VirtualTokenAccount {
+                bump: vta_bump,
                 pool: anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
                 owner: anchor_lang::prelude::Pubkey::from(owner.to_bytes()),
                 balance,

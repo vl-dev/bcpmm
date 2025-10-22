@@ -40,68 +40,30 @@ pub fn sell_virtual_token(
     ctx: Context<SellVirtualToken>,
     args: SellVirtualTokenArgs,
 ) -> Result<()> {
+    let pool = &mut ctx.accounts.pool;
     let virtual_token_account = &mut ctx.accounts.virtual_token_account;
+    require_gte!(virtual_token_account.balance, args.b_amount, BcpmmError::InsufficientVirtualTokenBalance);
 
-    require!(
-        virtual_token_account.balance >= args.b_amount,
-        BcpmmError::InsufficientVirtualTokenBalance
-    );
+    let output_amount = pool.calculate_sell_output_amount(args.b_amount);
+    require_gte!(pool.a_reserve, output_amount, BcpmmError::Underflow);
 
-    let output_amount = calculate_sell_output_amount(
-        args.b_amount,
-        ctx.accounts.pool.b_reserve,
-        ctx.accounts.pool.a_reserve,
-        ctx.accounts.pool.a_virtual_reserve,
-    );
+    let fees = pool.calculate_fees(output_amount)?;
 
-    require!(
-        ctx.accounts.pool.a_reserve >= output_amount,
-        ErrorCode::InvalidNumericConversion
-    ); // prevent underflow on a_reserve
-
-    virtual_token_account.balance -= args.b_amount;
-    ctx.accounts.pool.a_reserve -= output_amount;
-    ctx.accounts.pool.b_reserve += args.b_amount;
-
-    let fees = calculate_fees(
-        output_amount,
-        ctx.accounts.pool.creator_fee_basis_points,
-        ctx.accounts.pool.buyback_fee_basis_points,
-    )?;
-    virtual_token_account.fees_paid += fees.creator_fees_amount + fees.buyback_fees_amount;
-    ctx.accounts.pool.creator_fees_balance += fees.creator_fees_amount;
-    if ctx.accounts.pool.a_remaining_topup > 0 {
-        let remaining_topup_amount = ctx.accounts.pool.a_remaining_topup;
-        let real_topup_amount = if remaining_topup_amount > fees.buyback_fees_amount {
-            fees.buyback_fees_amount
-        } else {
-            remaining_topup_amount
-        };
-        ctx.accounts.pool.a_remaining_topup =
-            ctx.accounts.pool.a_remaining_topup - real_topup_amount;
-        ctx.accounts.pool.a_reserve += real_topup_amount;
-    } else {
-        ctx.accounts.pool.buyback_fees_balance += fees.buyback_fees_amount;
-    }
+    virtual_token_account.sub(args.b_amount, fees.creator_fees_amount, fees.buyback_fees_amount)?;
+    pool.add(output_amount, args.b_amount, fees.creator_fees_amount, fees.buyback_fees_amount);
 
     let output_amount_less_fees =
         output_amount - fees.creator_fees_amount - fees.buyback_fees_amount;
 
-    let cpi_accounts = TransferChecked {
-        mint: ctx.accounts.a_mint.to_account_info(),
-        from: ctx.accounts.pool_ata.to_account_info(),
-        to: ctx.accounts.payer_ata.to_account_info(),
-        authority: ctx.accounts.pool.to_account_info(),
-    };
-    let cpi_program = ctx.accounts.token_program.to_account_info();
-    let bump_seed = ctx.bumps.pool;
-    let b_mint_index = &ctx.accounts.pool.b_mint_index;
-    let b_mint_index_bytes = b_mint_index.to_le_bytes().to_vec();
-    let signer_seeds: &[&[&[u8]]] = &[&[BCPMM_POOL_SEED, b_mint_index_bytes.as_slice(), &[bump_seed]]];
-    let cpi_context = CpiContext::new(cpi_program, cpi_accounts).with_signer(signer_seeds);
-    let decimals = ctx.accounts.a_mint.decimals;
-    transfer_checked(cpi_context, output_amount_less_fees, decimals)?;
-
+    // todo this cloning is kinda hacky, we should find a better way to do this
+    let cloned_pool = pool.clone();
+    pool.transfer_out(
+        output_amount_less_fees,
+        &cloned_pool,
+        &ctx.accounts.a_mint,
+        &ctx.accounts.pool_ata,
+        &ctx.accounts.payer_ata,
+        &ctx.accounts.token_program)?;
     Ok(())
 }
 

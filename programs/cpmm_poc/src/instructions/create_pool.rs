@@ -39,6 +39,7 @@ pub struct CreatePool<'info> {
 
 pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {    
     ctx.accounts.pool.set_inner(BcpmmPool::try_new(
+        ctx.bumps.pool,
         ctx.accounts.payer.key(),
         ctx.accounts.a_mint.to_account_info().key(),
         args.a_virtual_reserve,
