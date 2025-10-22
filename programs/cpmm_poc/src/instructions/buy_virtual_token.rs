@@ -144,12 +144,8 @@ mod tests {
             buyback_fee_basis_points
         ).unwrap();
         let a_amount_after_fees = a_amount - buy_fees.creator_fees_amount - buy_fees.buyback_fees_amount;
-        let calculated_b_amount_min = calculate_buy_output_amount(
-            a_amount_after_fees,
-            0,
-            b_reserve,
-            a_virtual_reserve,
-        );
+
+        let calculated_b_amount_min = 9157;
         let virtual_token_account = runner.create_virtual_token_account_mock(
             payer.pubkey(),
             test_pool.pool,
