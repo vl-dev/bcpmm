@@ -11,7 +11,7 @@ pub struct BurnVirtualTokenArgs {
 #[derive(Accounts)]
 pub struct BurnVirtualToken<'info> {
     #[account(mut)]
-    pub owner: Signer<'info>, // Nothing to pay for(?)
+    pub owner: Signer<'info>,
 
     #[account(mut)]
     pub pool: Account<'info, BcpmmPool>,
