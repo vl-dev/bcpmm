@@ -21,15 +21,36 @@ describe("cpmm-poc", () => {
   }
 
   beforeEach(async () => {
+    const provider = anchor.getProvider();
+
     // Get all PDAs we need to check
     const [centralStatePDA] = PublicKey.findProgramAddressSync(
       [Buffer.from('central_state')],
       program.programId
     );
 
-    // If central state exists, we'll skip initialization in the test
+    // If central state doesn't exist, initialize it
     const centralStateExists = await accountExists(centralStatePDA);
-    if (centralStateExists) {
+    if (!centralStateExists) {
+      console.log("Initializing central state");
+      const initializeCentralStateArgs = {
+        dailyBurnAllowance: new BN(1000000000000), // 1B tokens
+        creatorDailyBurnAllowance: new BN(1000000000000), // 1B tokens
+        userBurnBp: 1000, // 10%
+        creatorBurnBp: 500, // 5%
+        burnResetTime: new BN(Date.now() / 1000 + 86400), // 24 hours from now
+      };
+      const initializeCentralStateAccounts = {
+        admin: provider.wallet.publicKey,
+        centralState: centralStatePDA,
+        systemProgram: SystemProgram.programId,
+      };
+      await program.methods
+        .initializeCentralState(initializeCentralStateArgs)
+        .accounts(initializeCentralStateAccounts)
+        .rpc();
+      console.log("Central state initialized");
+    } else {
       console.log("Central state already exists, skipping initialization");
     }
   });
@@ -67,12 +88,16 @@ describe("cpmm-poc", () => {
       BigInt("1000000000000000000"), // 1B tokens
     );
 
-    const bMintKeypair = new Keypair();
-    const bMint = bMintKeypair.publicKey;
     // Create CPMM Pool
     console.log("Creating CPMM Pool");
+    // Get the current b_mint_index from central state to calculate pool PDA
+    const [centralStatePDA] = PublicKey.findProgramAddressSync(
+      [Buffer.from('central_state')],
+      program.programId
+    );
+    const centralStateAccount = await program.account.centralState.fetch(centralStatePDA);
     const [pool] = PublicKey.findProgramAddressSync(
-      [Buffer.from('bcpmm_pool'), bMint.toBuffer()],
+      [Buffer.from('bcpmm_pool'), centralStateAccount.bMintIndex.toArrayLike(Buffer, 'le', 8)],
       program.programId
     );
 
@@ -85,16 +110,14 @@ describe("cpmm-poc", () => {
     const createPoolAccounts = {
       payer: provider.wallet.publicKey,
       aMint: aMint,
-      bMint: bMint,
       pool: pool,
       poolAta: poolAta,
+      centralState: centralStatePDA,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     };
     const createPoolArgs = {
-      bInitialSupply: new BN(10_000_000_000_000),
-      bDecimals: 6,
       aVirtualReserve: new BN("2000000000000000000"),
       creatorFeeBasisPoints: 500,
       buybackFeeBasisPoints: 100,
@@ -158,6 +181,7 @@ describe("cpmm-poc", () => {
     console.log("Buying tokens");
     const buyVirtualTokenArgs = {
       aAmount: new BN(1_000_000_000_000),
+      bAmountMin: new BN(0), // No minimum for testing
     };
     const buyVirtualTokenAccounts = {
       payer: provider.wallet.publicKey,
@@ -166,7 +190,6 @@ describe("cpmm-poc", () => {
       pool: pool,
       poolAta: poolAta,
       aMint: aMint,
-      bMint: bMint,
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     };
@@ -190,7 +213,7 @@ describe("cpmm-poc", () => {
     console.log("Mint B Reserve: ", poolAccount.bReserve.toString());
     console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
     console.log("Mint A: ", poolAccount.aMint.toBase58());
-    console.log("Mint B: ", poolAccount.bMint.toBase58());
+    console.log("Mint B Index: ", poolAccount.bMintIndex.toString());
     console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
     console.log("Buyback Fees Balance: ", poolAccount.buybackFeesBalance.toString());
     console.log("Creator Fee Basis Points: ", poolAccount.creatorFeeBasisPoints.toString());
@@ -208,7 +231,6 @@ describe("cpmm-poc", () => {
       pool: pool,
       poolAta: poolAta,
       aMint: aMint,
-      bMint: bMint,
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     };

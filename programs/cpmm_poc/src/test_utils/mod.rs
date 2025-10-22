@@ -15,15 +15,15 @@ mod test_runner {
     pub struct TestRunner {
         pub svm: LiteSVM,
         pub program_id: Pubkey,
+        pub b_mint_index: u64,
     }
 
     pub struct TestPool {
         pub pool: Pubkey,
-        pub b_mint: Pubkey,
+        pub b_mint_index: u64,
     }
 
     impl TestRunner {
-
         pub fn new() -> Self {
             let mut svm = LiteSVM::new();
 
@@ -35,6 +35,7 @@ mod test_runner {
             Self {
                 svm,
                 program_id,
+                b_mint_index: 0,
             }
         }
 
@@ -54,12 +55,55 @@ mod test_runner {
                 .unwrap();
         }
 
-        pub fn create_associated_token_account(&mut self, payer: &Keypair, mint: Pubkey) -> Pubkey {
+        pub fn create_associated_token_account(
+            &mut self,
+            payer: &Keypair,
+            mint: Pubkey,
+            owner: &Pubkey,
+        ) -> Pubkey {
             let ata = CreateAssociatedTokenAccount::new(&mut self.svm, &payer, &mint)
-                .owner(&payer.pubkey())
+                .owner(owner)
                 .send()
                 .unwrap();
             return ata;
+        }
+
+        pub fn create_central_state_mock(
+            &mut self,
+            payer: &Keypair,
+            daily_burn_allowance: u64,
+            creator_daily_burn_allowance: u64,
+            user_burn_bp: u16,
+            creator_burn_bp: u16,
+            burn_reset_time: u64,
+        ) -> Pubkey {
+            let central_state_pda =
+                Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id).0;
+            let central_state = cpmm_state::CentralState::new(
+                anchor_lang::prelude::Pubkey::from(payer.pubkey().to_bytes()),
+                daily_burn_allowance,
+                creator_daily_burn_allowance,
+                user_burn_bp,
+                creator_burn_bp,
+                burn_reset_time,
+            );
+            let mut central_state_data = Vec::new();
+            central_state
+                .try_serialize(&mut central_state_data)
+                .unwrap();
+            self.svm
+                .set_account(
+                    central_state_pda,
+                    solana_sdk::account::Account {
+                        lamports: 1_000_000,
+                        data: central_state_data,
+                        owner: self.program_id,
+                        executable: false,
+                        rent_epoch: 0,
+                    },
+                )
+                .unwrap();
+            central_state_pda
         }
 
         pub fn airdrop(&mut self, receiver: &Pubkey, amount: u64) {
@@ -79,11 +123,40 @@ mod test_runner {
             creator_fees_balance: u64,
             buyback_fees_balance: u64,
         ) -> TestPool {
-            let mock_b_mint = Pubkey::new_unique();
+            let (central_state_pda, _central_state_bump) =
+                Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
+
+            let central_state = self.svm.get_account(&central_state_pda).unwrap();
+
+            let mut central_state_data =
+                cpmm_state::CentralState::try_deserialize(&mut central_state.data.as_slice())
+                    .unwrap();
+
+            let b_mint_index = central_state_data.b_mint_index;
+            central_state_data.b_mint_index += 1;
+            let mut central_state_data_vec = Vec::new();
+            central_state_data
+                .try_serialize(&mut central_state_data_vec)
+                .unwrap();
+            self.svm
+                .set_account(
+                    central_state_pda,
+                    solana_sdk::account::Account {
+                        lamports: 1_000_000,
+                        data: central_state_data_vec,
+                        owner: self.program_id,
+                        executable: false,
+                        rent_epoch: 0,
+                    },
+                )
+                .unwrap();
 
             // Setup PDAs consistent with on-chain seeds
             let (pool_pda, _pool_bump) = Pubkey::find_program_address(
-                &[cpmm_state::BCPMM_POOL_SEED, mock_b_mint.as_ref()],
+                &[
+                    cpmm_state::BCPMM_POOL_SEED,
+                    b_mint_index.to_le_bytes().as_ref(),
+                ],
                 &self.program_id,
             );
 
@@ -94,7 +167,7 @@ mod test_runner {
                 a_reserve,
                 a_virtual_reserve,
                 a_remaining_topup: 0,
-                b_mint: anchor_lang::prelude::Pubkey::from(mock_b_mint.to_bytes()),
+                b_mint_index,
                 b_mint_decimals,
                 b_reserve,
                 creator_fees_balance,
@@ -106,11 +179,10 @@ mod test_runner {
             let mut pool_account_data = Vec::new();
             pool_data.try_serialize(&mut pool_account_data).unwrap();
 
-            let pool_ata_pubkey =
-                CreateAssociatedTokenAccount::new(&mut self.svm, &payer, &a_mint)
-                    .owner(&pool_pda)
-                    .send()
-                    .unwrap();
+            let pool_ata_pubkey = CreateAssociatedTokenAccount::new(&mut self.svm, &payer, &a_mint)
+                .owner(&pool_pda)
+                .send()
+                .unwrap();
 
             self.svm
                 .set_account(
@@ -140,7 +212,7 @@ mod test_runner {
 
             TestPool {
                 pool: pool_pda,
-                b_mint: mock_b_mint,
+                b_mint_index,
             }
         }
 
@@ -197,7 +269,6 @@ mod test_runner {
             virtual_token_account: Pubkey,
             a_amount: u64,
             b_amount_min: u64,
-            b_mint: Pubkey,
         ) -> Result<()> {
             // Helper function to calculate instruction discriminator
             fn get_discriminator(instruction_name: &str) -> [u8; 8] {
@@ -210,15 +281,18 @@ mod test_runner {
                 discriminator
             }
 
+            let pool_ata = anchor_spl::associated_token::get_associated_token_address(
+                &anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
+                &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
+            );
 
             let accounts = vec![
                 AccountMeta::new(payer.pubkey(), true),
                 AccountMeta::new(payer_ata, false),
                 AccountMeta::new(virtual_token_account, false),
                 AccountMeta::new(pool, false),
-                AccountMeta::new(payer_ata, false), // pool_ata - using payer_ata for simplicity
+                AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false),
                 AccountMeta::new(mint, false),
-                AccountMeta::new(b_mint, false),
                 AccountMeta::new_readonly(
                     Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
                     false,
@@ -267,7 +341,6 @@ mod test_runner {
             pool: Pubkey,
             virtual_token_account: Pubkey,
             b_amount: u64,
-            b_mint: Pubkey,
         ) -> Result<()> {
             // Helper function to calculate instruction discriminator
             fn get_discriminator(instruction_name: &str) -> [u8; 8] {
@@ -283,7 +356,7 @@ mod test_runner {
             // Derive the pool ATA using the same logic as create_pool_mock
             let pool_ata = anchor_spl::associated_token::get_associated_token_address(
                 &anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
-                &anchor_lang::prelude::Pubkey::from(mint.to_bytes())
+                &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
             );
             let pool_ata_account_meta = AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false); // Use the derived pool ATA
 
@@ -294,7 +367,6 @@ mod test_runner {
                 AccountMeta::new(pool, false),
                 pool_ata_account_meta,
                 AccountMeta::new(mint, false),
-                AccountMeta::new(b_mint, false),
                 AccountMeta::new(solana_sdk_ids::system_program::ID, false),
                 AccountMeta::new_readonly(
                     Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
@@ -302,9 +374,7 @@ mod test_runner {
                 ),
             ];
 
-            let args = crate::instructions::SellVirtualTokenArgs {
-                b_amount,
-            };
+            let args = crate::instructions::SellVirtualTokenArgs { b_amount };
 
             let instruction = Instruction {
                 program_id: self.program_id,

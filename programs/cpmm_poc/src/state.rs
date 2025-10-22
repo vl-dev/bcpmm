@@ -74,10 +74,6 @@ pub struct BcpmmPool {
     pub creator_fee_basis_points: u16,
     /// Buyback fee basis points
     pub buyback_fee_basis_points: u16,
-
-    /// Burn allowance for the pool
-    pub burns_today: u16,
-    pub last_burn_timestamp: u64,
 }
 
 impl BcpmmPool {
@@ -108,8 +104,6 @@ impl BcpmmPool {
             buyback_fees_balance: 0,
             creator_fee_basis_points,
             buyback_fee_basis_points,
-            burns_today: 0,
-            last_burn_timestamp: 0,
         })
     }
 }
