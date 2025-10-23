@@ -74,12 +74,11 @@ pub fn burn_virtual_token(
 #[cfg(test)]
 mod tests {
     use crate::state::BcpmmPool;
-    use crate::test_utils::TestRunner;
+    use crate::test_utils::{TestRunner, TestPool};
     use anchor_lang::prelude::*;
     use solana_sdk::signature::{Keypair, Signer};
 
-    #[test]
-    fn test_burn_virtual_token() {
+    fn setup_test() -> (TestRunner, Keypair, TestPool) {
         // Parameters
         let a_reserve = 1_000_000;
         let a_virtual_reserve = 500_000;
@@ -91,8 +90,8 @@ mod tests {
         let buyback_fees_balance = 0;
 
         let mut runner = TestRunner::new();
-
         let payer = Keypair::new();
+        
         runner.create_central_state_mock(
             &payer,
             5,
@@ -115,6 +114,13 @@ mod tests {
             creator_fees_balance,
             buyback_fees_balance,
         );
+
+        (runner, payer, pool)
+    }
+
+    #[test]
+    fn test_burn_virtual_token() {
+        let ( mut runner, payer, pool) = setup_test();
         
         // Burn at a certain timestamp
         runner.set_system_clock(1682899200);
@@ -140,41 +146,7 @@ mod tests {
 
     #[test]
     fn test_burn_virtual_token_twice() {
-        // Parameters
-        let a_reserve = 1_000_000;
-        let a_virtual_reserve = 500_000;
-        let b_reserve = 1_000_000;
-        let b_mint_decimals = 6;
-        let creator_fee_basis_points = 200;
-        let buyback_fee_basis_points = 600;
-        let creator_fees_balance = 0;
-        let buyback_fees_balance = 0;
-
-        let mut runner = TestRunner::new();
-
-        let payer = Keypair::new();
-        runner.create_central_state_mock(
-            &payer,
-            5,
-            5,
-            20,
-            10,
-            36_000, // 10AM
-        );
-        runner.airdrop(&payer.pubkey(), 10_000_000_000);
-        let a_mint = runner.create_mint(&payer, 9);
-        let pool = runner.create_pool_mock(
-            &payer,
-            a_mint,
-            a_reserve,
-            a_virtual_reserve,
-            b_reserve,
-            b_mint_decimals,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            creator_fees_balance,
-            buyback_fees_balance,
-        );
+        let ( mut runner, payer, pool) = setup_test();
         
         // Set up user burn allowance with 1 burn already recorded (1 hour ago)
         let one_hour_ago = 1682899200 - 3600; // 1 hour before the test timestamp
@@ -208,41 +180,7 @@ mod tests {
 
     #[test]
     fn test_burn_virtual_token_after_reset() {
-        // Parameters
-        let a_reserve = 1_000_000;
-        let a_virtual_reserve = 500_000;
-        let b_reserve = 1_000_000;
-        let b_mint_decimals = 6;
-        let creator_fee_basis_points = 200;
-        let buyback_fee_basis_points = 600;
-        let creator_fees_balance = 0;
-        let buyback_fees_balance = 0;
-
-        let mut runner = TestRunner::new();
-
-        let payer = Keypair::new();
-        runner.create_central_state_mock(
-            &payer,
-            5,
-            5,
-            20,
-            10,
-            36_000, // 10AM
-        );
-        runner.airdrop(&payer.pubkey(), 10_000_000_000);
-        let a_mint = runner.create_mint(&payer, 9);
-        let pool = runner.create_pool_mock(
-            &payer,
-            a_mint,
-            a_reserve,
-            a_virtual_reserve,
-            b_reserve,
-            b_mint_decimals,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            creator_fees_balance,
-            buyback_fees_balance,
-        );
+        let ( mut runner, payer, pool) = setup_test();
         
         // Set up user burn allowance with 1 burn already recorded
         let one_hour_ago = 1682899200;
@@ -276,41 +214,7 @@ mod tests {
 
     #[test]
     fn test_burn_virtual_token_past_limit() {
-        // Parameters
-        let a_reserve = 1_000_000;
-        let a_virtual_reserve = 500_000;
-        let b_reserve = 1_000_000;
-        let b_mint_decimals = 6;
-        let creator_fee_basis_points = 200;
-        let buyback_fee_basis_points = 600;
-        let creator_fees_balance = 0;
-        let buyback_fees_balance = 0;
-
-        let mut runner = TestRunner::new();
-
-        let payer = Keypair::new();
-        runner.create_central_state_mock(
-            &payer,
-            5,
-            5,
-            20,
-            10,
-            36_000, // 10AM
-        );
-        runner.airdrop(&payer.pubkey(), 10_000_000_000);
-        let a_mint = runner.create_mint(&payer, 9);
-        let pool = runner.create_pool_mock(
-            &payer,
-            a_mint,
-            a_reserve,
-            a_virtual_reserve,
-            b_reserve,
-            b_mint_decimals,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            creator_fees_balance,
-            buyback_fees_balance,
-        );
+        let ( mut runner, payer, pool) = setup_test();
         
         // Set up user burn allowance with 5 burns already recorded (1 hour ago)
         let one_hour_ago = 1682899200 - 3600; // 1 hour before the test timestamp
@@ -332,42 +236,8 @@ mod tests {
     }
 
     #[test]
-   fn test_burn_virtual_token_past_limit_after_reset() {
-        // Parameters
-        let a_reserve = 1_000_000;
-        let a_virtual_reserve = 500_000;
-        let b_reserve = 1_000_000;
-        let b_mint_decimals = 6;
-        let creator_fee_basis_points = 200;
-        let buyback_fee_basis_points = 600;
-        let creator_fees_balance = 0;
-        let buyback_fees_balance = 0;
-
-        let mut runner = TestRunner::new();
-
-        let payer = Keypair::new();
-        runner.create_central_state_mock(
-            &payer,
-            5,
-            5,
-            20,
-            10,
-            36_000, // 10AM
-        );
-        runner.airdrop(&payer.pubkey(), 10_000_000_000);
-        let a_mint = runner.create_mint(&payer, 9);
-        let pool = runner.create_pool_mock(
-            &payer,
-            a_mint,
-            a_reserve,
-            a_virtual_reserve,
-            b_reserve,
-            b_mint_decimals,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            creator_fees_balance,
-            buyback_fees_balance,
-        );
+    fn test_burn_virtual_token_past_limit_after_reset() {
+        let ( mut runner, payer, pool) = setup_test();
         
         // Set up user burn allowance with 5 burns already recorded (1 hour ago)
         let one_hour_ago = 1682899200 - 3600; // 1 hour before the test timestamp

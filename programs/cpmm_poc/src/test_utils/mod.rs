@@ -567,4 +567,4 @@ mod test_runner {
 }
 
 #[cfg(test)]
-pub use test_runner::TestRunner;
+pub use test_runner::{TestRunner, TestPool};
