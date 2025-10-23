@@ -31,8 +31,8 @@ pub fn burn_virtual_token(
     // Check if we should reset the daily burn count
     // We reset it if we have passed the burn reset window and previous burn was before the reset
     let now = Clock::get()?.unix_timestamp;
-    if ctx.accounts.central_state.is_after_burn_reset(now) &&
-      !ctx.accounts.central_state.is_after_burn_reset(ctx.accounts.user_burn_allowance.last_burn_timestamp) {
+    if ctx.accounts.central_state.is_after_burn_reset(now)? &&
+      !ctx.accounts.central_state.is_after_burn_reset(ctx.accounts.user_burn_allowance.last_burn_timestamp)? {
 
         ctx.accounts.user_burn_allowance.burns_today = 1;
 
@@ -47,8 +47,8 @@ pub fn burn_virtual_token(
     ctx.accounts.user_burn_allowance.last_burn_timestamp = now;
 
     // Check if we should reset the pool's daily burn count
-    if ctx.accounts.central_state.is_after_burn_reset(now) &&
-      !ctx.accounts.central_state.is_after_burn_reset(ctx.accounts.pool.last_burn_timestamp) {
+    if ctx.accounts.central_state.is_after_burn_reset(now)? &&
+      !ctx.accounts.central_state.is_after_burn_reset(ctx.accounts.pool.last_burn_timestamp)? {
         ctx.accounts.pool.burns_today = 1;
 
     // Not resetting so just increment the burn count for today.
@@ -71,4 +71,55 @@ pub fn burn_virtual_token(
     ctx.accounts.pool.a_virtual_reserve = new_virtual_reserve;
     ctx.accounts.pool.b_reserve -= burn_amount;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::helpers::{calculate_buy_output_amount, calculate_fees};
+    use crate::state::BcpmmPool;
+    use crate::test_utils::TestRunner;
+    use anchor_lang::prelude::*;
+    use solana_sdk::signature::{Keypair, Signer};
+
+    #[test]
+    fn test_burn_virtual_token() {
+        // Parameters
+        let a_amount = 5000;
+        let a_reserve = 1_000_000;
+        let a_virtual_reserve = 500_000;
+        let b_reserve = 1_000_000;
+        let b_mint_decimals = 6;
+        let creator_fee_basis_points = 200;
+        let buyback_fee_basis_points = 600;
+        let creator_fees_balance = 0;
+        let buyback_fees_balance = 0;
+
+        let mut runner = TestRunner::new();
+        let payer = Keypair::new();
+        runner.airdrop(&payer.pubkey(), 10_000_000_000);
+        let a_mint = runner.create_mint(&payer, 9);
+        let pool = runner.create_pool_mock(
+            &payer,
+            a_mint,
+            a_reserve,
+            a_virtual_reserve,
+            b_reserve,
+            b_mint_decimals,
+            creator_fee_basis_points,
+            buyback_fee_basis_points,
+            creator_fees_balance,
+            buyback_fees_balance,
+        );
+
+        let user_burn_allowance = runner.initialize_user_burn_allowance(
+            &payer, payer.pubkey()).unwrap();
+
+        let burn_result = runner.burn_virtual_token(
+            &payer,
+            pool.pool,
+            user_burn_allowance,
+            100, // b_amount_basis_points
+        );
+        assert!(burn_result.is_ok());
+    }
 }

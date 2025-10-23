@@ -335,6 +335,147 @@ mod test_runner {
             })?;
             Ok(())
         }
+
+        pub fn initialize_user_burn_allowance(
+            &mut self,
+            payer: &Keypair,
+            owner: Pubkey,
+        ) -> Result<Pubkey> {
+            // Helper function to calculate instruction discriminator
+            fn get_discriminator(instruction_name: &str) -> [u8; 8] {
+                use sha2::{Digest, Sha256};
+                let mut hasher = Sha256::new();
+                hasher.update(format!("global:{}", instruction_name));
+                let result = hasher.finalize();
+                let mut discriminator = [0u8; 8];
+                discriminator.copy_from_slice(&result[..8]);
+                discriminator
+            }
+
+            // Derive the CentralState PDA
+            let (central_state_pda, _central_bump) = Pubkey::find_program_address(
+                &[cpmm_state::CENTRAL_STATE_SEED],
+                &self.program_id,
+            );
+
+            // Derive the UserBurnAllowance PDA
+            let (user_burn_allowance_pda, _bump) = Pubkey::find_program_address(
+                &[cpmm_state::USER_BURN_ALLOWANCE_SEED, owner.as_ref()],
+                &self.program_id,
+            );
+
+            let accounts = vec![
+                AccountMeta::new(payer.pubkey(), true),
+                AccountMeta::new_readonly(owner, false),
+                AccountMeta::new_readonly(central_state_pda, false),
+                AccountMeta::new(user_burn_allowance_pda, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
+            ];
+
+            let instruction = Instruction {
+                program_id: self.program_id,
+                accounts: accounts,
+                data: {
+                    let mut data = Vec::new();
+                    data.extend_from_slice(&get_discriminator("initialize_user_burn_allowance"));
+                    data
+                },
+            };
+
+            let tx = Transaction::new_signed_with_payer(
+                &[instruction],
+                Some(&payer.pubkey()),
+                &[&payer],
+                self.svm.latest_blockhash(),
+            );
+
+            self.svm.send_transaction(tx).map_err(|err| {
+                println!("Initialize user burn allowance failed: {:?}", err);
+                anchor_lang::error::Error::from(
+                    anchor_lang::error::ErrorCode::AccountDidNotDeserialize,
+                )
+            })?;
+
+            Ok(user_burn_allowance_pda)
+        }
+
+        pub fn burn_virtual_token(
+            &mut self,
+            payer: &Keypair,
+            pool: Pubkey,
+            user_burn_allowance: Pubkey,
+            b_amount_basis_points: u16,
+        ) -> Result<()> {
+
+            // Derive the CentralState PDA
+            let (central_state_pda, _central_bump) = Pubkey::find_program_address(
+                &[cpmm_state::CENTRAL_STATE_SEED],
+                &self.program_id,
+            );
+
+            // Helper function to calculate instruction discriminator
+            fn get_discriminator(instruction_name: &str) -> [u8; 8] {
+                use sha2::{Digest, Sha256};
+                let mut hasher = Sha256::new();
+                hasher.update(format!("global:{}", instruction_name));
+                let result = hasher.finalize();
+                let mut discriminator = [0u8; 8];
+                discriminator.copy_from_slice(&result[..8]);
+                discriminator
+            }
+
+            let accounts = vec![
+                AccountMeta::new(payer.pubkey(), true),
+                AccountMeta::new(pool, false),
+                AccountMeta::new(user_burn_allowance, false),
+                AccountMeta::new(central_state_pda, false),
+            ];
+
+            let args = crate::instructions::BurnVirtualTokenArgs {
+                b_amount_basis_points,
+            };
+
+            let instruction = Instruction {
+                program_id: self.program_id,
+                accounts: accounts,
+                data: {
+                    let mut data = Vec::new();
+                    data.extend_from_slice(&get_discriminator("burn_virtual_token"));
+                    args.serialize(&mut data).unwrap();
+                    data
+                },
+            };
+
+            let tx = Transaction::new_signed_with_payer(
+                &[instruction],
+                Some(&payer.pubkey()),
+                &[&payer],
+                self.svm.latest_blockhash(),
+            );
+
+            self.svm.send_transaction(tx).map_err(|err| {
+                println!("Burn virtual token failed: {:?}", err);
+                anchor_lang::error::Error::from(
+                    anchor_lang::error::ErrorCode::AccountDidNotDeserialize,
+                )
+            })?;
+
+            Ok(())
+        }
+
+        pub fn get_user_burn_allowance(&self, user_burn_allowance: &Pubkey) -> Result<cpmm_state::UserBurnAllowance> {
+            let account = self.svm.get_account(user_burn_allowance)
+                .ok_or_else(|| anchor_lang::error::Error::from(
+                    anchor_lang::error::ErrorCode::AccountDidNotDeserialize,
+                ))?;
+
+            // Skip the first 8 bytes (discriminator) and deserialize the UserBurnAllowance
+            let mut data = &account.data[8..];
+            cpmm_state::UserBurnAllowance::try_deserialize(&mut data)
+                .map_err(|_| anchor_lang::error::Error::from(
+                    anchor_lang::error::ErrorCode::AccountDidNotDeserialize,
+                ))
+        }
     }
 }
 

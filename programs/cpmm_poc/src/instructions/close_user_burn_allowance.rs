@@ -30,10 +30,11 @@ pub fn close_user_burn_allowance(
 
     // Only allow closing if the burn allowance is inactive: past the reset window and previous burn was before the reset.
     let now = Clock::get()?.unix_timestamp;
-    if ctx.accounts.central_state.is_after_burn_reset(now) &&
-        !ctx.accounts.central_state.is_after_burn_reset(ctx.accounts.user_burn_allowance.last_burn_timestamp) {
-        Ok(())
-    } else {
-        return Err(BcpmmError::CannotCloseActiveBurnAllowance.into());
-    }
+    require!(
+        ctx.accounts.central_state.is_after_burn_reset(now)? &&
+        !ctx.accounts.central_state.is_after_burn_reset(ctx.accounts.user_burn_allowance.last_burn_timestamp)?,
+        BcpmmError::CannotCloseActiveBurnAllowance
+    );
+
+    Ok(())
 }

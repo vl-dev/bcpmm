@@ -21,14 +21,21 @@ pub struct CentralState {
     pub burn_reset_time_of_day_seconds: u32, // Seconds from midnight
 }
 
+/// Check if given time is after today's burn reset timestamp (for testing with mock time).
+pub fn is_after_burn_reset_with_time( time_to_check: i64, current_time: i64, reset_time_of_day_seconds: u32) -> bool {
+    let todays_midnight = current_time - current_time.rem_euclid(86400);
+    let todays_reset_ts = todays_midnight + reset_time_of_day_seconds as i64;
+    time_to_check >= todays_reset_ts
+}
+
 impl CentralState {
-    pub fn new(
-        admin: Pubkey,
-        daily_burn_allowance: u16,
-        creator_daily_burn_allowance: u16,
-        user_burn_bp: u16,
-        creator_burn_bp: u16,
-        burn_reset_time_of_day_seconds: u32,
+pub fn new(
+    admin: Pubkey,
+    daily_burn_allowance: u16,
+    creator_daily_burn_allowance: u16,
+    user_burn_bp: u16,
+    creator_burn_bp: u16,
+    burn_reset_time_of_day_seconds: u32,
     ) -> Self {
         Self {
             admin,
@@ -41,10 +48,12 @@ impl CentralState {
         }
     }
 
-    pub fn is_after_burn_reset(&self, current_time: i64) -> bool {
-        let seconds_since_midnight = (current_time % 86400) as u32;
-        seconds_since_midnight >= self.burn_reset_time_of_day_seconds
+    /// Check if given time is after today's burn reset timestamp.
+    pub fn is_after_burn_reset(&self, time_to_check: i64) -> Result<bool> {
+        let now = Clock::get()?.unix_timestamp;
+        Ok(is_after_burn_reset_with_time(time_to_check, now, self.burn_reset_time_of_day_seconds))
     }
+
 }
 
 // A is the real SPL token
@@ -150,4 +159,31 @@ impl UserBurnAllowance {
     ) -> Self {
         Self { user, payer, burns_today: 0, last_burn_timestamp: 0 }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_after_burn_reset_with_time() {
+
+        let midnight = 1761177600;
+        let current_time = midnight + 1;
+        
+        let time_before_reset =  1761177660; // Just after midnight
+        assert!(!is_after_burn_reset_with_time(time_before_reset, current_time, 43200));
+        
+        let yesterday_night = 1761166800;
+        assert!(!is_after_burn_reset_with_time(yesterday_night, current_time, 43200));
+
+        
+        let time_after_reset_same_day  = 1761224400;
+        assert!(is_after_burn_reset_with_time(time_after_reset_same_day, current_time, 43200));
+
+        let next_day  = 1761264000;
+        assert!(is_after_burn_reset_with_time(next_day, current_time, 43200));
+        
+    }
+
 }
