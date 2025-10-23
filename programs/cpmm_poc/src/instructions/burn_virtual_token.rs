@@ -24,8 +24,8 @@ pub fn burn_virtual_token(
     pool_owner: bool,
 ) -> Result<()> {
 
-    // If pool owner, the signer must be the pool creator.
-    // This check also prevents a creator from burning as a user of their own pool.
+    // If burning as a pool owner, the signer must be the pool creator.
+    // We are also checking if the creator is trying to burn as a user of their own pool.
     require!(pool_owner == (ctx.accounts.pool.creator == ctx.accounts.signer.key()), BcpmmError::InvalidPoolOwner);
     let burn_bp_x100 = if pool_owner { ctx.accounts.central_state.creator_burn_bp_x100 } else { ctx.accounts.central_state.user_burn_bp_x100 };
     let burn_allowance = if pool_owner { ctx.accounts.central_state.creator_daily_burn_allowance } else { ctx.accounts.central_state.daily_burn_allowance };
