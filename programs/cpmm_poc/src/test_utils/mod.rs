@@ -13,6 +13,27 @@ mod test_runner {
         transaction::Transaction,
     };
 
+    #[derive(Debug)]
+    pub struct TransactionError {
+        pub message: String,
+    }
+
+    impl std::fmt::Display for TransactionError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "Transaction failed: {}", self.message)
+        }
+    }
+
+    impl std::error::Error for TransactionError {}
+
+    impl From<TransactionError> for anchor_lang::error::Error {
+        fn from(_err: TransactionError) -> Self {
+            anchor_lang::error::Error::from(
+                anchor_lang::error::ErrorCode::AccountDidNotDeserialize
+            )
+        }
+    }
+
     pub struct TestRunner {
         pub svm: LiteSVM,
         pub program_id: Pubkey,
@@ -274,7 +295,7 @@ mod test_runner {
             virtual_token_account: Pubkey,
             a_amount: u64,
             b_amount_min: u64,
-        ) -> Result<()> {
+        ) -> std::result::Result<(), TransactionError> {
             // Helper function to calculate instruction discriminator
             fn get_discriminator(instruction_name: &str) -> [u8; 8] {
                 use sha2::{Digest, Sha256};
@@ -328,12 +349,10 @@ mod test_runner {
                 self.svm.latest_blockhash(),
             );
 
-            // todo return different errors, now only returns AccountDidNotDeserialize
             self.svm.send_transaction(tx).map_err(|err| {
-                println!("Transaction failed: {:?}", err);
-                anchor_lang::error::Error::from(
-                    anchor_lang::error::ErrorCode::AccountDidNotDeserialize,
-                )
+                TransactionError {
+                    message: format!("{:?}", err),
+                }
             })?;
             Ok(())
         }
@@ -346,7 +365,7 @@ mod test_runner {
             pool: Pubkey,
             virtual_token_account: Pubkey,
             b_amount: u64,
-        ) -> Result<()> {
+        ) -> std::result::Result<(), TransactionError> {
             // Helper function to calculate instruction discriminator
             fn get_discriminator(instruction_name: &str) -> [u8; 8] {
                 use sha2::{Digest, Sha256};
@@ -399,12 +418,10 @@ mod test_runner {
                 self.svm.latest_blockhash(),
             );
 
-            // todo return different errors, now only returns AccountDidNotDeserialize
             self.svm.send_transaction(tx).map_err(|err| {
-                println!("Transaction failed: {:?}", err);
-                anchor_lang::error::Error::from(
-                    anchor_lang::error::ErrorCode::AccountDidNotDeserialize,
-                )
+                TransactionError {
+                    message: format!("{:?}", err),
+                }
             })?;
             Ok(())
         }
@@ -413,7 +430,7 @@ mod test_runner {
             &mut self,
             payer: &Keypair,
             owner: Pubkey,
-        ) -> Result<Pubkey> {
+        ) -> std::result::Result<Pubkey, TransactionError> {
             // Helper function to calculate instruction discriminator
             fn get_discriminator(instruction_name: &str) -> [u8; 8] {
                 use sha2::{Digest, Sha256};
@@ -463,10 +480,9 @@ mod test_runner {
             );
 
             self.svm.send_transaction(tx).map_err(|err| {
-                println!("Initialize user burn allowance failed: {:?}", err);
-                anchor_lang::error::Error::from(
-                    anchor_lang::error::ErrorCode::AccountDidNotDeserialize,
-                )
+                TransactionError {
+                    message: format!("{:?}", err),
+                }
             })?;
 
             Ok(user_burn_allowance_pda)
@@ -477,7 +493,7 @@ mod test_runner {
             payer: &Keypair,
             pool: Pubkey,
             user_burn_allowance: Pubkey,
-        ) -> Result<()> {
+        ) -> std::result::Result<(), TransactionError> {
 
             // Derive the CentralState PDA
             let (central_state_pda, _central_bump) = Pubkey::find_program_address(
@@ -521,10 +537,9 @@ mod test_runner {
             );
 
             self.svm.send_transaction(tx).map_err(|err| {
-                println!("Burn virtual token failed: {:?}", err);
-                anchor_lang::error::Error::from(
-                    anchor_lang::error::ErrorCode::AccountDidNotDeserialize,
-                )
+                TransactionError {
+                    message: format!("{:?}", err),
+                }
             })?;
 
             Ok(())
