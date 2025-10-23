@@ -1,9 +1,8 @@
 use crate::errors::BcpmmError;
-use crate::helpers::{calculate_fees, calculate_sell_output_amount};
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
-    transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
+    Mint, TokenAccount, TokenInterface,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]

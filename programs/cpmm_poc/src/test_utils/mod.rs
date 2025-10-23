@@ -142,9 +142,10 @@ mod test_runner {
             payer: Pubkey,
             burns_today: u16,
             last_burn_timestamp: i64,
+            is_pool_owner: bool,
         ) -> Pubkey {
             let (user_burn_allowance_pda, _bump) = Pubkey::find_program_address(
-                &[cpmm_state::USER_BURN_ALLOWANCE_SEED, user.as_ref()],
+                &[cpmm_state::USER_BURN_ALLOWANCE_SEED, user.as_ref(), &[is_pool_owner as u8]],
                 &self.program_id,
             );
             let user_burn_allowance = cpmm_state::UserBurnAllowance {
@@ -430,6 +431,7 @@ mod test_runner {
             &mut self,
             payer: &Keypair,
             owner: Pubkey,
+            is_pool_owner: bool,
         ) -> std::result::Result<Pubkey, TransactionError> {
             // Helper function to calculate instruction discriminator
             fn get_discriminator(instruction_name: &str) -> [u8; 8] {
@@ -450,7 +452,7 @@ mod test_runner {
 
             // Derive the UserBurnAllowance PDA
             let (user_burn_allowance_pda, _bump) = Pubkey::find_program_address(
-                &[cpmm_state::USER_BURN_ALLOWANCE_SEED, owner.as_ref()],
+                &[cpmm_state::USER_BURN_ALLOWANCE_SEED, owner.as_ref(), &[is_pool_owner as u8]],
                 &self.program_id,
             );
 
@@ -468,6 +470,7 @@ mod test_runner {
                 data: {
                     let mut data = Vec::new();
                     data.extend_from_slice(&get_discriminator("initialize_user_burn_allowance"));
+                    is_pool_owner.serialize(&mut data).unwrap();
                     data
                 },
             };
@@ -493,6 +496,7 @@ mod test_runner {
             payer: &Keypair,
             pool: Pubkey,
             user_burn_allowance: Pubkey,
+            is_pool_owner: bool,
         ) -> std::result::Result<(), TransactionError> {
 
             // Derive the CentralState PDA
@@ -525,6 +529,7 @@ mod test_runner {
                 data: {
                     let mut data = Vec::new();
                     data.extend_from_slice(&get_discriminator("burn_virtual_token"));
+                    is_pool_owner.serialize(&mut data).unwrap();
                     data
                 },
             };

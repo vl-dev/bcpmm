@@ -25,8 +25,9 @@ pub mod cpmm_poc {
 
     pub fn initialize_user_burn_allowance(
         ctx: Context<InitializeUserBurnAllowance>,
+        pool_owner: bool,
     ) -> Result<()> {
-        instructions::initialize_user_burn_allowance(ctx)
+        instructions::initialize_user_burn_allowance(ctx, pool_owner)
     }
 
     pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
@@ -55,8 +56,9 @@ pub mod cpmm_poc {
 
     pub fn burn_virtual_token(
         ctx: Context<BurnVirtualToken>,
+        pool_owner: bool,
     ) -> Result<()> {
-        instructions::burn_virtual_token(ctx)
+        instructions::burn_virtual_token(ctx, pool_owner)
     }
 
     pub fn close_virtual_token_account(ctx: Context<CloseVirtualTokenAccount>) -> Result<()> {
@@ -64,7 +66,8 @@ pub mod cpmm_poc {
     }
     pub fn close_user_burn_allowance(
         ctx: Context<CloseUserBurnAllowance>,
+        args: CloseUserBurnAllowanceArgs,
     ) -> Result<()> {
-        instructions::close_user_burn_allowance(ctx)
+        instructions::close_user_burn_allowance(ctx, args)
     }
 }

@@ -28,4 +28,6 @@ pub enum BcpmmError {
     InvalidBuybackFeeBasisPoints,
     #[msg("Underflow")]
     Underflow,
+    #[msg("Invalid pool owner")]
+    InvalidPoolOwner,
 }
