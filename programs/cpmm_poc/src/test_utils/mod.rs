@@ -69,6 +69,29 @@ mod test_runner {
             return ata;
         }
 
+        pub fn put_account_on_chain<T>(&mut self, account_address: &Pubkey, account_data: T) -> Pubkey 
+        where 
+            T: anchor_lang::AccountSerialize,
+        {
+            let mut serialized_data = Vec::new();
+            account_data
+                .try_serialize(&mut serialized_data)
+                .unwrap();
+            self.svm
+                .set_account(
+                    *account_address,
+                    solana_sdk::account::Account {
+                        lamports: 1_000_000,
+                        data: serialized_data,
+                        owner: self.program_id,
+                        executable: false,
+                        rent_epoch: 0,
+                    },
+                )
+                .unwrap();
+            *account_address
+        }
+
         pub fn create_central_state_mock(
             &mut self,
             payer: &Keypair,
@@ -89,23 +112,7 @@ mod test_runner {
                 creator_burn_bp_x100,
                 burn_reset_time_of_day_seconds,
             );
-            let mut central_state_data = Vec::new();
-            central_state
-                .try_serialize(&mut central_state_data)
-                .unwrap();
-            self.svm
-                .set_account(
-                    central_state_pda,
-                    solana_sdk::account::Account {
-                        lamports: 1_000_000,
-                        data: central_state_data,
-                        owner: self.program_id,
-                        executable: false,
-                        rent_epoch: 0,
-                    },
-                )
-                .unwrap();
-            central_state_pda
+            self.put_account_on_chain(&central_state_pda, central_state)
         }
 
         pub fn create_user_burn_allowance_mock(
@@ -125,23 +132,7 @@ mod test_runner {
                 burns_today,
                 last_burn_timestamp,
             };
-            let mut user_burn_allowance_data = Vec::new();
-            user_burn_allowance
-                .try_serialize(&mut user_burn_allowance_data)
-                .unwrap();
-            self.svm
-                .set_account(
-                    user_burn_allowance_pda,
-                    solana_sdk::account::Account {
-                        lamports: 1_000_000,
-                        data: user_burn_allowance_data,
-                        owner: self.program_id,
-                        executable: false,
-                        rent_epoch: 0,
-                    },
-                )
-                .unwrap();
-            user_burn_allowance_pda
+            self.put_account_on_chain(&Pubkey::from(user_burn_allowance_pda.to_bytes()), user_burn_allowance)
         }
 
         pub fn airdrop(&mut self, receiver: &Pubkey, amount: u64) {
@@ -172,22 +163,7 @@ mod test_runner {
 
             let b_mint_index = central_state_data.b_mint_index;
             central_state_data.b_mint_index += 1;
-            let mut central_state_data_vec = Vec::new();
-            central_state_data
-                .try_serialize(&mut central_state_data_vec)
-                .unwrap();
-            self.svm
-                .set_account(
-                    central_state_pda,
-                    solana_sdk::account::Account {
-                        lamports: 1_000_000,
-                        data: central_state_data_vec,
-                        owner: self.program_id,
-                        executable: false,
-                        rent_epoch: 0,
-                    },
-                )
-                .unwrap();
+            self.put_account_on_chain(&central_state_pda, central_state_data);
 
             // Setup PDAs consistent with on-chain seeds
             let (pool_pda, pool_bump) = Pubkey::find_program_address(
@@ -217,26 +193,13 @@ mod test_runner {
                 last_burn_timestamp: 0,
             };
 
-            let mut pool_account_data = Vec::new();
-            pool_data.try_serialize(&mut pool_account_data).unwrap();
+            self.put_account_on_chain(&pool_pda, pool_data);
 
             let pool_ata_pubkey = CreateAssociatedTokenAccount::new(&mut self.svm, &payer, &a_mint)
                 .owner(&pool_pda)
                 .send()
                 .unwrap();
 
-            self.svm
-                .set_account(
-                    pool_pda,
-                    solana_sdk::account::Account {
-                        lamports: 1_000_000,
-                        data: pool_account_data,
-                        owner: self.program_id,
-                        executable: false,
-                        rent_epoch: 0,
-                    },
-                )
-                .unwrap();
 
             let needed_balance = a_reserve + creator_fees_balance + buyback_fees_balance;
             // mint appropriate amount of A tokens to pool

@@ -22,6 +22,7 @@ pub fn burn_virtual_token(
     ctx: Context<BurnVirtualToken>,
 ) -> Result<()> {
 
+    // TODO: creator burn allowance tracking!
     let is_pool_owner = ctx.accounts.pool.creator == ctx.accounts.signer.key();
     let burn_bp_x100 = if is_pool_owner { ctx.accounts.central_state.creator_burn_bp_x100 } else { ctx.accounts.central_state.user_burn_bp_x100 };
 
@@ -72,10 +73,8 @@ pub fn burn_virtual_token(
 
 #[cfg(test)]
 mod tests {
-    use crate::helpers::{calculate_buy_output_amount, calculate_fees};
     use crate::state::BcpmmPool;
     use crate::test_utils::TestRunner;
-    use solana_sdk::clock::Clock;
     use anchor_lang::prelude::*;
     use solana_sdk::signature::{Keypair, Signer};
 
@@ -182,8 +181,8 @@ mod tests {
         let user_burn_allowance = runner.create_user_burn_allowance_mock(
             payer.pubkey(),
             payer.pubkey(),
-            1, // burns_today = 1
-            one_hour_ago, // last_burn_timestamp = 1 hour ago
+            1,
+            one_hour_ago,
         );
 
         // Burn at current timestamp
@@ -250,8 +249,8 @@ mod tests {
         let user_burn_allowance = runner.create_user_burn_allowance_mock(
             payer.pubkey(),
             payer.pubkey(),
-            1, // burns_today = 1
-            one_hour_ago, // last_burn_timestamp = 1 hour ago
+            1,
+            one_hour_ago,
         );
 
         // Burn at 10:00:01 AM
@@ -276,7 +275,7 @@ mod tests {
     }
 
     #[test]
-   fn test_burn_virtual_token_past_limit() {
+    fn test_burn_virtual_token_past_limit() {
         // Parameters
         let a_reserve = 1_000_000;
         let a_virtual_reserve = 500_000;
