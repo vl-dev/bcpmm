@@ -55,9 +55,8 @@ pub mod cpmm_poc {
 
     pub fn burn_virtual_token(
         ctx: Context<BurnVirtualToken>,
-        args: BurnVirtualTokenArgs,
     ) -> Result<()> {
-        instructions::burn_virtual_token(ctx, args)
+        instructions::burn_virtual_token(ctx)
     }
 
     pub fn close_virtual_token_account(ctx: Context<CloseVirtualTokenAccount>) -> Result<()> {

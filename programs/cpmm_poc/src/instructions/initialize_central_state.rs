@@ -5,8 +5,8 @@ use anchor_lang::prelude::*;
 pub struct InitializeCentralStateArgs {
     pub daily_burn_allowance: u16,         
     pub creator_daily_burn_allowance: u16, 
-    pub user_burn_bp: u16,                 
-    pub creator_burn_bp: u16,              
+    pub user_burn_bp_x100: u32,                 
+    pub creator_burn_bp_x100: u32,              
     pub burn_reset_time_of_day_seconds: u32, // Seconds from midnight
 }
 
@@ -28,8 +28,8 @@ pub fn initialize_central_state(
         ctx.accounts.admin.key(),
         args.daily_burn_allowance,
         args.creator_daily_burn_allowance,
-        args.user_burn_bp,
-        args.creator_burn_bp,
+        args.user_burn_bp_x100,
+        args.creator_burn_bp_x100,
         args.burn_reset_time_of_day_seconds,
     ));
     Ok(())

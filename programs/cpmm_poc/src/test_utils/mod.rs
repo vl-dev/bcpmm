@@ -3,6 +3,7 @@ mod test_runner {
     use crate::instructions::BuyVirtualTokenArgs;
     use crate::state as cpmm_state;
     use anchor_lang::prelude::*;
+    use solana_sdk::clock::Clock;
     use litesvm::LiteSVM;
     use litesvm_token::{CreateAssociatedTokenAccount, CreateMint, MintTo};
     use solana_sdk::{
@@ -71,11 +72,11 @@ mod test_runner {
         pub fn create_central_state_mock(
             &mut self,
             payer: &Keypair,
-            daily_burn_allowance: u64,
-            creator_daily_burn_allowance: u64,
-            user_burn_bp: u16,
-            creator_burn_bp: u16,
-            burn_reset_time: u64,
+            daily_burn_allowance: u16,
+            creator_daily_burn_allowance: u16,
+            user_burn_bp_x100: u32,
+            creator_burn_bp_x100: u32,
+            burn_reset_time_of_day_seconds: u32,
         ) -> Pubkey {
             let (central_state_pda, central_state_bump) =
                 Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
@@ -84,9 +85,9 @@ mod test_runner {
                 anchor_lang::prelude::Pubkey::from(payer.pubkey().to_bytes()),
                 daily_burn_allowance,
                 creator_daily_burn_allowance,
-                user_burn_bp,
-                creator_burn_bp,
-                burn_reset_time,
+                user_burn_bp_x100,
+                creator_burn_bp_x100,
+                burn_reset_time_of_day_seconds,
             );
             let mut central_state_data = Vec::new();
             central_state
@@ -105,6 +106,42 @@ mod test_runner {
                 )
                 .unwrap();
             central_state_pda
+        }
+
+        pub fn create_user_burn_allowance_mock(
+            &mut self,
+            user: Pubkey,
+            payer: Pubkey,
+            burns_today: u16,
+            last_burn_timestamp: i64,
+        ) -> Pubkey {
+            let (user_burn_allowance_pda, _bump) = Pubkey::find_program_address(
+                &[cpmm_state::USER_BURN_ALLOWANCE_SEED, user.as_ref()],
+                &self.program_id,
+            );
+            let user_burn_allowance = cpmm_state::UserBurnAllowance {
+                user: anchor_lang::prelude::Pubkey::from(user.to_bytes()),
+                payer: anchor_lang::prelude::Pubkey::from(payer.to_bytes()),
+                burns_today,
+                last_burn_timestamp,
+            };
+            let mut user_burn_allowance_data = Vec::new();
+            user_burn_allowance
+                .try_serialize(&mut user_burn_allowance_data)
+                .unwrap();
+            self.svm
+                .set_account(
+                    user_burn_allowance_pda,
+                    solana_sdk::account::Account {
+                        lamports: 1_000_000,
+                        data: user_burn_allowance_data,
+                        owner: self.program_id,
+                        executable: false,
+                        rent_epoch: 0,
+                    },
+                )
+                .unwrap();
+            user_burn_allowance_pda
         }
 
         pub fn airdrop(&mut self, receiver: &Pubkey, amount: u64) {
@@ -477,7 +514,6 @@ mod test_runner {
             payer: &Keypair,
             pool: Pubkey,
             user_burn_allowance: Pubkey,
-            b_amount_basis_points: u16,
         ) -> Result<()> {
 
             // Derive the CentralState PDA
@@ -504,17 +540,12 @@ mod test_runner {
                 AccountMeta::new(central_state_pda, false),
             ];
 
-            let args = crate::instructions::BurnVirtualTokenArgs {
-                b_amount_basis_points,
-            };
-
             let instruction = Instruction {
                 program_id: self.program_id,
                 accounts: accounts,
                 data: {
                     let mut data = Vec::new();
                     data.extend_from_slice(&get_discriminator("burn_virtual_token"));
-                    args.serialize(&mut data).unwrap();
                     data
                 },
             };
@@ -536,18 +567,23 @@ mod test_runner {
             Ok(())
         }
 
-        pub fn get_user_burn_allowance(&self, user_burn_allowance: &Pubkey) -> Result<cpmm_state::UserBurnAllowance> {
-            let account = self.svm.get_account(user_burn_allowance)
+        pub fn get_user_burn_allowance(&self, address: &Pubkey) -> Result<cpmm_state::UserBurnAllowance> {
+            let account = self.svm.get_account(address)
                 .ok_or_else(|| anchor_lang::error::Error::from(
                     anchor_lang::error::ErrorCode::AccountDidNotDeserialize,
                 ))?;
 
             // Skip the first 8 bytes (discriminator) and deserialize the UserBurnAllowance
-            let mut data = &account.data[8..];
-            cpmm_state::UserBurnAllowance::try_deserialize(&mut data)
+            cpmm_state::UserBurnAllowance::try_deserialize(&mut account.data.as_slice())
                 .map_err(|_| anchor_lang::error::Error::from(
                     anchor_lang::error::ErrorCode::AccountDidNotDeserialize,
                 ))
+        }
+
+        pub fn set_system_clock(&mut self, timestamp: i64) {
+            let mut initial_clock = self.svm.get_sysvar::<Clock>();
+            initial_clock.unix_timestamp = timestamp;
+            self.svm.set_sysvar::<Clock>(&initial_clock);
         }
     }
 }

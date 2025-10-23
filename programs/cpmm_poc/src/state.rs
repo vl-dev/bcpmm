@@ -21,8 +21,8 @@ pub struct CentralState {
     pub b_mint_index: u64,
     pub daily_burn_allowance: u16,
     pub creator_daily_burn_allowance: u16,
-    pub user_burn_bp: u16, 
-    pub creator_burn_bp: u16,
+    pub user_burn_bp_x100: u32, 
+    pub creator_burn_bp_x100: u32,
     pub burn_reset_time_of_day_seconds: u32, // Seconds from midnight
 }
 
@@ -39,8 +39,8 @@ impl CentralState {
         admin: Pubkey,
         daily_burn_allowance: u16,
         creator_daily_burn_allowance: u16,
-        user_burn_bp: u16,
-        creator_burn_bp: u16,
+        user_burn_bp_x100: u32,
+        creator_burn_bp_x100: u32,
         burn_reset_time_of_day_seconds: u32,
     ) -> Self {
         Self {
@@ -49,8 +49,8 @@ impl CentralState {
             b_mint_index: 0,
             daily_burn_allowance,
             creator_daily_burn_allowance,
-            user_burn_bp,
-            creator_burn_bp,
+            user_burn_bp_x100,
+            creator_burn_bp_x100,
             burn_reset_time_of_day_seconds,
         }
     }

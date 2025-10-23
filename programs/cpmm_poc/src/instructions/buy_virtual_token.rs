@@ -192,12 +192,10 @@ mod tests {
         );
         assert!(result_buy.is_ok());
 
-        // Fetch the test_pool from testrunner lite svm and deserialize the account data
+        // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&test_pool.pool).unwrap();
         let pool_data: BcpmmPool =
             BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-
-        // Check that the reserves are updated correctly
         assert_eq!(pool_data.a_reserve, a_amount_after_fees);
         assert_eq!(pool_data.b_reserve, b_reserve - calculated_b_amount_min);
         assert_eq!(pool_data.a_virtual_reserve, a_virtual_reserve); // Unchanged
