@@ -14,11 +14,12 @@ pub struct InitializeVirtualTokenAccount<'info> {
 }
 
 pub fn initialize_virtual_token_account(ctx: Context<InitializeVirtualTokenAccount>) -> Result<()> {
-    let virtual_token_account = &mut ctx.accounts.virtual_token_account;
-    virtual_token_account.pool = ctx.accounts.pool.key();
-    virtual_token_account.owner = ctx.accounts.owner.key();
-    virtual_token_account.balance = 0;
-    virtual_token_account.fees_paid = 0;
-
+    ctx.accounts
+        .virtual_token_account
+        .set_inner(VirtualTokenAccount::try_new(
+            ctx.bumps.virtual_token_account,
+            ctx.accounts.pool.key(),
+            ctx.accounts.owner.key(),
+        ));
     Ok(())
 }

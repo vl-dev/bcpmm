@@ -1,5 +1,9 @@
 use crate::errors::BcpmmError;
+use crate::helpers::{calculate_fees, calculate_sell_output_amount, Fees};
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{
+    transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
+};
 
 pub const CENTRAL_STATE_SEED: &[u8] = b"central_state";
 pub const BCPMM_POOL_SEED: &[u8] = b"bcpmm_pool";
@@ -12,6 +16,7 @@ pub const DEFAULT_B_MINT_RESERVE: u64 = 1_000_000_000 * 10u64.pow(DEFAULT_B_MINT
 #[account]
 #[derive(Default, InitSpace)]
 pub struct CentralState {
+    pub bump: u8,
     pub admin: Pubkey,
     pub b_mint_index: u64,
     pub daily_burn_allowance: u16,
@@ -29,15 +34,17 @@ pub fn is_after_burn_reset_with_time( time_to_check: i64, current_time: i64, res
 }
 
 impl CentralState {
-pub fn new(
-    admin: Pubkey,
-    daily_burn_allowance: u16,
-    creator_daily_burn_allowance: u16,
-    user_burn_bp: u16,
-    creator_burn_bp: u16,
-    burn_reset_time_of_day_seconds: u32,
+    pub fn new(
+        bump: u8,
+        admin: Pubkey,
+        daily_burn_allowance: u16,
+        creator_daily_burn_allowance: u16,
+        user_burn_bp: u16,
+        creator_burn_bp: u16,
+        burn_reset_time_of_day_seconds: u32,
     ) -> Self {
         Self {
+            bump,
             admin,
             b_mint_index: 0,
             daily_burn_allowance,
@@ -61,6 +68,8 @@ pub fn new(
 #[account]
 #[derive(Default, InitSpace)]
 pub struct BcpmmPool {
+    /// Bump seed
+    pub bump: u8,
     /// Pool creator address
     pub creator: Pubkey,
 
@@ -97,6 +106,7 @@ pub struct BcpmmPool {
 
 impl BcpmmPool {
     pub fn try_new(
+        bump: u8,
         creator: Pubkey,
         a_mint: Pubkey,
         a_virtual_reserve: u64,
@@ -111,6 +121,7 @@ impl BcpmmPool {
         );
 
         Ok(Self {
+            bump,
             creator,
             a_mint,
             a_reserve: 0,
@@ -127,11 +138,82 @@ impl BcpmmPool {
             last_burn_timestamp: 0,
         })
     }
+
+    pub fn calculate_fees(&self, a_amount: u64) -> anchor_lang::prelude::Result<Fees> {
+        calculate_fees(
+            a_amount,
+            self.creator_fee_basis_points,
+            self.buyback_fee_basis_points,
+        )
+    }
+
+    pub fn calculate_sell_output_amount(&self, b_amount: u64) -> u64 {
+        calculate_sell_output_amount(
+            b_amount,
+            self.b_reserve,
+            self.a_reserve,
+            self.a_virtual_reserve,
+        )
+    }
+
+    pub fn add(
+        &mut self,
+        output_amount: u64,
+        b_amount: u64,
+        creator_fees_amount: u64,
+        buyback_fees_amount: u64,
+    ) {
+        self.a_reserve -= output_amount;
+        self.b_reserve += b_amount;
+        self.creator_fees_balance += creator_fees_amount;
+
+        if self.a_remaining_topup > 0 {
+            let remaining_topup_amount = self.a_remaining_topup;
+            let real_topup_amount = if remaining_topup_amount > buyback_fees_amount {
+                buyback_fees_amount
+            } else {
+                remaining_topup_amount
+            };
+            self.a_remaining_topup = self.a_remaining_topup - real_topup_amount;
+            self.a_reserve += real_topup_amount;
+        } else {
+            self.buyback_fees_balance += buyback_fees_amount;
+        }
+    }
+
+    pub fn transfer_out<'info>(
+        &mut self,
+        amount: u64,
+        pool: &Account<'info, BcpmmPool>,
+        mint: &InterfaceAccount<'info, Mint>,
+        pool_ata: &InterfaceAccount<'info, TokenAccount>,
+        to: &InterfaceAccount<'info, TokenAccount>,
+        token_program: &Interface<'info, TokenInterface>,
+    ) -> Result<()> {
+        let cpi_accounts = TransferChecked {
+            mint: mint.to_account_info(),
+            from: pool_ata.to_account_info(),
+            to: to.to_account_info(),
+            authority: pool.to_account_info(),
+        };
+        let bump_seed = self.bump;
+        let b_mint_index = &self.b_mint_index;
+        let b_mint_index_bytes = b_mint_index.to_le_bytes().to_vec();
+        let signer_seeds: &[&[&[u8]]] =
+            &[&[BCPMM_POOL_SEED, b_mint_index_bytes.as_slice(), &[bump_seed]]];
+        let cpi_context = CpiContext::new(token_program.to_account_info(), cpi_accounts)
+            .with_signer(signer_seeds);
+        let decimals = mint.decimals;
+        transfer_checked(cpi_context, amount, decimals)?;
+        Ok(())
+    }
 }
 
 #[account]
 #[derive(Default, InitSpace)]
 pub struct VirtualTokenAccount {
+    /// Bump seed
+    pub bump: u8,
     /// Pool address
     pub pool: Pubkey,
     /// Owner address
@@ -140,6 +222,34 @@ pub struct VirtualTokenAccount {
     pub balance: u64,
     /// All fees paid when buying and selling tokens to this account. Denominated in Mint A including decimals
     pub fees_paid: u64,
+}
+
+impl VirtualTokenAccount {
+    pub fn try_new(bump: u8, pool: Pubkey, owner: Pubkey) -> Self {
+        Self {
+            bump,
+            pool,
+            owner,
+            balance: 0,
+            fees_paid: 0,
+        }
+    }
+
+    pub fn sub(
+        &mut self,
+        b_amount: u64,
+        creator_fees_amount: u64,
+        buyback_fees_amount: u64,
+    ) -> Result<()> {
+        require_gte!(
+            self.balance,
+            b_amount,
+            BcpmmError::InsufficientVirtualTokenBalance
+        );
+        self.balance -= b_amount;
+        self.fees_paid += creator_fees_amount + buyback_fees_amount;
+        Ok(())
+    }
 }
 
 #[account]

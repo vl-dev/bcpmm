@@ -19,19 +19,24 @@ pub struct BuyVirtualTokenArgs {
 pub struct BuyVirtualToken<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
-    #[account(mut)]
+    #[account(mut,
+        associated_token::mint = a_mint,
+        associated_token::authority = payer,
+        associated_token::token_program = token_program        
+    )]
     pub payer_ata: InterfaceAccount<'info, TokenAccount>,
     // todo check owner (or maybe not? can buy for other user)
-    #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump)]
+    #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump = virtual_token_account.bump)]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
-    #[account(mut, seeds = [BCPMM_POOL_SEED, b_mint.key().as_ref()], bump)]
+    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
-    // todo check owner
-    #[account(mut)]
+    #[account(mut,
+        associated_token::mint = a_mint,
+        associated_token::authority = pool,
+        associated_token::token_program = token_program        
+    )]
     pub pool_ata: InterfaceAccount<'info, TokenAccount>,
     pub a_mint: InterfaceAccount<'info, Mint>,
-    /// UNCHECKED: this is a virtual mint so it doesn't really exist
-    pub b_mint: AccountInfo<'info>,
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
@@ -59,7 +64,11 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
     }
 
     if output_amount < args.b_amount_min {
-        msg!("Expected output amount: {}, minimum required: {}", output_amount, args.b_amount_min);
+        msg!(
+            "Expected output amount: {}, minimum required: {}",
+            output_amount,
+            args.b_amount_min
+        );
         return Err(BcpmmError::SlippageExceeded.into());
     }
 
@@ -123,8 +132,10 @@ mod tests {
         runner.airdrop(&payer.pubkey(), 10_000_000_000);
         runner.airdrop(&another_wallet.pubkey(), 10_000_000_000);
         let a_mint = runner.create_mint(&payer, 9);
-        let payer_ata = runner.create_associated_token_account(&payer, a_mint);
+        let payer_ata = runner.create_associated_token_account(&payer, a_mint, &payer.pubkey());
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
+
+        runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
 
         let test_pool = runner.create_pool_mock(
             &payer,
@@ -138,20 +149,14 @@ mod tests {
             creator_fees_balance,
             buyback_fees_balance,
         );
-        let buy_fees = calculate_fees(
-            a_amount,
-            creator_fee_basis_points,
-            buyback_fee_basis_points
-        ).unwrap();
-        let a_amount_after_fees = a_amount - buy_fees.creator_fees_amount - buy_fees.buyback_fees_amount;
+        let buy_fees =
+            calculate_fees(a_amount, creator_fee_basis_points, buyback_fee_basis_points).unwrap();
+        let a_amount_after_fees =
+            a_amount - buy_fees.creator_fees_amount - buy_fees.buyback_fees_amount;
 
         let calculated_b_amount_min = 9157;
-        let virtual_token_account = runner.create_virtual_token_account_mock(
-            payer.pubkey(),
-            test_pool.pool,
-            0,
-            0,
-        );
+        let virtual_token_account =
+            runner.create_virtual_token_account_mock(payer.pubkey(), test_pool.pool, 0, 0);
         let result_buy_min_too_high = runner.buy_virtual_token(
             &payer,
             payer_ata,
@@ -160,16 +165,11 @@ mod tests {
             virtual_token_account,
             a_amount,
             calculated_b_amount_min + 1,
-            test_pool.b_mint,
         );
         assert!(result_buy_min_too_high.is_err());
 
-        let virtual_token_account_another_wallet = runner.create_virtual_token_account_mock(
-            another_wallet.pubkey(),
-            test_pool.pool,
-            0,
-            0,
-        );
+        let virtual_token_account_another_wallet =
+            runner.create_virtual_token_account_mock(another_wallet.pubkey(), test_pool.pool, 0, 0);
         let result_buy_another_virtual_account = runner.buy_virtual_token(
             &payer,
             payer_ata,
@@ -178,7 +178,6 @@ mod tests {
             virtual_token_account_another_wallet,
             a_amount,
             calculated_b_amount_min,
-            test_pool.b_mint,
         );
         assert!(result_buy_another_virtual_account.is_err());
 
@@ -190,14 +189,14 @@ mod tests {
             virtual_token_account,
             a_amount,
             calculated_b_amount_min,
-            test_pool.b_mint,
         );
         assert!(result_buy.is_ok());
 
         // Fetch the test_pool from testrunner lite svm and deserialize the account data
         let pool_account = runner.svm.get_account(&test_pool.pool).unwrap();
-        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        
+        let pool_data: BcpmmPool =
+            BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+
         // Check that the reserves are updated correctly
         assert_eq!(pool_data.a_reserve, a_amount_after_fees);
         assert_eq!(pool_data.b_reserve, b_reserve - calculated_b_amount_min);

@@ -9,7 +9,7 @@ pub struct CloseVirtualTokenAccount<'info> {
     #[account(
         mut,
         close = owner,
-        constraint = virtual_token_account.owner == owner.key() @ BcpmmError::InvalidOwner,
+        has_one = owner @ BcpmmError::InvalidOwner,
         constraint = virtual_token_account.balance == 0 @ BcpmmError::NonzeroBalance
     )]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
