@@ -32,6 +32,7 @@ pub fn initialize_user_burn_allowance(
     _: bool,
 ) -> Result<()> {
     ctx.accounts.user_burn_allowance.set_inner(UserBurnAllowance::new(
+        ctx.bumps.user_burn_allowance,
         ctx.accounts.owner.key(),
         ctx.accounts.payer.key(),
     ));

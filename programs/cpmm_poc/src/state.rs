@@ -178,6 +178,7 @@ impl BcpmmPool {
             self.a_reserve += real_topup_amount;
         } else {
             self.buyback_fees_balance += buyback_fees_amount;
+            // Record to some central state instead so we can claim for all pools at once?
         }
     }
 
@@ -255,6 +256,7 @@ impl VirtualTokenAccount {
 #[account]
 #[derive(Default, InitSpace)]
 pub struct UserBurnAllowance {
+    pub bump: u8,
     pub user: Pubkey,
     pub payer: Pubkey, // Wallet that receives funds when this account is closed
     pub burns_today: u16,
@@ -264,10 +266,11 @@ pub struct UserBurnAllowance {
 
 impl UserBurnAllowance {
     pub fn new(
+        bump: u8,
         user: Pubkey,
         payer: Pubkey,
     ) -> Self {
-        Self { user, payer, burns_today: 0, last_burn_timestamp: 0 }
+        Self { bump, user, payer, burns_today: 0, last_burn_timestamp: 0 }
     }
 }
 
