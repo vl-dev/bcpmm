@@ -162,6 +162,53 @@ impl TestRunner {
         self.svm.airdrop(receiver, amount).unwrap();
     }
 
+    pub fn send_instruction<T>(
+        &mut self,
+        instruction_name: &str,
+        accounts: Vec<AccountMeta>,
+        args: T,
+        signers: &[&Keypair],
+    ) -> std::result::Result<(), TransactionError>
+    where
+        T: anchor_lang::AnchorSerialize,
+    {
+        // Helper function to calculate instruction discriminator
+        fn get_discriminator(instruction_name: &str) -> [u8; 8] {
+            use sha2::{Digest, Sha256};
+            let mut hasher = Sha256::new();
+            hasher.update(format!("global:{}", instruction_name));
+            let result = hasher.finalize();
+            let mut discriminator = [0u8; 8];
+            discriminator.copy_from_slice(&result[..8]);
+            discriminator
+        }
+
+        let instruction = Instruction {
+            program_id: self.program_id,
+            accounts: accounts,
+            data: {
+                let mut data = Vec::new();
+                data.extend_from_slice(&get_discriminator(instruction_name));
+                args.serialize(&mut data).unwrap();
+                data
+            },
+        };
+
+        let tx = Transaction::new_signed_with_payer(
+            &[instruction],
+            Some(&signers[0].pubkey()),
+            signers,
+            self.svm.latest_blockhash(),
+        );
+
+        send_and_record(&mut self.svm, tx, instruction_name).map_err(|err| {
+            TransactionError {
+                message: format!("{:?}", err),
+            }
+        })?;
+        Ok(())
+    }
+
     pub fn create_pool_mock(
         &mut self,
         payer: &Keypair,
@@ -280,17 +327,6 @@ impl TestRunner {
         a_amount: u64,
         b_amount_min: u64,
     ) -> std::result::Result<(), TransactionError> {
-        // Helper function to calculate instruction discriminator
-        fn get_discriminator(instruction_name: &str) -> [u8; 8] {
-            use sha2::{Digest, Sha256};
-            let mut hasher = Sha256::new();
-            hasher.update(format!("global:{}", instruction_name));
-            let result = hasher.finalize();
-            let mut discriminator = [0u8; 8];
-            discriminator.copy_from_slice(&result[..8]);
-            discriminator
-        }
-
         let pool_ata = anchor_spl::associated_token::get_associated_token_address(
             &anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
             &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
@@ -315,30 +351,7 @@ impl TestRunner {
             b_amount_min,
         };
 
-        let instruction = Instruction {
-            program_id: self.program_id,
-            accounts: accounts,
-            data: {
-                let mut data = Vec::new();
-                data.extend_from_slice(&get_discriminator("buy_virtual_token"));
-                args.serialize(&mut data).unwrap();
-                data
-            },
-        };
-
-        let tx = Transaction::new_signed_with_payer(
-            &[instruction],
-            Some(&payer.pubkey()),
-            &[&payer],
-            self.svm.latest_blockhash(),
-        );
-
-        send_and_record(&mut self.svm, tx, "buy_virtual_token").map_err(|err| {
-            TransactionError {
-                message: format!("{:?}", err),
-            }
-        })?;
-        Ok(())
+        self.send_instruction("buy_virtual_token", accounts, args, &[payer])
     }
 
     pub fn sell_virtual_token(
@@ -350,30 +363,17 @@ impl TestRunner {
         virtual_token_account: Pubkey,
         b_amount: u64,
     ) -> std::result::Result<(), TransactionError> {
-        // Helper function to calculate instruction discriminator
-        fn get_discriminator(instruction_name: &str) -> [u8; 8] {
-            use sha2::{Digest, Sha256};
-            let mut hasher = Sha256::new();
-            hasher.update(format!("global:{}", instruction_name));
-            let result = hasher.finalize();
-            let mut discriminator = [0u8; 8];
-            discriminator.copy_from_slice(&result[..8]);
-            discriminator
-        }
-
-        // Derive the pool ATA using the same logic as create_pool_mock
         let pool_ata = anchor_spl::associated_token::get_associated_token_address(
             &anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
             &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
         );
-        let pool_ata_account_meta = AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false); // Use the derived pool ATA
 
         let accounts = vec![
             AccountMeta::new(payer.pubkey(), true),
             AccountMeta::new(payer_ata, false),
             AccountMeta::new(virtual_token_account, false),
             AccountMeta::new(pool, false),
-            pool_ata_account_meta,
+            AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false),
             AccountMeta::new(mint, false),
             AccountMeta::new(solana_sdk_ids::system_program::ID, false),
             AccountMeta::new_readonly(
@@ -384,30 +384,7 @@ impl TestRunner {
 
         let args = crate::instructions::SellVirtualTokenArgs { b_amount };
 
-        let instruction = Instruction {
-            program_id: self.program_id,
-            accounts: accounts,
-            data: {
-                let mut data = Vec::new();
-                data.extend_from_slice(&get_discriminator("sell_virtual_token"));
-                args.serialize(&mut data).unwrap();
-                data
-            },
-        };
-
-        let tx = Transaction::new_signed_with_payer(
-            &[instruction],
-            Some(&payer.pubkey()),
-            &[&payer],
-            self.svm.latest_blockhash(),
-        );
-
-        send_and_record(&mut self.svm, tx, "sell_virtual_token").map_err(|err| {
-            TransactionError {
-                message: format!("{:?}", err),
-            }
-        })?;
-        Ok(())
+        self.send_instruction("sell_virtual_token", accounts, args, &[payer])
     }
 
     pub fn initialize_user_burn_allowance(
@@ -416,17 +393,6 @@ impl TestRunner {
         owner: Pubkey,
         is_pool_owner: bool,
     ) -> std::result::Result<Pubkey, TransactionError> {
-        // Helper function to calculate instruction discriminator
-        fn get_discriminator(instruction_name: &str) -> [u8; 8] {
-            use sha2::{Digest, Sha256};
-            let mut hasher = Sha256::new();
-            hasher.update(format!("global:{}", instruction_name));
-            let result = hasher.finalize();
-            let mut discriminator = [0u8; 8];
-            discriminator.copy_from_slice(&result[..8]);
-            discriminator
-        }
-
         // Derive the CentralState PDA
         let (central_state_pda, _central_bump) = Pubkey::find_program_address(
             &[cpmm_state::CENTRAL_STATE_SEED],
@@ -447,29 +413,7 @@ impl TestRunner {
             AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
         ];
 
-        let instruction = Instruction {
-            program_id: self.program_id,
-            accounts: accounts,
-            data: {
-                let mut data = Vec::new();
-                data.extend_from_slice(&get_discriminator("initialize_user_burn_allowance"));
-                is_pool_owner.serialize(&mut data).unwrap();
-                data
-            },
-        };
-
-        let tx = Transaction::new_signed_with_payer(
-            &[instruction],
-            Some(&payer.pubkey()),
-            &[&payer],
-            self.svm.latest_blockhash(),
-        );
-
-        send_and_record(&mut self.svm, tx, "initialize_user_burn_allowance").map_err(|err| {
-            TransactionError {
-                message: format!("{:?}", err),
-            }
-        })?;
+        self.send_instruction("initialize_user_burn_allowance", accounts, is_pool_owner, &[payer])?;
 
         Ok(user_burn_allowance_pda)
     }
@@ -481,23 +425,11 @@ impl TestRunner {
         user_burn_allowance: Pubkey,
         is_pool_owner: bool,
     ) -> std::result::Result<(), TransactionError> {
-
         // Derive the CentralState PDA
         let (central_state_pda, _central_bump) = Pubkey::find_program_address(
             &[cpmm_state::CENTRAL_STATE_SEED],
             &self.program_id,
         );
-
-        // Helper function to calculate instruction discriminator
-        fn get_discriminator(instruction_name: &str) -> [u8; 8] {
-            use sha2::{Digest, Sha256};
-            let mut hasher = Sha256::new();
-            hasher.update(format!("global:{}", instruction_name));
-            let result = hasher.finalize();
-            let mut discriminator = [0u8; 8];
-            discriminator.copy_from_slice(&result[..8]);
-            discriminator
-        }
 
         let accounts = vec![
             AccountMeta::new(payer.pubkey(), true),
@@ -506,31 +438,7 @@ impl TestRunner {
             AccountMeta::new(central_state_pda, false),
         ];
 
-        let instruction = Instruction {
-            program_id: self.program_id,
-            accounts: accounts,
-            data: {
-                let mut data = Vec::new();
-                data.extend_from_slice(&get_discriminator("burn_virtual_token"));
-                is_pool_owner.serialize(&mut data).unwrap();
-                data
-            },
-        };
-
-        let tx = Transaction::new_signed_with_payer(
-            &[instruction],
-            Some(&payer.pubkey()),
-            &[&payer],
-            self.svm.latest_blockhash(),
-        );
-
-        send_and_record(&mut self.svm, tx, "burn_virtual_token").map_err(|err| {
-            TransactionError {
-                message: format!("{:?}", err),
-            }
-        })?;
-
-        Ok(())
+        self.send_instruction("burn_virtual_token", accounts, is_pool_owner, &[payer])
     }
 
     pub fn get_user_burn_allowance(&self, address: &Pubkey) -> Result<cpmm_state::UserBurnAllowance> {
@@ -560,17 +468,6 @@ impl TestRunner {
         pool: Pubkey,
         amount: u64,
     ) -> std::result::Result<(), TransactionError> {
-        // Helper function to calculate instruction discriminator
-        fn get_discriminator(instruction_name: &str) -> [u8; 8] {
-            use sha2::{Digest, Sha256};
-            let mut hasher = Sha256::new();
-            hasher.update(format!("global:{}", instruction_name));
-            let result = hasher.finalize();
-            let mut discriminator = [0u8; 8];
-            discriminator.copy_from_slice(&result[..8]);
-            discriminator
-        }
-
         let pool_ata = anchor_spl::associated_token::get_associated_token_address(
             &anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
             &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
@@ -597,29 +494,6 @@ impl TestRunner {
 
         let args = crate::instructions::ClaimCreatorFeesArgs { amount };
 
-        let instruction = Instruction {
-            program_id: self.program_id,
-            accounts: accounts,
-            data: {
-                let mut data = Vec::new();
-                data.extend_from_slice(&get_discriminator("claim_creator_fees"));
-                args.serialize(&mut data).unwrap();
-                data
-            },
-        };
-
-        let tx = Transaction::new_signed_with_payer(
-            &[instruction],
-            Some(&owner.pubkey()),
-            &[&owner],
-            self.svm.latest_blockhash(),
-        );
-
-        send_and_record(&mut self.svm, tx, "claim_creator_fees").map_err(|err| {
-            TransactionError {
-                message: format!("{:?}", err),
-            }
-        })?;
-        Ok(())
+        self.send_instruction("claim_creator_fees", accounts, args, &[owner])
     }
 }

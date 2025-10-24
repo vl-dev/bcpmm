@@ -42,7 +42,6 @@ impl ComputeMetrics {
             println!("  Average: {:.0} CU", avg);
             println!("  Min:     {} CU", min);
             println!("  Max:     {} CU", max);
-            println!("  Total:   {} CU", sum);
         }
 
         println!("\n{}", "=".repeat(70));
