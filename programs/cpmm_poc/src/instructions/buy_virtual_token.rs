@@ -159,13 +159,10 @@ mod tests {
         let a_amount = 5000;
         let a_virtual_reserve = 1_000_000;
         let b_reserve = 2_000_000;
-        let creator_fee_basis_points = 200;
-        let buyback_fee_basis_points = 600;
 
-        let buy_fees =
-            calculate_fees(a_amount, creator_fee_basis_points, buyback_fee_basis_points).unwrap();
-        let a_amount_after_fees =
-            a_amount - buy_fees.creator_fees_amount - buy_fees.buyback_fees_amount;
+        let creator_fees = 100;
+        let buyback_fees = 300;
+        let a_amount_after_fees = a_amount - creator_fees - buyback_fees;
 
         let calculated_b_amount_min = 9157;
         let virtual_token_account =
@@ -189,6 +186,8 @@ mod tests {
         assert_eq!(pool_data.a_reserve, a_amount_after_fees);
         assert_eq!(pool_data.b_reserve, b_reserve - calculated_b_amount_min);
         assert_eq!(pool_data.a_virtual_reserve, a_virtual_reserve); // Unchanged
+        assert_eq!(pool_data.buyback_fees_balance, buyback_fees);
+        assert_eq!(pool_data.creator_fees_balance, creator_fees);
     }
 
     #[test]

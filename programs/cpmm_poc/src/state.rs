@@ -184,7 +184,7 @@ impl BcpmmPool {
     pub fn transfer_out<'info>(
         &mut self,
         amount: u64,
-        pool: &Account<'info, BcpmmPool>,
+        pool_account_info: AccountInfo<'info>,
         mint: &InterfaceAccount<'info, Mint>,
         pool_ata: &InterfaceAccount<'info, TokenAccount>,
         to: &InterfaceAccount<'info, TokenAccount>,
@@ -194,7 +194,7 @@ impl BcpmmPool {
             mint: mint.to_account_info(),
             from: pool_ata.to_account_info(),
             to: to.to_account_info(),
-            authority: pool.to_account_info(),
+            authority: pool_account_info,
         };
         let bump_seed = self.bump;
         let b_mint_index = &self.b_mint_index;
