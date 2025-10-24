@@ -23,9 +23,9 @@ impl ComputeMetrics {
     }
 
     fn print_report(&self) {
-        println!("\n{}", "=".repeat(70));
+        println!("\n{}", "=".repeat(80));
         println!("COMPUTE UNIT USAGE REPORT");
-        println!("{}", "=".repeat(70));
+        println!("{}", "=".repeat(80));
 
         let mut sorted: Vec<_> = self.calls.iter().collect();
         sorted.sort_by_key(|(name, _)| *name);
@@ -37,14 +37,15 @@ impl ComputeMetrics {
             let min = *values.iter().min().unwrap();
             let max = *values.iter().max().unwrap();
 
-            println!("\n{}", name);
+            // ANSI color codes: \x1b[32;1m = green and bold, \x1b[0m = reset
+            println!("\n\x1b[32;1m{}\x1b[0m", name);
             println!("  Calls:   {}", count);
             println!("  Average: {:.0} CU", avg);
             println!("  Min:     {} CU", min);
             println!("  Max:     {} CU", max);
         }
 
-        println!("\n{}", "=".repeat(70));
+        println!("\n{}", "=".repeat(80));
     }
 }
 
