@@ -267,6 +267,7 @@ impl VirtualTokenAccount {
 #[account]
 #[derive(Default, InitSpace)]
 pub struct UserBurnAllowance {
+    pub bump: u8,
     pub user: Pubkey,
     pub payer: Pubkey, // Wallet that receives funds when this account is closed
     pub burns_today: u16,
@@ -276,10 +277,11 @@ pub struct UserBurnAllowance {
 
 impl UserBurnAllowance {
     pub fn new(
+        bump: u8,
         user: Pubkey,
         payer: Pubkey,
     ) -> Self {
-        Self { user, payer, burns_today: 0, last_burn_timestamp: 0 }
+        Self { bump, user, payer, burns_today: 0, last_burn_timestamp: 0 }
     }
 }
 

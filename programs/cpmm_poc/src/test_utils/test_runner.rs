@@ -145,11 +145,12 @@ impl TestRunner {
         last_burn_timestamp: i64,
         is_pool_owner: bool,
     ) -> Pubkey {
-        let (user_burn_allowance_pda, _bump) = Pubkey::find_program_address(
+        let (user_burn_allowance_pda, bump) = Pubkey::find_program_address(
             &[cpmm_state::USER_BURN_ALLOWANCE_SEED, user.as_ref(), &[is_pool_owner as u8]],
             &self.program_id,
         );
         let user_burn_allowance = cpmm_state::UserBurnAllowance {
+            bump,
             user: anchor_lang::prelude::Pubkey::from(user.to_bytes()),
             payer: anchor_lang::prelude::Pubkey::from(payer.to_bytes()),
             burns_today,
