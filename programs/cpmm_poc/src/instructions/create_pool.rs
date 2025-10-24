@@ -23,23 +23,11 @@ pub struct CreatePool<'info> {
     #[account(init, payer = payer, space = BcpmmPool::INIT_SPACE + 8, seeds = [BCPMM_POOL_SEED, central_state.b_mint_index.to_le_bytes().as_ref()], bump)]
     pub pool: Account<'info, BcpmmPool>,        
 
-    #[account(mut, seeds = [TREASURY_SEED], bump = treasury.bump)]
+    #[account(mut, seeds = [TREASURY_SEED, a_mint.key().as_ref()], bump = treasury.bump)]
     pub treasury: Account<'info, Treasury>,
-
-    /// Treasury's ATA - will be created if it doesn't exist
-    #[account(
-        init_if_needed,
-        payer = payer,
-        associated_token::mint = a_mint,
-        associated_token::authority = treasury,
-        associated_token::token_program = token_program,
-    )]
-    pub treasury_ata: Account<'info, TokenAccount>,
-    
 
     #[account(mut)]
     pub central_state: Account<'info, CentralState>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }

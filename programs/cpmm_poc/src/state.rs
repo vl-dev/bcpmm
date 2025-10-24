@@ -129,8 +129,8 @@ pub struct BcpmmPool {
 
     /// Creator fees balance denominated in Mint A including decimals
     pub creator_fees_balance: u64,
-    /// Buyback fees balance denominated in Mint A including decimals
-    pub buyback_fees_balance: u64,
+    /// Total buyback fees accumulated in Mint A including decimals
+    pub buyback_fees_accumulated: u64,
 
     /// Creator fee basis points
     pub creator_fee_basis_points: u16,
@@ -169,7 +169,7 @@ impl BcpmmPool {
             b_mint_decimals: DEFAULT_B_MINT_DECIMALS,
             b_reserve: DEFAULT_B_MINT_RESERVE,
             creator_fees_balance: 0,
-            buyback_fees_balance: 0,
+            buyback_fees_accumulated: 0,
             creator_fee_basis_points,
             buyback_fee_basis_points,
             burns_today: 0,
@@ -194,30 +194,6 @@ impl BcpmmPool {
         )
     }
 
-    pub fn add(
-        &mut self,
-        output_amount: u64,
-        b_amount: u64,
-        creator_fees_amount: u64,
-        buyback_fees_amount: u64,
-    ) {
-        self.a_reserve -= output_amount;
-        self.b_reserve += b_amount;
-        self.creator_fees_balance += creator_fees_amount;
-
-        if self.a_remaining_topup > 0 {
-            let remaining_topup_amount = self.a_remaining_topup;
-            let real_topup_amount = if remaining_topup_amount > buyback_fees_amount {
-                buyback_fees_amount
-            } else {
-                remaining_topup_amount
-            };
-            self.a_remaining_topup = self.a_remaining_topup - real_topup_amount;
-            self.a_reserve += real_topup_amount;
-        } else {
-            self.buyback_fees_balance += buyback_fees_amount;
-        }
-    }
 
     pub fn treasury_transfer_out<'info>(
         &mut self,
@@ -235,7 +211,8 @@ impl BcpmmPool {
             authority: treasury.to_account_info(),
         };
         let bump_seed = treasury.bump;
-        let signer_seeds: &[&[&[u8]]] = &[&[TREASURY_SEED, &[bump_seed]]];
+        let mint_key = mint.key();
+        let signer_seeds: &[&[&[u8]]] = &[&[TREASURY_SEED, mint_key.as_ref(), &[bump_seed]]];
         let cpi_context = CpiContext::new(token_program.to_account_info(), cpi_accounts)
             .with_signer(signer_seeds);
         let decimals = mint.decimals;
@@ -311,6 +288,7 @@ impl UserBurnAllowance {
 pub struct Treasury {
     pub authority: Pubkey,
     pub bump: u8,
+    pub fees_available: u64,
 }
 
 impl Treasury {
@@ -318,6 +296,6 @@ impl Treasury {
         authority: Pubkey,
         bump: u8,
     ) -> Self {
-        Self { authority, bump }
+        Self { authority, bump, fees_available: 0 }
     }
 }

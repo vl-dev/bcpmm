@@ -220,7 +220,7 @@ impl TestRunner {
         creator_fee_basis_points: u16,
         buyback_fee_basis_points: u16,
         creator_fees_balance: u64,
-        buyback_fees_balance: u64,
+        buyback_fees_accumulated: u64,
     ) -> TestPool {
         let (central_state_pda, _central_state_bump) =
             Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
@@ -256,7 +256,7 @@ impl TestRunner {
             b_mint_decimals,
             b_reserve,
             creator_fees_balance,
-            buyback_fees_balance,
+            buyback_fees_accumulated,
             creator_fee_basis_points,
             buyback_fee_basis_points,
             burns_today: 0,
@@ -309,7 +309,7 @@ impl TestRunner {
         b_amount_min: u64,
     ) -> std::result::Result<(), TransactionError> {
         let (treasury_pda, _treasury_bump) = Pubkey::find_program_address(
-            &[cpmm_state::TREASURY_SEED],
+            &[cpmm_state::TREASURY_SEED, mint.as_ref()],
             &self.program_id,
         );
         let treasury_ata = anchor_spl::associated_token::get_associated_token_address(
@@ -350,7 +350,7 @@ impl TestRunner {
         b_amount: u64,
     ) -> std::result::Result<(), TransactionError> {
         let (treasury_pda, _treasury_bump) = Pubkey::find_program_address(
-            &[cpmm_state::TREASURY_SEED],
+            &[cpmm_state::TREASURY_SEED, mint.as_ref()],
             &self.program_id,
         );
         let treasury_ata = anchor_spl::associated_token::get_associated_token_address(
@@ -451,9 +451,9 @@ impl TestRunner {
         self.svm.set_sysvar::<Clock>(&initial_clock);
     }
 
-    pub fn create_treasury_mock(&mut self, authority: Pubkey) -> Pubkey {
+    pub fn create_treasury_mock(&mut self, authority: Pubkey, mint: Pubkey) -> Pubkey {
         let (treasury_pda, treasury_bump) = Pubkey::find_program_address(
-            &[cpmm_state::TREASURY_SEED],
+            &[cpmm_state::TREASURY_SEED, mint.as_ref()],
             &self.program_id,
         );
         let treasury = cpmm_state::Treasury::new(
@@ -466,7 +466,7 @@ impl TestRunner {
 
     pub fn create_treasury_ata(&mut self, payer: &Keypair, mint: Pubkey, initial_balance: u64) -> Pubkey {
         let (treasury_pda, _treasury_bump) = Pubkey::find_program_address(
-            &[cpmm_state::TREASURY_SEED],
+            &[cpmm_state::TREASURY_SEED, mint.as_ref()],
             &self.program_id,
         );
 
@@ -497,7 +497,7 @@ impl TestRunner {
         amount: u64,
     ) -> std::result::Result<(), TransactionError> {
         let (treasury_pda, _treasury_bump) = Pubkey::find_program_address(
-            &[cpmm_state::TREASURY_SEED],
+            &[cpmm_state::TREASURY_SEED, mint.as_ref()],
             &self.program_id,
         );
         let treasury_ata = anchor_spl::associated_token::get_associated_token_address(
@@ -529,5 +529,47 @@ impl TestRunner {
         let args = crate::instructions::ClaimCreatorFeesArgs { amount };
 
         self.send_instruction("claim_creator_fees", accounts, args, &[owner])
+    }
+
+    pub fn claim_admin_fees(
+        &mut self,
+        admin: &Keypair,
+        admin_ata: Pubkey,
+        mint: Pubkey,
+        amount: u64,
+    ) -> std::result::Result<(), TransactionError> {
+        let (treasury_pda, _treasury_bump) = Pubkey::find_program_address(
+            &[cpmm_state::TREASURY_SEED, mint.as_ref()],
+            &self.program_id,
+        );
+        let treasury_ata = anchor_spl::associated_token::get_associated_token_address(
+            &anchor_lang::prelude::Pubkey::from(treasury_pda.to_bytes()),
+            &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
+        );
+
+        let accounts = vec![
+            AccountMeta::new(admin.pubkey(), true),
+            AccountMeta::new(admin_ata, false),
+            AccountMeta::new(treasury_pda, false),
+            AccountMeta::new(Pubkey::from(treasury_ata.to_bytes()), false),
+            AccountMeta::new(mint, false),
+            AccountMeta::new_readonly(
+                Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
+                false,
+            ),
+            AccountMeta::new(solana_sdk_ids::system_program::ID, false),
+        ];
+
+        let args = crate::instructions::ClaimAdminFeesArgs { amount };
+
+        self.send_instruction("claim_admin_fees", accounts, args, &[admin])
+    }
+
+    pub fn get_treasury_pda(&self, mint: Pubkey) -> Pubkey {
+        let (treasury_pda, _treasury_bump) = Pubkey::find_program_address(
+            &[cpmm_state::TREASURY_SEED, mint.as_ref()],
+            &self.program_id,
+        );
+        treasury_pda
     }
 }

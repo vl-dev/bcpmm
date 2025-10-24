@@ -26,7 +26,7 @@ pub struct ClaimCreatorFees<'info> {
     #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
 
-    #[account(mut, seeds = [TREASURY_SEED], bump = treasury.bump)]
+    #[account(mut, seeds = [TREASURY_SEED, a_mint.key().as_ref()], bump = treasury.bump)]
     pub treasury: Account<'info, Treasury>,
 
     #[account(mut,
@@ -88,7 +88,7 @@ mod tests {
         runner.airdrop(&owner.pubkey(), 10_000_000_000);
         let a_mint = runner.create_mint(&owner, 9);
         let owner_ata = runner.create_associated_token_account(&owner, a_mint, &owner.pubkey());
-        runner.create_treasury_mock(owner.pubkey());
+        runner.create_treasury_mock(owner.pubkey(), a_mint);
         runner.create_treasury_ata(&owner, a_mint, a_reserve + creator_fees_balance + buyback_fees_balance);
 
         runner.create_central_state_mock(&owner, 5, 5, 2, 1, 10000);

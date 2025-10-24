@@ -20,12 +20,12 @@ pub struct SellVirtualToken<'info> {
         associated_token::token_program = token_program        
     )]
     pub payer_ata: InterfaceAccount<'info, TokenAccount>,
-    #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump)]
+    #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump = virtual_token_account.bump)]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
-    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump)]
+    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
 
-    #[account(mut, seeds = [TREASURY_SEED], bump = treasury.bump)]
+    #[account(mut, seeds = [TREASURY_SEED, a_mint.key().as_ref()], bump = treasury.bump)]
     pub treasury: Account<'info, Treasury>,
 
     #[account(mut,
@@ -44,6 +44,7 @@ pub fn sell_virtual_token(
     args: SellVirtualTokenArgs,
 ) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
+    let treasury = &mut ctx.accounts.treasury;
     let virtual_token_account = &mut ctx.accounts.virtual_token_account;
     require_gte!(virtual_token_account.balance, args.b_amount, BcpmmError::InsufficientVirtualTokenBalance);
 
@@ -53,7 +54,25 @@ pub fn sell_virtual_token(
     let fees = pool.calculate_fees(output_amount)?;
 
     virtual_token_account.sub(args.b_amount, fees.creator_fees_amount, fees.buyback_fees_amount)?;
-    pool.add(output_amount, args.b_amount, fees.creator_fees_amount, fees.buyback_fees_amount);
+
+    // Update the pool state
+    pool.a_reserve -= output_amount;
+    pool.b_reserve += args.b_amount;
+    pool.creator_fees_balance += fees.creator_fees_amount;
+
+    if pool.a_remaining_topup > 0 {
+        let remaining_topup_amount = pool.a_remaining_topup;
+        let real_topup_amount = if remaining_topup_amount > fees.buyback_fees_amount {
+            fees.buyback_fees_amount
+        } else {
+            remaining_topup_amount
+        };
+        pool.a_remaining_topup = pool.a_remaining_topup - real_topup_amount;
+        pool.a_reserve += real_topup_amount;
+    } else {
+        pool.buyback_fees_accumulated += fees.buyback_fees_amount;
+        treasury.fees_available += fees.buyback_fees_amount;
+    }
 
     let output_amount_after_fees =
         output_amount - fees.creator_fees_amount - fees.buyback_fees_amount;
@@ -96,7 +115,7 @@ mod tests {
         let a_mint = runner.create_mint(&payer, 9);
         let payer_ata = runner.create_associated_token_account(&payer, a_mint, &payer.pubkey());
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
-        runner.create_treasury_mock(payer.pubkey());
+        runner.create_treasury_mock(payer.pubkey(), a_mint);
         runner.create_treasury_ata(&payer, a_mint, a_reserve + creator_fees_balance + buyback_fees_balance);
         runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
 
@@ -142,7 +161,8 @@ mod tests {
             pool.pool,
             virtual_token_account,
             b_sell_amount,
-        ).unwrap();
+        );
+        assert!(result_sell.is_ok());
 
         // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
