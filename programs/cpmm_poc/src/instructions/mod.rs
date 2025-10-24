@@ -20,6 +20,7 @@ pub use initialize_virtual_token_account::*;
 pub use sell_virtual_token::*;
 pub use claim_creator_fees::*;
 
+// Setup metrics collection for all tests.
 #[cfg(test)]
 mod tests {
     use crate::test_utils::{init_metrics, print_metrics_report};
@@ -29,7 +30,6 @@ mod tests {
         init_metrics();
     }
 
-    // Print metrics report after all tests
     #[ctor::dtor]
     fn cleanup() {
         print_metrics_report();
