@@ -56,8 +56,8 @@ pub fn calculate_sell_output_amount(
     (numerator / denominator) as u64
 }
 
-pub fn calculate_burn_amount(b_amount_basis_points: u16, b_reserve: u64) -> u64 {
-    (b_reserve as u128 * b_amount_basis_points as u128 / 10000 as u128) as u64
+pub fn calculate_burn_amount(b_amount_bp_x100: u32, b_reserve: u64) -> u64 {
+    (b_reserve as u128 * b_amount_bp_x100 as u128 / 1_000_000 as u128) as u64
 }
 
 pub fn calculate_new_virtual_reserve(
