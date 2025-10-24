@@ -30,4 +30,6 @@ pub enum BcpmmError {
     Underflow,
     #[msg("Invalid pool owner")]
     InvalidPoolOwner,
+    #[msg("Insufficient creator fees")]
+    InsufficientCreatorFees,
 }

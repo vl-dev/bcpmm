@@ -106,7 +106,6 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
 
 #[cfg(test)]
 mod tests {
-    use crate::helpers::calculate_fees;
     use crate::state::BcpmmPool;
     use crate::test_utils::{TestRunner, TestPool};
     use anchor_lang::prelude::*;

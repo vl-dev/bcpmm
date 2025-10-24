@@ -258,31 +258,13 @@ mod test_runner {
                 ],
                 &self.program_id,
             );
-
-            // Create VTA PDA account with VirtualTokenAccount structure
-            let vta_data = cpmm_state::VirtualTokenAccount {
+            self.put_account_on_chain(&vta_pda, cpmm_state::VirtualTokenAccount {
                 bump: vta_bump,
                 pool: anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
                 owner: anchor_lang::prelude::Pubkey::from(owner.to_bytes()),
                 balance,
                 fees_paid,
-            };
-
-            let mut vta_account_data = Vec::new();
-            vta_data.try_serialize(&mut vta_account_data).unwrap();
-
-            self.svm
-                .set_account(
-                    vta_pda,
-                    solana_sdk::account::Account {
-                        lamports: 1_000_000,
-                        data: vta_account_data,
-                        owner: self.program_id,
-                        executable: false,
-                        rent_epoch: 0,
-                    },
-                )
-                .unwrap();
+            });
 
             vta_pda
         }
@@ -567,6 +549,77 @@ mod test_runner {
             let mut initial_clock = self.svm.get_sysvar::<Clock>();
             initial_clock.unix_timestamp = timestamp;
             self.svm.set_sysvar::<Clock>(&initial_clock);
+        }
+
+        pub fn claim_creator_fees(
+            &mut self,
+            owner: &Keypair,
+            owner_ata: Pubkey,
+            mint: Pubkey,
+            pool: Pubkey,
+            amount: u64,
+        ) -> std::result::Result<(), TransactionError> {
+            // Helper function to calculate instruction discriminator
+            fn get_discriminator(instruction_name: &str) -> [u8; 8] {
+                use sha2::{Digest, Sha256};
+                let mut hasher = Sha256::new();
+                hasher.update(format!("global:{}", instruction_name));
+                let result = hasher.finalize();
+                let mut discriminator = [0u8; 8];
+                discriminator.copy_from_slice(&result[..8]);
+                discriminator
+            }
+
+            let pool_ata = anchor_spl::associated_token::get_associated_token_address(
+                &anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
+                &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
+            );
+
+            let (central_state_pda, _central_bump) = Pubkey::find_program_address(
+                &[cpmm_state::CENTRAL_STATE_SEED],
+                &self.program_id,
+            );
+
+            let accounts = vec![
+                AccountMeta::new(owner.pubkey(), true),
+                AccountMeta::new(owner_ata, false),
+                AccountMeta::new(central_state_pda, false),
+                AccountMeta::new(pool, false),
+                AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false),
+                AccountMeta::new(mint, false),
+                AccountMeta::new_readonly(
+                    Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
+                    false,
+                ),
+                AccountMeta::new(solana_sdk_ids::system_program::ID, false),
+            ];
+
+            let args = crate::instructions::ClaimCreatorFeesArgs { amount };
+
+            let instruction = Instruction {
+                program_id: self.program_id,
+                accounts: accounts,
+                data: {
+                    let mut data = Vec::new();
+                    data.extend_from_slice(&get_discriminator("claim_creator_fees"));
+                    args.serialize(&mut data).unwrap();
+                    data
+                },
+            };
+
+            let tx = Transaction::new_signed_with_payer(
+                &[instruction],
+                Some(&owner.pubkey()),
+                &[&owner],
+                self.svm.latest_blockhash(),
+            );
+
+            self.svm.send_transaction(tx).map_err(|err| {
+                TransactionError {
+                    message: format!("{:?}", err),
+                }
+            })?;
+            Ok(())
         }
     }
 }

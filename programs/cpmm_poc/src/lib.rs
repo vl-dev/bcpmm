@@ -70,4 +70,10 @@ pub mod cpmm_poc {
     ) -> Result<()> {
         instructions::close_user_burn_allowance(ctx, args)
     }
+    pub fn claim_creator_fees(
+        ctx: Context<ClaimCreatorFees>,
+        args: ClaimCreatorFeesArgs,
+    ) -> Result<()> {
+        instructions::claim_creator_fees(ctx, args)
+    }
 }

@@ -7,6 +7,7 @@ mod initialize_central_state;
 mod initialize_user_burn_allowance;
 mod initialize_virtual_token_account;
 mod sell_virtual_token;
+mod claim_creator_fees;
 
 pub use burn_virtual_token::*;
 pub use buy_virtual_token::*;
@@ -17,3 +18,5 @@ pub use initialize_central_state::*;
 pub use initialize_user_burn_allowance::*;
 pub use initialize_virtual_token_account::*;
 pub use sell_virtual_token::*;
+pub use claim_creator_fees::*;
+    

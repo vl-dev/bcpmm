@@ -38,22 +38,23 @@ pub fn sell_virtual_token(
     ctx: Context<SellVirtualToken>,
     args: SellVirtualTokenArgs,
 ) -> Result<()> {
+    let pool = &mut ctx.accounts.pool;
     let virtual_token_account = &mut ctx.accounts.virtual_token_account;
     require_gte!(virtual_token_account.balance, args.b_amount, BcpmmError::InsufficientVirtualTokenBalance);
 
-    let output_amount = ctx.accounts.pool.calculate_sell_output_amount(args.b_amount);
-    require_gte!(ctx.accounts.pool.a_reserve, output_amount, BcpmmError::Underflow);
+    let output_amount = pool.calculate_sell_output_amount(args.b_amount);
+    require_gte!(pool.a_reserve, output_amount, BcpmmError::Underflow);
 
-    let fees = ctx.accounts.pool.calculate_fees(output_amount)?;
+    let fees = pool.calculate_fees(output_amount)?;
 
     virtual_token_account.sub(args.b_amount, fees.creator_fees_amount, fees.buyback_fees_amount)?;
-    ctx.accounts.pool.add(output_amount, args.b_amount, fees.creator_fees_amount, fees.buyback_fees_amount);
+    pool.add(output_amount, args.b_amount, fees.creator_fees_amount, fees.buyback_fees_amount);
 
     let output_amount_after_fees =
         output_amount - fees.creator_fees_amount - fees.buyback_fees_amount;
 
-    let pool_account_info = ctx.accounts.pool.to_account_info();
-    ctx.accounts.pool.transfer_out(
+    let pool_account_info = pool.to_account_info();
+    pool.transfer_out(
         output_amount_after_fees,
         pool_account_info,
         &ctx.accounts.a_mint,
