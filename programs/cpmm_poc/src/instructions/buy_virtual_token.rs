@@ -28,14 +28,21 @@ pub struct BuyVirtualToken<'info> {
     // todo check owner (or maybe not? can buy for other user)
     #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump = virtual_token_account.bump)]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
+
     #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
+
+
+    #[account(mut, seeds = [TREASURY_SEED, a_mint.key().as_ref()], bump = treasury.bump)]
+    pub treasury: Account<'info, Treasury>,
+
     #[account(mut,
         associated_token::mint = a_mint,
-        associated_token::authority = pool,
+        associated_token::authority = treasury,
         associated_token::token_program = token_program        
     )]
-    pub pool_ata: InterfaceAccount<'info, TokenAccount>,
+    pub treasury_ata: InterfaceAccount<'info, TokenAccount>,
+
     pub a_mint: InterfaceAccount<'info, Mint>,
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
@@ -89,13 +96,14 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
             ctx.accounts.pool.a_remaining_topup - real_topup_amount;
         ctx.accounts.pool.a_reserve += real_topup_amount;
     } else {
-        ctx.accounts.pool.buyback_fees_balance += fees.buyback_fees_amount;
+        ctx.accounts.pool.buyback_fees_accumulated += fees.buyback_fees_amount;
+        ctx.accounts.treasury.fees_available += fees.buyback_fees_amount;
     }
 
     let cpi_accounts = TransferChecked {
         mint: ctx.accounts.a_mint.to_account_info(),
         from: ctx.accounts.payer_ata.to_account_info(),
-        to: ctx.accounts.pool_ata.to_account_info(),
+        to: ctx.accounts.treasury_ata.to_account_info(),
         authority: ctx.accounts.payer.to_account_info(),
     };
     let cpi_program = ctx.accounts.token_program.to_account_info();
@@ -132,6 +140,8 @@ mod tests {
         let a_mint = runner.create_mint(&payer, 9);
         let payer_ata = runner.create_associated_token_account(&payer, a_mint, &payer.pubkey());
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
+        runner.create_treasury_mock(payer.pubkey(), a_mint);
+        runner.create_treasury_ata(&payer, a_mint, a_reserve + creator_fees_balance + buyback_fees_balance);
 
         runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
 
@@ -185,7 +195,7 @@ mod tests {
         assert_eq!(pool_data.a_reserve, a_amount_after_fees);
         assert_eq!(pool_data.b_reserve, b_reserve - calculated_b_amount_min);
         assert_eq!(pool_data.a_virtual_reserve, a_virtual_reserve); // Unchanged
-        assert_eq!(pool_data.buyback_fees_balance, buyback_fees);
+        assert_eq!(pool_data.buyback_fees_accumulated, buyback_fees);
         assert_eq!(pool_data.creator_fees_balance, creator_fees);
     }
 
