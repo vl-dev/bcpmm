@@ -26,12 +26,15 @@ pub struct ClaimCreatorFees<'info> {
     #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
 
+    #[account(mut, seeds = [TREASURY_SEED], bump = treasury.bump)]
+    pub treasury: Account<'info, Treasury>,
+
     #[account(mut,
         associated_token::mint = a_mint,
-        associated_token::authority = pool,
+        associated_token::authority = treasury,
         associated_token::token_program = token_program        
     )]
-    pub pool_ata: InterfaceAccount<'info, TokenAccount>,
+    pub treasury_ata: InterfaceAccount<'info, TokenAccount>,
 
     pub a_mint: InterfaceAccount<'info, Mint>,
     pub token_program: Interface<'info, TokenInterface>,
@@ -46,12 +49,11 @@ pub fn claim_creator_fees(ctx: Context<ClaimCreatorFees>, args: ClaimCreatorFees
 
     // Subtract the claimed amount and transfer to owner
     pool.creator_fees_balance -= args.amount;
-    let pool_account_info = pool.to_account_info();
-    pool.transfer_out(
+    pool.treasury_transfer_out(
         args.amount,
-        pool_account_info,
+        &ctx.accounts.treasury,
         &ctx.accounts.a_mint,
-        &ctx.accounts.pool_ata,
+        &ctx.accounts.treasury_ata,
         &ctx.accounts.owner_ata,
         &ctx.accounts.token_program,
     )?;
@@ -86,6 +88,8 @@ mod tests {
         runner.airdrop(&owner.pubkey(), 10_000_000_000);
         let a_mint = runner.create_mint(&owner, 9);
         let owner_ata = runner.create_associated_token_account(&owner, a_mint, &owner.pubkey());
+        runner.create_treasury_mock(owner.pubkey());
+        runner.create_treasury_ata(&owner, a_mint, a_reserve + creator_fees_balance + buyback_fees_balance);
 
         runner.create_central_state_mock(&owner, 5, 5, 2, 1, 10000);
 
@@ -122,7 +126,6 @@ mod tests {
             claim_amount,
         );
         assert_eq!(result.is_ok(), success);
-
         if success {
 
           // Check that creator fees were subtracted from pool balance

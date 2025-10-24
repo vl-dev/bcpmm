@@ -9,6 +9,7 @@ pub const CENTRAL_STATE_SEED: &[u8] = b"central_state";
 pub const BCPMM_POOL_SEED: &[u8] = b"bcpmm_pool";
 pub const VIRTUAL_TOKEN_ACCOUNT_SEED: &[u8] = b"virtual_token_account";
 pub const USER_BURN_ALLOWANCE_SEED: &[u8] = b"user_burn_allowance";
+pub const TREASURY_SEED: &[u8] = b"treasury";
 
 pub const DEFAULT_B_MINT_DECIMALS: u8 = 6;
 pub const DEFAULT_B_MINT_RESERVE: u64 = 1_000_000_000 * 10u64.pow(DEFAULT_B_MINT_DECIMALS as u32);
@@ -31,6 +32,43 @@ pub fn is_after_burn_reset_with_time( time_to_check: i64, current_time: i64, res
     let todays_midnight = current_time - current_time.rem_euclid(86400);
     let todays_reset_ts = todays_midnight + reset_time_of_day_seconds as i64;
     time_to_check >= todays_reset_ts
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_after_burn_reset_with_time_before_reset() {
+        let midnight = 1761177600;
+        let current_time = midnight + 1;
+        let time_before_reset = 1761177660; // Just after midnight
+        assert!(!is_after_burn_reset_with_time(time_before_reset, current_time, 43200));
+    }
+
+    #[test]
+    fn test_is_after_burn_reset_with_time_yesterday() {
+        let midnight = 1761177600;
+        let current_time = midnight + 1;
+        let yesterday_night = 1761166800;
+        assert!(!is_after_burn_reset_with_time(yesterday_night, current_time, 43200));
+    }
+
+    #[test]
+    fn test_is_after_burn_reset_with_time_same_day() {
+        let midnight = 1761177600;
+        let current_time = midnight + 1;
+        let time_after_reset_same_day = 1761224400;
+        assert!(is_after_burn_reset_with_time(time_after_reset_same_day, current_time, 43200));
+    }
+
+    #[test]
+    fn test_is_after_burn_reset_with_time_next_day() {
+        let midnight = 1761177600;
+        let current_time = midnight + 1;
+        let next_day = 1761264000;
+        assert!(is_after_burn_reset_with_time(next_day, current_time, 43200));
+    }
 }
 
 impl CentralState {
@@ -181,26 +219,23 @@ impl BcpmmPool {
         }
     }
 
-    pub fn transfer_out<'info>(
+    pub fn treasury_transfer_out<'info>(
         &mut self,
         amount: u64,
-        pool_account_info: AccountInfo<'info>,
+        treasury: &Account<'info, Treasury>,
         mint: &InterfaceAccount<'info, Mint>,
-        pool_ata: &InterfaceAccount<'info, TokenAccount>,
+        treasury_ata: &InterfaceAccount<'info, TokenAccount>,
         to: &InterfaceAccount<'info, TokenAccount>,
         token_program: &Interface<'info, TokenInterface>,
     ) -> Result<()> {
         let cpi_accounts = TransferChecked {
             mint: mint.to_account_info(),
-            from: pool_ata.to_account_info(),
+            from: treasury_ata.to_account_info(),
             to: to.to_account_info(),
-            authority: pool_account_info,
+            authority: treasury.to_account_info(),
         };
-        let bump_seed = self.bump;
-        let b_mint_index = &self.b_mint_index;
-        let b_mint_index_bytes = b_mint_index.to_le_bytes().to_vec();
-        let signer_seeds: &[&[&[u8]]] =
-            &[&[BCPMM_POOL_SEED, b_mint_index_bytes.as_slice(), &[bump_seed]]];
+        let bump_seed = treasury.bump;
+        let signer_seeds: &[&[&[u8]]] = &[&[TREASURY_SEED, &[bump_seed]]];
         let cpi_context = CpiContext::new(token_program.to_account_info(), cpi_accounts)
             .with_signer(signer_seeds);
         let decimals = mint.decimals;
@@ -271,39 +306,18 @@ impl UserBurnAllowance {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[account]
+#[derive(Default, InitSpace)]
+pub struct Treasury {
+    pub authority: Pubkey,
+    pub bump: u8,
+}
 
-    #[test]
-    fn test_is_after_burn_reset_with_time_before_reset() {
-        let midnight = 1761177600;
-        let current_time = midnight + 1;
-        let time_before_reset = 1761177660; // Just after midnight
-        assert!(!is_after_burn_reset_with_time(time_before_reset, current_time, 43200));
-    }
-
-    #[test]
-    fn test_is_after_burn_reset_with_time_yesterday() {
-        let midnight = 1761177600;
-        let current_time = midnight + 1;
-        let yesterday_night = 1761166800;
-        assert!(!is_after_burn_reset_with_time(yesterday_night, current_time, 43200));
-    }
-
-    #[test]
-    fn test_is_after_burn_reset_with_time_same_day() {
-        let midnight = 1761177600;
-        let current_time = midnight + 1;
-        let time_after_reset_same_day = 1761224400;
-        assert!(is_after_burn_reset_with_time(time_after_reset_same_day, current_time, 43200));
-    }
-
-    #[test]
-    fn test_is_after_burn_reset_with_time_next_day() {
-        let midnight = 1761177600;
-        let current_time = midnight + 1;
-        let next_day = 1761264000;
-        assert!(is_after_burn_reset_with_time(next_day, current_time, 43200));
+impl Treasury {
+    pub fn new(
+        authority: Pubkey,
+        bump: u8,
+    ) -> Self {
+        Self { authority, bump }
     }
 }

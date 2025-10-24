@@ -24,12 +24,17 @@ pub struct SellVirtualToken<'info> {
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
     #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump)]
     pub pool: Account<'info, BcpmmPool>,
+
+    #[account(mut, seeds = [TREASURY_SEED], bump = treasury.bump)]
+    pub treasury: Account<'info, Treasury>,
+
     #[account(mut,
         associated_token::mint = a_mint,
-        associated_token::authority = pool,
+        associated_token::authority = treasury,
         associated_token::token_program = token_program        
     )]
-    pub pool_ata: InterfaceAccount<'info, TokenAccount>,
+    pub treasury_ata: InterfaceAccount<'info, TokenAccount>,
+
     pub a_mint: InterfaceAccount<'info, Mint>,
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
@@ -53,12 +58,11 @@ pub fn sell_virtual_token(
     let output_amount_after_fees =
         output_amount - fees.creator_fees_amount - fees.buyback_fees_amount;
 
-    let pool_account_info = pool.to_account_info();
-    pool.transfer_out(
+    pool.treasury_transfer_out(
         output_amount_after_fees,
-        pool_account_info,
+        &ctx.accounts.treasury,
         &ctx.accounts.a_mint,
-        &ctx.accounts.pool_ata,
+        &ctx.accounts.treasury_ata,
         &ctx.accounts.payer_ata,
         &ctx.accounts.token_program)?;
     Ok(())
@@ -92,7 +96,8 @@ mod tests {
         let a_mint = runner.create_mint(&payer, 9);
         let payer_ata = runner.create_associated_token_account(&payer, a_mint, &payer.pubkey());
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
-
+        runner.create_treasury_mock(payer.pubkey());
+        runner.create_treasury_ata(&payer, a_mint, a_reserve + creator_fees_balance + buyback_fees_balance);
         runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
 
         let test_pool = runner.create_pool_mock(
@@ -137,8 +142,7 @@ mod tests {
             pool.pool,
             virtual_token_account,
             b_sell_amount,
-        );
-        assert!(result_sell.is_ok());
+        ).unwrap();
 
         // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
