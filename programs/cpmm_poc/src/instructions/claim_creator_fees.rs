@@ -41,7 +41,7 @@ pub struct ClaimCreatorFees<'info> {
 pub fn claim_creator_fees(ctx: Context<ClaimCreatorFees>, args: ClaimCreatorFeesArgs) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
     
-    require!( args.amount <= pool.creator_fees_balance, BcpmmError::InsufficientCreatorFees);
+    require!( args.amount <= pool.creator_fees_balance, BcpmmError::InsufficientVirtualTokenBalance);
     require!( args.amount > 0, BcpmmError::AmountTooSmall);
 
     // Subtract the claimed amount and transfer to owner

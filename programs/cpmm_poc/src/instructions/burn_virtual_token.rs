@@ -78,7 +78,7 @@ pub fn burn_virtual_token(
 #[cfg(test)]
 mod tests {
     use crate::state::BcpmmPool;
-    use crate::test_utils::{TestRunner, TestPool};
+    use crate::test_utils::{TestRunner, TestPool, init_metrics, print_metrics_report};
     use anchor_lang::prelude::*;
     use solana_sdk::signature::{Keypair, Signer};
 

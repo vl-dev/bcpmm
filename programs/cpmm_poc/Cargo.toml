@@ -25,6 +25,7 @@ anchor-spl = "0.31.1"
 solana-program = "2.3.0"
 
 [dev-dependencies]
+ctor = "0.2"
 litesvm = "0.8.1"
 litesvm-token = "0.8.1"
 sha2 = "0.10.9"
