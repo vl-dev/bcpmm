@@ -17,9 +17,8 @@ pub discriminator: [u8; 8],
 pub bump: u8,
 #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
 pub admin: Pubkey,
-pub b_mint_index: u64,
-pub daily_burn_allowance: u16,
-pub creator_daily_burn_allowance: u16,
+pub max_user_daily_burn_count: u16,
+pub max_creator_daily_burn_count: u16,
 pub user_burn_bp_x100: u32,
 pub creator_burn_bp_x100: u32,
 pub burn_reset_time_of_day_seconds: u32,
@@ -29,7 +28,7 @@ pub burn_reset_time_of_day_seconds: u32,
 pub const CENTRAL_STATE_DISCRIMINATOR: [u8; 8] = [201, 49, 35, 231, 4, 164, 205, 91];
 
 impl CentralState {
-      pub const LEN: usize = 65;
+      pub const LEN: usize = 57;
   
   
   

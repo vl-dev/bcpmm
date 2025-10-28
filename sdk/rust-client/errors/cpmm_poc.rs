@@ -52,12 +52,9 @@ pub enum CpmmPocError {
     /// 6013 - Invalid pool owner
     #[error("Invalid pool owner")]
     InvalidPoolOwner = 0x177D,
-    /// 6014 - Invalid admin
-    #[error("Invalid admin")]
-    InvalidAdmin = 0x177E,
-    /// 6015 - Invalid treasury authority
-    #[error("Invalid treasury authority")]
-    InvalidTreasuryAuthority = 0x177F,
+    /// 6014 - Invalid mint
+    #[error("Invalid mint")]
+    InvalidMint = 0x177E,
 }
 
 impl From<CpmmPocError> for solana_program_error::ProgramError {

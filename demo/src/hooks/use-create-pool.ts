@@ -1,7 +1,7 @@
 import { CPMM_POC_PROGRAM_ADDRESS, getCreatePoolInstructionAsync, fetchCentralState } from "@bcpmm/js-client";
-import { Address, createSignerFromKeyPair, getBytesEncoder, getProgramDerivedAddress, KeyPairSigner } from "@solana/kit";
+import { Address, createSignerFromKeyPair, getBytesEncoder, getProgramDerivedAddress, KeyPairSigner, appendTransactionMessageInstruction, setTransactionMessageLifetimeUsingBlockhash, setTransactionMessageFeePayerSigner, signTransactionMessageWithSigners, assertIsSendableTransaction, getBase64EncodedWireTransaction, pipe, getBase64Encoder } from "@solana/kit";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { getTxClient } from "src/solana/tx-client";
+import { getTxClient } from "../solana/tx-client";
 import { SYSTEM_PROGRAM_ADDRESS } from "@solana-program/system";
 import { TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import { createTransactionMessage } from "@solana/kit";
@@ -9,17 +9,16 @@ import { createTransactionMessage } from "@solana/kit";
 interface CreatePoolParams {
   user: KeyPairSigner;
   mint: Address;
-  treasury: Address;
 }
 
-export async function useCreatePool() {
+export function useCreatePool() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ user, mint, treasury }: CreatePoolParams) => {
+    mutationFn: async ({ user, mint }: CreatePoolParams) => {
       const { rpc, sendAndConfirmTransaction } = await getTxClient();
       const userSigner = await createSignerFromKeyPair(user.keyPair);
-      
+
       // Get central state address
       const [centralStateAddress] = await getProgramDerivedAddress({
         programAddress: CPMM_POC_PROGRAM_ADDRESS,
@@ -40,7 +39,7 @@ export async function useCreatePool() {
       const bMintIndexBytes = new Uint8Array(8);
       const dataView = new DataView(bMintIndexBytes.buffer);
       dataView.setBigUint64(0, bMintIndex, true); // little-endian u64
-      
+
       const [poolAddress] = await getProgramDerivedAddress({
         programAddress: CPMM_POC_PROGRAM_ADDRESS,
         seeds: [
@@ -53,7 +52,6 @@ export async function useCreatePool() {
         payer: userSigner,
         aMint: mint,
         pool: poolAddress,
-        treasury,
         centralState: centralStateAddress,
         tokenProgram: TOKEN_PROGRAM_ADDRESS,
         systemProgram: SYSTEM_PROGRAM_ADDRESS,
@@ -63,7 +61,36 @@ export async function useCreatePool() {
       });
 
       const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+      const transactionMessage = pipe(
+        createTransactionMessage({ version: 0 }),
+        (tx) => setTransactionMessageFeePayerSigner(userSigner, tx),
+        (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+        (tx) => appendTransactionMessageInstruction(createPoolInstruction, tx),
+      );
 
+      const signedTx = await signTransactionMessageWithSigners(transactionMessage);
+      assertIsSendableTransaction(signedTx);
+
+      try {
+        const txBase64 = getBase64EncodedWireTransaction(signedTx);
+        const simulateResult = await rpc
+          .simulateTransaction(txBase64, { encoding: 'base64', sigVerify: true, commitment: 'confirmed' })
+          .send();
+          console.log('txBase64', txBase64);
+        console.log('simulate createPool', simulateResult);
+
+        await sendAndConfirmTransaction(signedTx as any, { commitment: 'confirmed' });
+        console.log('createPool tx sent and confirmed');
+      } catch (error) {
+        console.error('createPool tx error', error);
+        throw error;
+      }
+
+      return poolAddress;
+    },
+    onSuccess: () => {
+      // Ensure user pool refetches
+      queryClient.invalidateQueries({ queryKey: ['userPool'] });
     },
   });
 }

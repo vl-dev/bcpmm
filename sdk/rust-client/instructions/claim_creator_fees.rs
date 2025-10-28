@@ -27,10 +27,7 @@ pub struct ClaimCreatorFees {
           pub pool: solana_pubkey::Pubkey,
           
               
-          pub treasury: solana_pubkey::Pubkey,
-          
-              
-          pub treasury_ata: solana_pubkey::Pubkey,
+          pub pool_ata: solana_pubkey::Pubkey,
           
               
           pub a_mint: solana_pubkey::Pubkey,
@@ -49,7 +46,7 @@ impl ClaimCreatorFees {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: ClaimCreatorFeesInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(9+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(8+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.owner,
             true
@@ -67,11 +64,7 @@ impl ClaimCreatorFees {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            self.treasury,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.treasury_ata,
+            self.pool_ata,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -144,19 +137,17 @@ impl ClaimCreatorFeesInstructionArgs {
                 ///   1. `[writable]` owner_ata
                 ///   2. `[writable]` central_state
                 ///   3. `[writable]` pool
-                ///   4. `[writable]` treasury
-                ///   5. `[writable]` treasury_ata
-          ///   6. `[]` a_mint
-                ///   7. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
-                ///   8. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                ///   4. `[writable]` pool_ata
+          ///   5. `[]` a_mint
+                ///   6. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+                ///   7. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct ClaimCreatorFeesBuilder {
             owner: Option<solana_pubkey::Pubkey>,
                 owner_ata: Option<solana_pubkey::Pubkey>,
                 central_state: Option<solana_pubkey::Pubkey>,
                 pool: Option<solana_pubkey::Pubkey>,
-                treasury: Option<solana_pubkey::Pubkey>,
-                treasury_ata: Option<solana_pubkey::Pubkey>,
+                pool_ata: Option<solana_pubkey::Pubkey>,
                 a_mint: Option<solana_pubkey::Pubkey>,
                 token_program: Option<solana_pubkey::Pubkey>,
                 system_program: Option<solana_pubkey::Pubkey>,
@@ -189,13 +180,8 @@ impl ClaimCreatorFeesBuilder {
                     self
     }
             #[inline(always)]
-    pub fn treasury(&mut self, treasury: solana_pubkey::Pubkey) -> &mut Self {
-                        self.treasury = Some(treasury);
-                    self
-    }
-            #[inline(always)]
-    pub fn treasury_ata(&mut self, treasury_ata: solana_pubkey::Pubkey) -> &mut Self {
-                        self.treasury_ata = Some(treasury_ata);
+    pub fn pool_ata(&mut self, pool_ata: solana_pubkey::Pubkey) -> &mut Self {
+                        self.pool_ata = Some(pool_ata);
                     self
     }
             #[inline(always)]
@@ -239,8 +225,7 @@ impl ClaimCreatorFeesBuilder {
                                         owner_ata: self.owner_ata.expect("owner_ata is not set"),
                                         central_state: self.central_state.expect("central_state is not set"),
                                         pool: self.pool.expect("pool is not set"),
-                                        treasury: self.treasury.expect("treasury is not set"),
-                                        treasury_ata: self.treasury_ata.expect("treasury_ata is not set"),
+                                        pool_ata: self.pool_ata.expect("pool_ata is not set"),
                                         a_mint: self.a_mint.expect("a_mint is not set"),
                                         token_program: self.token_program.unwrap_or(solana_pubkey::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")),
                                         system_program: self.system_program.unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
@@ -269,10 +254,7 @@ impl ClaimCreatorFeesBuilder {
               pub pool: &'b solana_account_info::AccountInfo<'a>,
                 
                     
-              pub treasury: &'b solana_account_info::AccountInfo<'a>,
-                
-                    
-              pub treasury_ata: &'b solana_account_info::AccountInfo<'a>,
+              pub pool_ata: &'b solana_account_info::AccountInfo<'a>,
                 
                     
               pub a_mint: &'b solana_account_info::AccountInfo<'a>,
@@ -302,10 +284,7 @@ pub struct ClaimCreatorFeesCpi<'a, 'b> {
           pub pool: &'b solana_account_info::AccountInfo<'a>,
           
               
-          pub treasury: &'b solana_account_info::AccountInfo<'a>,
-          
-              
-          pub treasury_ata: &'b solana_account_info::AccountInfo<'a>,
+          pub pool_ata: &'b solana_account_info::AccountInfo<'a>,
           
               
           pub a_mint: &'b solana_account_info::AccountInfo<'a>,
@@ -331,8 +310,7 @@ impl<'a, 'b> ClaimCreatorFeesCpi<'a, 'b> {
               owner_ata: accounts.owner_ata,
               central_state: accounts.central_state,
               pool: accounts.pool,
-              treasury: accounts.treasury,
-              treasury_ata: accounts.treasury_ata,
+              pool_ata: accounts.pool_ata,
               a_mint: accounts.a_mint,
               token_program: accounts.token_program,
               system_program: accounts.system_program,
@@ -359,7 +337,7 @@ impl<'a, 'b> ClaimCreatorFeesCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(9+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(8+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.owner.key,
             true
@@ -377,11 +355,7 @@ impl<'a, 'b> ClaimCreatorFeesCpi<'a, 'b> {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            *self.treasury.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.treasury_ata.key,
+            *self.pool_ata.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -412,14 +386,13 @@ impl<'a, 'b> ClaimCreatorFeesCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(10 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(9 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.owner.clone());
                         account_infos.push(self.owner_ata.clone());
                         account_infos.push(self.central_state.clone());
                         account_infos.push(self.pool.clone());
-                        account_infos.push(self.treasury.clone());
-                        account_infos.push(self.treasury_ata.clone());
+                        account_infos.push(self.pool_ata.clone());
                         account_infos.push(self.a_mint.clone());
                         account_infos.push(self.token_program.clone());
                         account_infos.push(self.system_program.clone());
@@ -441,11 +414,10 @@ impl<'a, 'b> ClaimCreatorFeesCpi<'a, 'b> {
                 ///   1. `[writable]` owner_ata
                 ///   2. `[writable]` central_state
                 ///   3. `[writable]` pool
-                ///   4. `[writable]` treasury
-                ///   5. `[writable]` treasury_ata
-          ///   6. `[]` a_mint
-          ///   7. `[]` token_program
-          ///   8. `[]` system_program
+                ///   4. `[writable]` pool_ata
+          ///   5. `[]` a_mint
+          ///   6. `[]` token_program
+          ///   7. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct ClaimCreatorFeesCpiBuilder<'a, 'b> {
   instruction: Box<ClaimCreatorFeesCpiBuilderInstruction<'a, 'b>>,
@@ -459,8 +431,7 @@ impl<'a, 'b> ClaimCreatorFeesCpiBuilder<'a, 'b> {
               owner_ata: None,
               central_state: None,
               pool: None,
-              treasury: None,
-              treasury_ata: None,
+              pool_ata: None,
               a_mint: None,
               token_program: None,
               system_program: None,
@@ -490,13 +461,8 @@ impl<'a, 'b> ClaimCreatorFeesCpiBuilder<'a, 'b> {
                     self
     }
       #[inline(always)]
-    pub fn treasury(&mut self, treasury: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.treasury = Some(treasury);
-                    self
-    }
-      #[inline(always)]
-    pub fn treasury_ata(&mut self, treasury_ata: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.treasury_ata = Some(treasury_ata);
+    pub fn pool_ata(&mut self, pool_ata: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.pool_ata = Some(pool_ata);
                     self
     }
       #[inline(always)]
@@ -555,9 +521,7 @@ impl<'a, 'b> ClaimCreatorFeesCpiBuilder<'a, 'b> {
                   
           pool: self.instruction.pool.expect("pool is not set"),
                   
-          treasury: self.instruction.treasury.expect("treasury is not set"),
-                  
-          treasury_ata: self.instruction.treasury_ata.expect("treasury_ata is not set"),
+          pool_ata: self.instruction.pool_ata.expect("pool_ata is not set"),
                   
           a_mint: self.instruction.a_mint.expect("a_mint is not set"),
                   
@@ -577,8 +541,7 @@ struct ClaimCreatorFeesCpiBuilderInstruction<'a, 'b> {
                 owner_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
                 central_state: Option<&'b solana_account_info::AccountInfo<'a>>,
                 pool: Option<&'b solana_account_info::AccountInfo<'a>>,
-                treasury: Option<&'b solana_account_info::AccountInfo<'a>>,
-                treasury_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
+                pool_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
                 a_mint: Option<&'b solana_account_info::AccountInfo<'a>>,
                 token_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,

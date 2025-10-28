@@ -24,13 +24,19 @@ pub struct CreatePool {
           pub pool: solana_pubkey::Pubkey,
           
               
-          pub treasury: solana_pubkey::Pubkey,
+          pub pool_ata: solana_pubkey::Pubkey,
           
               
           pub central_state: solana_pubkey::Pubkey,
           
               
+          pub central_state_ata: solana_pubkey::Pubkey,
+          
+              
           pub token_program: solana_pubkey::Pubkey,
+          
+              
+          pub associated_token_program: solana_pubkey::Pubkey,
           
               
           pub system_program: solana_pubkey::Pubkey,
@@ -43,7 +49,7 @@ impl CreatePool {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: CreatePoolInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(7+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(9+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.payer,
             true
@@ -57,15 +63,23 @@ impl CreatePool {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            self.treasury,
+            self.pool_ata,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             self.central_state,
             false
           ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            self.central_state_ata,
+            false
+          ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.token_program,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.associated_token_program,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -131,18 +145,22 @@ impl CreatePoolInstructionArgs {
                       ///   0. `[writable, signer]` payer
                 ///   1. `[writable]` a_mint
                 ///   2. `[writable]` pool
-                ///   3. `[writable]` treasury
+                ///   3. `[writable]` pool_ata
                 ///   4. `[writable]` central_state
-                ///   5. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
-                ///   6. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                ///   5. `[writable]` central_state_ata
+                ///   6. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+                ///   7. `[optional]` associated_token_program (default to `ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL`)
+                ///   8. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct CreatePoolBuilder {
             payer: Option<solana_pubkey::Pubkey>,
                 a_mint: Option<solana_pubkey::Pubkey>,
                 pool: Option<solana_pubkey::Pubkey>,
-                treasury: Option<solana_pubkey::Pubkey>,
+                pool_ata: Option<solana_pubkey::Pubkey>,
                 central_state: Option<solana_pubkey::Pubkey>,
+                central_state_ata: Option<solana_pubkey::Pubkey>,
                 token_program: Option<solana_pubkey::Pubkey>,
+                associated_token_program: Option<solana_pubkey::Pubkey>,
                 system_program: Option<solana_pubkey::Pubkey>,
                         a_virtual_reserve: Option<u64>,
                 creator_fee_basis_points: Option<u16>,
@@ -170,8 +188,8 @@ impl CreatePoolBuilder {
                     self
     }
             #[inline(always)]
-    pub fn treasury(&mut self, treasury: solana_pubkey::Pubkey) -> &mut Self {
-                        self.treasury = Some(treasury);
+    pub fn pool_ata(&mut self, pool_ata: solana_pubkey::Pubkey) -> &mut Self {
+                        self.pool_ata = Some(pool_ata);
                     self
     }
             #[inline(always)]
@@ -179,10 +197,21 @@ impl CreatePoolBuilder {
                         self.central_state = Some(central_state);
                     self
     }
+            #[inline(always)]
+    pub fn central_state_ata(&mut self, central_state_ata: solana_pubkey::Pubkey) -> &mut Self {
+                        self.central_state_ata = Some(central_state_ata);
+                    self
+    }
             /// `[optional account, default to 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA']`
 #[inline(always)]
     pub fn token_program(&mut self, token_program: solana_pubkey::Pubkey) -> &mut Self {
                         self.token_program = Some(token_program);
+                    self
+    }
+            /// `[optional account, default to 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL']`
+#[inline(always)]
+    pub fn associated_token_program(&mut self, associated_token_program: solana_pubkey::Pubkey) -> &mut Self {
+                        self.associated_token_program = Some(associated_token_program);
                     self
     }
             /// `[optional account, default to '11111111111111111111111111111111']`
@@ -224,9 +253,11 @@ impl CreatePoolBuilder {
                               payer: self.payer.expect("payer is not set"),
                                         a_mint: self.a_mint.expect("a_mint is not set"),
                                         pool: self.pool.expect("pool is not set"),
-                                        treasury: self.treasury.expect("treasury is not set"),
+                                        pool_ata: self.pool_ata.expect("pool_ata is not set"),
                                         central_state: self.central_state.expect("central_state is not set"),
+                                        central_state_ata: self.central_state_ata.expect("central_state_ata is not set"),
                                         token_program: self.token_program.unwrap_or(solana_pubkey::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")),
+                                        associated_token_program: self.associated_token_program.unwrap_or(solana_pubkey::pubkey!("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")),
                                         system_program: self.system_program.unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
                       };
           let args = CreatePoolInstructionArgs {
@@ -252,13 +283,19 @@ impl CreatePoolBuilder {
               pub pool: &'b solana_account_info::AccountInfo<'a>,
                 
                     
-              pub treasury: &'b solana_account_info::AccountInfo<'a>,
+              pub pool_ata: &'b solana_account_info::AccountInfo<'a>,
                 
                     
               pub central_state: &'b solana_account_info::AccountInfo<'a>,
                 
                     
+              pub central_state_ata: &'b solana_account_info::AccountInfo<'a>,
+                
+                    
               pub token_program: &'b solana_account_info::AccountInfo<'a>,
+                
+                    
+              pub associated_token_program: &'b solana_account_info::AccountInfo<'a>,
                 
                     
               pub system_program: &'b solana_account_info::AccountInfo<'a>,
@@ -279,13 +316,19 @@ pub struct CreatePoolCpi<'a, 'b> {
           pub pool: &'b solana_account_info::AccountInfo<'a>,
           
               
-          pub treasury: &'b solana_account_info::AccountInfo<'a>,
+          pub pool_ata: &'b solana_account_info::AccountInfo<'a>,
           
               
           pub central_state: &'b solana_account_info::AccountInfo<'a>,
           
               
+          pub central_state_ata: &'b solana_account_info::AccountInfo<'a>,
+          
+              
           pub token_program: &'b solana_account_info::AccountInfo<'a>,
+          
+              
+          pub associated_token_program: &'b solana_account_info::AccountInfo<'a>,
           
               
           pub system_program: &'b solana_account_info::AccountInfo<'a>,
@@ -304,9 +347,11 @@ impl<'a, 'b> CreatePoolCpi<'a, 'b> {
               payer: accounts.payer,
               a_mint: accounts.a_mint,
               pool: accounts.pool,
-              treasury: accounts.treasury,
+              pool_ata: accounts.pool_ata,
               central_state: accounts.central_state,
+              central_state_ata: accounts.central_state_ata,
               token_program: accounts.token_program,
+              associated_token_program: accounts.associated_token_program,
               system_program: accounts.system_program,
                     __args: args,
           }
@@ -331,7 +376,7 @@ impl<'a, 'b> CreatePoolCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(7+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(9+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.payer.key,
             true
@@ -345,15 +390,23 @@ impl<'a, 'b> CreatePoolCpi<'a, 'b> {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            *self.treasury.key,
+            *self.pool_ata.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             *self.central_state.key,
             false
           ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            *self.central_state_ata.key,
+            false
+          ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.token_program.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.associated_token_program.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -376,14 +429,16 @@ impl<'a, 'b> CreatePoolCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(8 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(10 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.payer.clone());
                         account_infos.push(self.a_mint.clone());
                         account_infos.push(self.pool.clone());
-                        account_infos.push(self.treasury.clone());
+                        account_infos.push(self.pool_ata.clone());
                         account_infos.push(self.central_state.clone());
+                        account_infos.push(self.central_state_ata.clone());
                         account_infos.push(self.token_program.clone());
+                        account_infos.push(self.associated_token_program.clone());
                         account_infos.push(self.system_program.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
@@ -402,10 +457,12 @@ impl<'a, 'b> CreatePoolCpi<'a, 'b> {
                       ///   0. `[writable, signer]` payer
                 ///   1. `[writable]` a_mint
                 ///   2. `[writable]` pool
-                ///   3. `[writable]` treasury
+                ///   3. `[writable]` pool_ata
                 ///   4. `[writable]` central_state
-          ///   5. `[]` token_program
-          ///   6. `[]` system_program
+                ///   5. `[writable]` central_state_ata
+          ///   6. `[]` token_program
+          ///   7. `[]` associated_token_program
+          ///   8. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct CreatePoolCpiBuilder<'a, 'b> {
   instruction: Box<CreatePoolCpiBuilderInstruction<'a, 'b>>,
@@ -418,9 +475,11 @@ impl<'a, 'b> CreatePoolCpiBuilder<'a, 'b> {
               payer: None,
               a_mint: None,
               pool: None,
-              treasury: None,
+              pool_ata: None,
               central_state: None,
+              central_state_ata: None,
               token_program: None,
+              associated_token_program: None,
               system_program: None,
                                             a_virtual_reserve: None,
                                 creator_fee_basis_points: None,
@@ -445,8 +504,8 @@ impl<'a, 'b> CreatePoolCpiBuilder<'a, 'b> {
                     self
     }
       #[inline(always)]
-    pub fn treasury(&mut self, treasury: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.treasury = Some(treasury);
+    pub fn pool_ata(&mut self, pool_ata: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.pool_ata = Some(pool_ata);
                     self
     }
       #[inline(always)]
@@ -455,8 +514,18 @@ impl<'a, 'b> CreatePoolCpiBuilder<'a, 'b> {
                     self
     }
       #[inline(always)]
+    pub fn central_state_ata(&mut self, central_state_ata: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.central_state_ata = Some(central_state_ata);
+                    self
+    }
+      #[inline(always)]
     pub fn token_program(&mut self, token_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.token_program = Some(token_program);
+                    self
+    }
+      #[inline(always)]
+    pub fn associated_token_program(&mut self, associated_token_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.associated_token_program = Some(associated_token_program);
                     self
     }
       #[inline(always)]
@@ -515,11 +584,15 @@ impl<'a, 'b> CreatePoolCpiBuilder<'a, 'b> {
                   
           pool: self.instruction.pool.expect("pool is not set"),
                   
-          treasury: self.instruction.treasury.expect("treasury is not set"),
+          pool_ata: self.instruction.pool_ata.expect("pool_ata is not set"),
                   
           central_state: self.instruction.central_state.expect("central_state is not set"),
                   
+          central_state_ata: self.instruction.central_state_ata.expect("central_state_ata is not set"),
+                  
           token_program: self.instruction.token_program.expect("token_program is not set"),
+                  
+          associated_token_program: self.instruction.associated_token_program.expect("associated_token_program is not set"),
                   
           system_program: self.instruction.system_program.expect("system_program is not set"),
                           __args: args,
@@ -534,9 +607,11 @@ struct CreatePoolCpiBuilderInstruction<'a, 'b> {
             payer: Option<&'b solana_account_info::AccountInfo<'a>>,
                 a_mint: Option<&'b solana_account_info::AccountInfo<'a>>,
                 pool: Option<&'b solana_account_info::AccountInfo<'a>>,
-                treasury: Option<&'b solana_account_info::AccountInfo<'a>>,
+                pool_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
                 central_state: Option<&'b solana_account_info::AccountInfo<'a>>,
+                central_state_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
                 token_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                associated_token_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                         a_virtual_reserve: Option<u64>,
                 creator_fee_basis_points: Option<u16>,

@@ -27,10 +27,13 @@ pub struct BuyVirtualToken {
           pub pool: solana_pubkey::Pubkey,
           
               
-          pub treasury: solana_pubkey::Pubkey,
+          pub pool_ata: solana_pubkey::Pubkey,
           
               
-          pub treasury_ata: solana_pubkey::Pubkey,
+          pub central_state_ata: solana_pubkey::Pubkey,
+          
+              
+          pub central_state: solana_pubkey::Pubkey,
           
               
           pub a_mint: solana_pubkey::Pubkey,
@@ -49,7 +52,7 @@ impl BuyVirtualToken {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: BuyVirtualTokenInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(9+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(10+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.payer,
             true
@@ -67,11 +70,15 @@ impl BuyVirtualToken {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            self.treasury,
+            self.pool_ata,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            self.treasury_ata,
+            self.central_state_ata,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            self.central_state,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -145,19 +152,21 @@ impl BuyVirtualTokenInstructionArgs {
                 ///   1. `[writable]` payer_ata
                 ///   2. `[writable]` virtual_token_account
                 ///   3. `[writable]` pool
-                ///   4. `[writable]` treasury
-                ///   5. `[writable]` treasury_ata
-          ///   6. `[]` a_mint
-                ///   7. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
-                ///   8. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                ///   4. `[writable]` pool_ata
+                ///   5. `[writable]` central_state_ata
+                ///   6. `[writable]` central_state
+          ///   7. `[]` a_mint
+                ///   8. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+                ///   9. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct BuyVirtualTokenBuilder {
             payer: Option<solana_pubkey::Pubkey>,
                 payer_ata: Option<solana_pubkey::Pubkey>,
                 virtual_token_account: Option<solana_pubkey::Pubkey>,
                 pool: Option<solana_pubkey::Pubkey>,
-                treasury: Option<solana_pubkey::Pubkey>,
-                treasury_ata: Option<solana_pubkey::Pubkey>,
+                pool_ata: Option<solana_pubkey::Pubkey>,
+                central_state_ata: Option<solana_pubkey::Pubkey>,
+                central_state: Option<solana_pubkey::Pubkey>,
                 a_mint: Option<solana_pubkey::Pubkey>,
                 token_program: Option<solana_pubkey::Pubkey>,
                 system_program: Option<solana_pubkey::Pubkey>,
@@ -191,13 +200,18 @@ impl BuyVirtualTokenBuilder {
                     self
     }
             #[inline(always)]
-    pub fn treasury(&mut self, treasury: solana_pubkey::Pubkey) -> &mut Self {
-                        self.treasury = Some(treasury);
+    pub fn pool_ata(&mut self, pool_ata: solana_pubkey::Pubkey) -> &mut Self {
+                        self.pool_ata = Some(pool_ata);
                     self
     }
             #[inline(always)]
-    pub fn treasury_ata(&mut self, treasury_ata: solana_pubkey::Pubkey) -> &mut Self {
-                        self.treasury_ata = Some(treasury_ata);
+    pub fn central_state_ata(&mut self, central_state_ata: solana_pubkey::Pubkey) -> &mut Self {
+                        self.central_state_ata = Some(central_state_ata);
+                    self
+    }
+            #[inline(always)]
+    pub fn central_state(&mut self, central_state: solana_pubkey::Pubkey) -> &mut Self {
+                        self.central_state = Some(central_state);
                     self
     }
             #[inline(always)]
@@ -246,8 +260,9 @@ impl BuyVirtualTokenBuilder {
                                         payer_ata: self.payer_ata.expect("payer_ata is not set"),
                                         virtual_token_account: self.virtual_token_account.expect("virtual_token_account is not set"),
                                         pool: self.pool.expect("pool is not set"),
-                                        treasury: self.treasury.expect("treasury is not set"),
-                                        treasury_ata: self.treasury_ata.expect("treasury_ata is not set"),
+                                        pool_ata: self.pool_ata.expect("pool_ata is not set"),
+                                        central_state_ata: self.central_state_ata.expect("central_state_ata is not set"),
+                                        central_state: self.central_state.expect("central_state is not set"),
                                         a_mint: self.a_mint.expect("a_mint is not set"),
                                         token_program: self.token_program.unwrap_or(solana_pubkey::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")),
                                         system_program: self.system_program.unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
@@ -277,10 +292,13 @@ impl BuyVirtualTokenBuilder {
               pub pool: &'b solana_account_info::AccountInfo<'a>,
                 
                     
-              pub treasury: &'b solana_account_info::AccountInfo<'a>,
+              pub pool_ata: &'b solana_account_info::AccountInfo<'a>,
                 
                     
-              pub treasury_ata: &'b solana_account_info::AccountInfo<'a>,
+              pub central_state_ata: &'b solana_account_info::AccountInfo<'a>,
+                
+                    
+              pub central_state: &'b solana_account_info::AccountInfo<'a>,
                 
                     
               pub a_mint: &'b solana_account_info::AccountInfo<'a>,
@@ -310,10 +328,13 @@ pub struct BuyVirtualTokenCpi<'a, 'b> {
           pub pool: &'b solana_account_info::AccountInfo<'a>,
           
               
-          pub treasury: &'b solana_account_info::AccountInfo<'a>,
+          pub pool_ata: &'b solana_account_info::AccountInfo<'a>,
           
               
-          pub treasury_ata: &'b solana_account_info::AccountInfo<'a>,
+          pub central_state_ata: &'b solana_account_info::AccountInfo<'a>,
+          
+              
+          pub central_state: &'b solana_account_info::AccountInfo<'a>,
           
               
           pub a_mint: &'b solana_account_info::AccountInfo<'a>,
@@ -339,8 +360,9 @@ impl<'a, 'b> BuyVirtualTokenCpi<'a, 'b> {
               payer_ata: accounts.payer_ata,
               virtual_token_account: accounts.virtual_token_account,
               pool: accounts.pool,
-              treasury: accounts.treasury,
-              treasury_ata: accounts.treasury_ata,
+              pool_ata: accounts.pool_ata,
+              central_state_ata: accounts.central_state_ata,
+              central_state: accounts.central_state,
               a_mint: accounts.a_mint,
               token_program: accounts.token_program,
               system_program: accounts.system_program,
@@ -367,7 +389,7 @@ impl<'a, 'b> BuyVirtualTokenCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(9+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(10+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.payer.key,
             true
@@ -385,11 +407,15 @@ impl<'a, 'b> BuyVirtualTokenCpi<'a, 'b> {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            *self.treasury.key,
+            *self.pool_ata.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            *self.treasury_ata.key,
+            *self.central_state_ata.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            *self.central_state.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -420,14 +446,15 @@ impl<'a, 'b> BuyVirtualTokenCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(10 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(11 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.payer.clone());
                         account_infos.push(self.payer_ata.clone());
                         account_infos.push(self.virtual_token_account.clone());
                         account_infos.push(self.pool.clone());
-                        account_infos.push(self.treasury.clone());
-                        account_infos.push(self.treasury_ata.clone());
+                        account_infos.push(self.pool_ata.clone());
+                        account_infos.push(self.central_state_ata.clone());
+                        account_infos.push(self.central_state.clone());
                         account_infos.push(self.a_mint.clone());
                         account_infos.push(self.token_program.clone());
                         account_infos.push(self.system_program.clone());
@@ -449,11 +476,12 @@ impl<'a, 'b> BuyVirtualTokenCpi<'a, 'b> {
                 ///   1. `[writable]` payer_ata
                 ///   2. `[writable]` virtual_token_account
                 ///   3. `[writable]` pool
-                ///   4. `[writable]` treasury
-                ///   5. `[writable]` treasury_ata
-          ///   6. `[]` a_mint
-          ///   7. `[]` token_program
-          ///   8. `[]` system_program
+                ///   4. `[writable]` pool_ata
+                ///   5. `[writable]` central_state_ata
+                ///   6. `[writable]` central_state
+          ///   7. `[]` a_mint
+          ///   8. `[]` token_program
+          ///   9. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct BuyVirtualTokenCpiBuilder<'a, 'b> {
   instruction: Box<BuyVirtualTokenCpiBuilderInstruction<'a, 'b>>,
@@ -467,8 +495,9 @@ impl<'a, 'b> BuyVirtualTokenCpiBuilder<'a, 'b> {
               payer_ata: None,
               virtual_token_account: None,
               pool: None,
-              treasury: None,
-              treasury_ata: None,
+              pool_ata: None,
+              central_state_ata: None,
+              central_state: None,
               a_mint: None,
               token_program: None,
               system_program: None,
@@ -499,13 +528,18 @@ impl<'a, 'b> BuyVirtualTokenCpiBuilder<'a, 'b> {
                     self
     }
       #[inline(always)]
-    pub fn treasury(&mut self, treasury: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.treasury = Some(treasury);
+    pub fn pool_ata(&mut self, pool_ata: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.pool_ata = Some(pool_ata);
                     self
     }
       #[inline(always)]
-    pub fn treasury_ata(&mut self, treasury_ata: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.treasury_ata = Some(treasury_ata);
+    pub fn central_state_ata(&mut self, central_state_ata: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.central_state_ata = Some(central_state_ata);
+                    self
+    }
+      #[inline(always)]
+    pub fn central_state(&mut self, central_state: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.central_state = Some(central_state);
                     self
     }
       #[inline(always)]
@@ -570,9 +604,11 @@ impl<'a, 'b> BuyVirtualTokenCpiBuilder<'a, 'b> {
                   
           pool: self.instruction.pool.expect("pool is not set"),
                   
-          treasury: self.instruction.treasury.expect("treasury is not set"),
+          pool_ata: self.instruction.pool_ata.expect("pool_ata is not set"),
                   
-          treasury_ata: self.instruction.treasury_ata.expect("treasury_ata is not set"),
+          central_state_ata: self.instruction.central_state_ata.expect("central_state_ata is not set"),
+                  
+          central_state: self.instruction.central_state.expect("central_state is not set"),
                   
           a_mint: self.instruction.a_mint.expect("a_mint is not set"),
                   
@@ -592,8 +628,9 @@ struct BuyVirtualTokenCpiBuilderInstruction<'a, 'b> {
                 payer_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
                 virtual_token_account: Option<&'b solana_account_info::AccountInfo<'a>>,
                 pool: Option<&'b solana_account_info::AccountInfo<'a>>,
-                treasury: Option<&'b solana_account_info::AccountInfo<'a>>,
-                treasury_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
+                pool_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
+                central_state_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
+                central_state: Option<&'b solana_account_info::AccountInfo<'a>>,
                 a_mint: Option<&'b solana_account_info::AccountInfo<'a>>,
                 token_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,

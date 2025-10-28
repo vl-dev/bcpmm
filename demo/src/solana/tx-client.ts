@@ -2,9 +2,6 @@ import {
     sendAndConfirmTransactionFactory, 
     createSolanaRpc,
     createSolanaRpcSubscriptions,
-    TransactionMessageWithFeePayer,
-    appendTransactionMessageInstruction,
-    BaseTransactionMessage,
 } from '@solana/kit';
 
 export type TxClient = {

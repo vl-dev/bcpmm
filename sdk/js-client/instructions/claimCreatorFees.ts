@@ -57,8 +57,7 @@ export type ClaimCreatorFeesInstruction<
   TAccountOwnerAta extends string | AccountMeta<string> = string,
   TAccountCentralState extends string | AccountMeta<string> = string,
   TAccountPool extends string | AccountMeta<string> = string,
-  TAccountTreasury extends string | AccountMeta<string> = string,
-  TAccountTreasuryAta extends string | AccountMeta<string> = string,
+  TAccountPoolAta extends string | AccountMeta<string> = string,
   TAccountAMint extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends
     | string
@@ -84,12 +83,9 @@ export type ClaimCreatorFeesInstruction<
       TAccountPool extends string
         ? WritableAccount<TAccountPool>
         : TAccountPool,
-      TAccountTreasury extends string
-        ? WritableAccount<TAccountTreasury>
-        : TAccountTreasury,
-      TAccountTreasuryAta extends string
-        ? WritableAccount<TAccountTreasuryAta>
-        : TAccountTreasuryAta,
+      TAccountPoolAta extends string
+        ? WritableAccount<TAccountPoolAta>
+        : TAccountPoolAta,
       TAccountAMint extends string
         ? ReadonlyAccount<TAccountAMint>
         : TAccountAMint,
@@ -142,8 +138,7 @@ export type ClaimCreatorFeesAsyncInput<
   TAccountOwnerAta extends string = string,
   TAccountCentralState extends string = string,
   TAccountPool extends string = string,
-  TAccountTreasury extends string = string,
-  TAccountTreasuryAta extends string = string,
+  TAccountPoolAta extends string = string,
   TAccountAMint extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
@@ -152,8 +147,7 @@ export type ClaimCreatorFeesAsyncInput<
   ownerAta?: Address<TAccountOwnerAta>;
   centralState?: Address<TAccountCentralState>;
   pool: Address<TAccountPool>;
-  treasury?: Address<TAccountTreasury>;
-  treasuryAta?: Address<TAccountTreasuryAta>;
+  poolAta?: Address<TAccountPoolAta>;
   aMint: Address<TAccountAMint>;
   tokenProgram?: Address<TAccountTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
@@ -165,8 +159,7 @@ export async function getClaimCreatorFeesInstructionAsync<
   TAccountOwnerAta extends string,
   TAccountCentralState extends string,
   TAccountPool extends string,
-  TAccountTreasury extends string,
-  TAccountTreasuryAta extends string,
+  TAccountPoolAta extends string,
   TAccountAMint extends string,
   TAccountTokenProgram extends string,
   TAccountSystemProgram extends string,
@@ -177,8 +170,7 @@ export async function getClaimCreatorFeesInstructionAsync<
     TAccountOwnerAta,
     TAccountCentralState,
     TAccountPool,
-    TAccountTreasury,
-    TAccountTreasuryAta,
+    TAccountPoolAta,
     TAccountAMint,
     TAccountTokenProgram,
     TAccountSystemProgram
@@ -191,8 +183,7 @@ export async function getClaimCreatorFeesInstructionAsync<
     TAccountOwnerAta,
     TAccountCentralState,
     TAccountPool,
-    TAccountTreasury,
-    TAccountTreasuryAta,
+    TAccountPoolAta,
     TAccountAMint,
     TAccountTokenProgram,
     TAccountSystemProgram
@@ -207,8 +198,7 @@ export async function getClaimCreatorFeesInstructionAsync<
     ownerAta: { value: input.ownerAta ?? null, isWritable: true },
     centralState: { value: input.centralState ?? null, isWritable: true },
     pool: { value: input.pool ?? null, isWritable: true },
-    treasury: { value: input.treasury ?? null, isWritable: true },
-    treasuryAta: { value: input.treasuryAta ?? null, isWritable: true },
+    poolAta: { value: input.poolAta ?? null, isWritable: true },
     aMint: { value: input.aMint ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
@@ -249,23 +239,12 @@ export async function getClaimCreatorFeesInstructionAsync<
       ],
     });
   }
-  if (!accounts.treasury.value) {
-    accounts.treasury.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([116, 114, 101, 97, 115, 117, 114, 121])
-        ),
-        getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
-      ],
-    });
-  }
-  if (!accounts.treasuryAta.value) {
-    accounts.treasuryAta.value = await getProgramDerivedAddress({
+  if (!accounts.poolAta.value) {
+    accounts.poolAta.value = await getProgramDerivedAddress({
       programAddress:
         'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>,
       seeds: [
-        getAddressEncoder().encode(expectAddress(accounts.treasury.value)),
+        getAddressEncoder().encode(expectAddress(accounts.pool.value)),
         getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
         getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
       ],
@@ -283,8 +262,7 @@ export async function getClaimCreatorFeesInstructionAsync<
       getAccountMeta(accounts.ownerAta),
       getAccountMeta(accounts.centralState),
       getAccountMeta(accounts.pool),
-      getAccountMeta(accounts.treasury),
-      getAccountMeta(accounts.treasuryAta),
+      getAccountMeta(accounts.poolAta),
       getAccountMeta(accounts.aMint),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.systemProgram),
@@ -299,8 +277,7 @@ export async function getClaimCreatorFeesInstructionAsync<
     TAccountOwnerAta,
     TAccountCentralState,
     TAccountPool,
-    TAccountTreasury,
-    TAccountTreasuryAta,
+    TAccountPoolAta,
     TAccountAMint,
     TAccountTokenProgram,
     TAccountSystemProgram
@@ -312,8 +289,7 @@ export type ClaimCreatorFeesInput<
   TAccountOwnerAta extends string = string,
   TAccountCentralState extends string = string,
   TAccountPool extends string = string,
-  TAccountTreasury extends string = string,
-  TAccountTreasuryAta extends string = string,
+  TAccountPoolAta extends string = string,
   TAccountAMint extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
@@ -322,8 +298,7 @@ export type ClaimCreatorFeesInput<
   ownerAta: Address<TAccountOwnerAta>;
   centralState: Address<TAccountCentralState>;
   pool: Address<TAccountPool>;
-  treasury: Address<TAccountTreasury>;
-  treasuryAta: Address<TAccountTreasuryAta>;
+  poolAta: Address<TAccountPoolAta>;
   aMint: Address<TAccountAMint>;
   tokenProgram?: Address<TAccountTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
@@ -335,8 +310,7 @@ export function getClaimCreatorFeesInstruction<
   TAccountOwnerAta extends string,
   TAccountCentralState extends string,
   TAccountPool extends string,
-  TAccountTreasury extends string,
-  TAccountTreasuryAta extends string,
+  TAccountPoolAta extends string,
   TAccountAMint extends string,
   TAccountTokenProgram extends string,
   TAccountSystemProgram extends string,
@@ -347,8 +321,7 @@ export function getClaimCreatorFeesInstruction<
     TAccountOwnerAta,
     TAccountCentralState,
     TAccountPool,
-    TAccountTreasury,
-    TAccountTreasuryAta,
+    TAccountPoolAta,
     TAccountAMint,
     TAccountTokenProgram,
     TAccountSystemProgram
@@ -360,8 +333,7 @@ export function getClaimCreatorFeesInstruction<
   TAccountOwnerAta,
   TAccountCentralState,
   TAccountPool,
-  TAccountTreasury,
-  TAccountTreasuryAta,
+  TAccountPoolAta,
   TAccountAMint,
   TAccountTokenProgram,
   TAccountSystemProgram
@@ -375,8 +347,7 @@ export function getClaimCreatorFeesInstruction<
     ownerAta: { value: input.ownerAta ?? null, isWritable: true },
     centralState: { value: input.centralState ?? null, isWritable: true },
     pool: { value: input.pool ?? null, isWritable: true },
-    treasury: { value: input.treasury ?? null, isWritable: true },
-    treasuryAta: { value: input.treasuryAta ?? null, isWritable: true },
+    poolAta: { value: input.poolAta ?? null, isWritable: true },
     aMint: { value: input.aMint ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
@@ -406,8 +377,7 @@ export function getClaimCreatorFeesInstruction<
       getAccountMeta(accounts.ownerAta),
       getAccountMeta(accounts.centralState),
       getAccountMeta(accounts.pool),
-      getAccountMeta(accounts.treasury),
-      getAccountMeta(accounts.treasuryAta),
+      getAccountMeta(accounts.poolAta),
       getAccountMeta(accounts.aMint),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.systemProgram),
@@ -422,8 +392,7 @@ export function getClaimCreatorFeesInstruction<
     TAccountOwnerAta,
     TAccountCentralState,
     TAccountPool,
-    TAccountTreasury,
-    TAccountTreasuryAta,
+    TAccountPoolAta,
     TAccountAMint,
     TAccountTokenProgram,
     TAccountSystemProgram
@@ -440,11 +409,10 @@ export type ParsedClaimCreatorFeesInstruction<
     ownerAta: TAccountMetas[1];
     centralState: TAccountMetas[2];
     pool: TAccountMetas[3];
-    treasury: TAccountMetas[4];
-    treasuryAta: TAccountMetas[5];
-    aMint: TAccountMetas[6];
-    tokenProgram: TAccountMetas[7];
-    systemProgram: TAccountMetas[8];
+    poolAta: TAccountMetas[4];
+    aMint: TAccountMetas[5];
+    tokenProgram: TAccountMetas[6];
+    systemProgram: TAccountMetas[7];
   };
   data: ClaimCreatorFeesInstructionData;
 };
@@ -457,7 +425,7 @@ export function parseClaimCreatorFeesInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>
 ): ParsedClaimCreatorFeesInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 9) {
+  if (instruction.accounts.length < 8) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
   }
@@ -474,8 +442,7 @@ export function parseClaimCreatorFeesInstruction<
       ownerAta: getNextAccount(),
       centralState: getNextAccount(),
       pool: getNextAccount(),
-      treasury: getNextAccount(),
-      treasuryAta: getNextAccount(),
+      poolAta: getNextAccount(),
       aMint: getNextAccount(),
       tokenProgram: getNextAccount(),
       systemProgram: getNextAccount(),

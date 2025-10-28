@@ -19,6 +19,8 @@ pub bump: u8,
 /// Pool creator address
 #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
 pub creator: Pubkey,
+/// Pool index per creator
+pub pool_index: u32,
 /// A mint address
 #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
 pub a_mint: Pubkey,
@@ -27,8 +29,6 @@ pub a_reserve: u64,
 /// A virtual reserve including decimals
 pub a_virtual_reserve: u64,
 pub a_remaining_topup: u64,
-/// B mint is virtual and denoted by index
-pub b_mint_index: u64,
 /// B mint decimals
 pub b_mint_decimals: u8,
 /// B reserve including decimals
@@ -50,7 +50,7 @@ pub last_burn_timestamp: i64,
 pub const BCPMM_POOL_DISCRIMINATOR: [u8; 8] = [176, 79, 229, 1, 239, 41, 66, 21];
 
 impl BcpmmPool {
-      pub const LEN: usize = 144;
+      pub const LEN: usize = 140;
   
   
   

@@ -14,8 +14,6 @@ export * from './closeUserBurnAllowance';
 export * from './closeVirtualTokenAccount';
 export * from './createPool';
 export * from './initializeCentralState';
-export * from './initializeTreasury';
 export * from './initializeUserBurnAllowance';
 export * from './initializeVirtualTokenAccount';
 export * from './sellVirtualToken';
-export * from './updateTreasuryAuthority';

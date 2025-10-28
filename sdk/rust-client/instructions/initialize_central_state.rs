@@ -84,8 +84,8 @@ impl Default for InitializeCentralStateInstructionData {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
  pub struct InitializeCentralStateInstructionArgs {
-                  pub daily_burn_allowance: u16,
-                pub creator_daily_burn_allowance: u16,
+                  pub max_user_daily_burn_count: u16,
+                pub max_creator_daily_burn_count: u16,
                 pub user_burn_bp_x100: u32,
                 pub creator_burn_bp_x100: u32,
                 pub burn_reset_time_of_day_seconds: u32,
@@ -110,8 +110,8 @@ pub struct InitializeCentralStateBuilder {
             admin: Option<solana_pubkey::Pubkey>,
                 central_state: Option<solana_pubkey::Pubkey>,
                 system_program: Option<solana_pubkey::Pubkey>,
-                        daily_burn_allowance: Option<u16>,
-                creator_daily_burn_allowance: Option<u16>,
+                        max_user_daily_burn_count: Option<u16>,
+                max_creator_daily_burn_count: Option<u16>,
                 user_burn_bp_x100: Option<u32>,
                 creator_burn_bp_x100: Option<u32>,
                 burn_reset_time_of_day_seconds: Option<u32>,
@@ -139,13 +139,13 @@ impl InitializeCentralStateBuilder {
                     self
     }
                     #[inline(always)]
-      pub fn daily_burn_allowance(&mut self, daily_burn_allowance: u16) -> &mut Self {
-        self.daily_burn_allowance = Some(daily_burn_allowance);
+      pub fn max_user_daily_burn_count(&mut self, max_user_daily_burn_count: u16) -> &mut Self {
+        self.max_user_daily_burn_count = Some(max_user_daily_burn_count);
         self
       }
                 #[inline(always)]
-      pub fn creator_daily_burn_allowance(&mut self, creator_daily_burn_allowance: u16) -> &mut Self {
-        self.creator_daily_burn_allowance = Some(creator_daily_burn_allowance);
+      pub fn max_creator_daily_burn_count(&mut self, max_creator_daily_burn_count: u16) -> &mut Self {
+        self.max_creator_daily_burn_count = Some(max_creator_daily_burn_count);
         self
       }
                 #[inline(always)]
@@ -183,8 +183,8 @@ impl InitializeCentralStateBuilder {
                                         system_program: self.system_program.unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
                       };
           let args = InitializeCentralStateInstructionArgs {
-                                                              daily_burn_allowance: self.daily_burn_allowance.clone().expect("daily_burn_allowance is not set"),
-                                                                  creator_daily_burn_allowance: self.creator_daily_burn_allowance.clone().expect("creator_daily_burn_allowance is not set"),
+                                                              max_user_daily_burn_count: self.max_user_daily_burn_count.clone().expect("max_user_daily_burn_count is not set"),
+                                                                  max_creator_daily_burn_count: self.max_creator_daily_burn_count.clone().expect("max_creator_daily_burn_count is not set"),
                                                                   user_burn_bp_x100: self.user_burn_bp_x100.clone().expect("user_burn_bp_x100 is not set"),
                                                                   creator_burn_bp_x100: self.creator_burn_bp_x100.clone().expect("creator_burn_bp_x100 is not set"),
                                                                   burn_reset_time_of_day_seconds: self.burn_reset_time_of_day_seconds.clone().expect("burn_reset_time_of_day_seconds is not set"),
@@ -321,8 +321,8 @@ impl<'a, 'b> InitializeCentralStateCpiBuilder<'a, 'b> {
               admin: None,
               central_state: None,
               system_program: None,
-                                            daily_burn_allowance: None,
-                                creator_daily_burn_allowance: None,
+                                            max_user_daily_burn_count: None,
+                                max_creator_daily_burn_count: None,
                                 user_burn_bp_x100: None,
                                 creator_burn_bp_x100: None,
                                 burn_reset_time_of_day_seconds: None,
@@ -346,13 +346,13 @@ impl<'a, 'b> InitializeCentralStateCpiBuilder<'a, 'b> {
                     self
     }
                     #[inline(always)]
-      pub fn daily_burn_allowance(&mut self, daily_burn_allowance: u16) -> &mut Self {
-        self.instruction.daily_burn_allowance = Some(daily_burn_allowance);
+      pub fn max_user_daily_burn_count(&mut self, max_user_daily_burn_count: u16) -> &mut Self {
+        self.instruction.max_user_daily_burn_count = Some(max_user_daily_burn_count);
         self
       }
                 #[inline(always)]
-      pub fn creator_daily_burn_allowance(&mut self, creator_daily_burn_allowance: u16) -> &mut Self {
-        self.instruction.creator_daily_burn_allowance = Some(creator_daily_burn_allowance);
+      pub fn max_creator_daily_burn_count(&mut self, max_creator_daily_burn_count: u16) -> &mut Self {
+        self.instruction.max_creator_daily_burn_count = Some(max_creator_daily_burn_count);
         self
       }
                 #[inline(always)]
@@ -393,8 +393,8 @@ impl<'a, 'b> InitializeCentralStateCpiBuilder<'a, 'b> {
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
           let args = InitializeCentralStateInstructionArgs {
-                                                              daily_burn_allowance: self.instruction.daily_burn_allowance.clone().expect("daily_burn_allowance is not set"),
-                                                                  creator_daily_burn_allowance: self.instruction.creator_daily_burn_allowance.clone().expect("creator_daily_burn_allowance is not set"),
+                                                              max_user_daily_burn_count: self.instruction.max_user_daily_burn_count.clone().expect("max_user_daily_burn_count is not set"),
+                                                                  max_creator_daily_burn_count: self.instruction.max_creator_daily_burn_count.clone().expect("max_creator_daily_burn_count is not set"),
                                                                   user_burn_bp_x100: self.instruction.user_burn_bp_x100.clone().expect("user_burn_bp_x100 is not set"),
                                                                   creator_burn_bp_x100: self.instruction.creator_burn_bp_x100.clone().expect("creator_burn_bp_x100 is not set"),
                                                                   burn_reset_time_of_day_seconds: self.instruction.burn_reset_time_of_day_seconds.clone().expect("burn_reset_time_of_day_seconds is not set"),
@@ -419,8 +419,8 @@ struct InitializeCentralStateCpiBuilderInstruction<'a, 'b> {
             admin: Option<&'b solana_account_info::AccountInfo<'a>>,
                 central_state: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        daily_burn_allowance: Option<u16>,
-                creator_daily_burn_allowance: Option<u16>,
+                        max_user_daily_burn_count: Option<u16>,
+                max_creator_daily_burn_count: Option<u16>,
                 user_burn_bp_x100: Option<u32>,
                 creator_burn_bp_x100: Option<u32>,
                 burn_reset_time_of_day_seconds: Option<u32>,

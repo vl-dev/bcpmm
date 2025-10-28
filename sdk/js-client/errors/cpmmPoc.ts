@@ -42,10 +42,8 @@ export const CPMM_POC_ERROR__INVALID_BUYBACK_FEE_BASIS_POINTS = 0x177b; // 6011
 export const CPMM_POC_ERROR__UNDERFLOW = 0x177c; // 6012
 /** InvalidPoolOwner: Invalid pool owner */
 export const CPMM_POC_ERROR__INVALID_POOL_OWNER = 0x177d; // 6013
-/** InvalidAdmin: Invalid admin */
-export const CPMM_POC_ERROR__INVALID_ADMIN = 0x177e; // 6014
-/** InvalidTreasuryAuthority: Invalid treasury authority */
-export const CPMM_POC_ERROR__INVALID_TREASURY_AUTHORITY = 0x177f; // 6015
+/** InvalidMint: Invalid mint */
+export const CPMM_POC_ERROR__INVALID_MINT = 0x177e; // 6014
 
 export type CpmmPocError =
   | typeof CPMM_POC_ERROR__AMOUNT_TOO_BIG
@@ -53,13 +51,12 @@ export type CpmmPocError =
   | typeof CPMM_POC_ERROR__CANNOT_CLOSE_ACTIVE_BURN_ALLOWANCE
   | typeof CPMM_POC_ERROR__INSUFFICIENT_BURN_ALLOWANCE
   | typeof CPMM_POC_ERROR__INSUFFICIENT_VIRTUAL_TOKEN_BALANCE
-  | typeof CPMM_POC_ERROR__INVALID_ADMIN
   | typeof CPMM_POC_ERROR__INVALID_BURN_ACCOUNT_PAYER
   | typeof CPMM_POC_ERROR__INVALID_BUYBACK_FEE_BASIS_POINTS
   | typeof CPMM_POC_ERROR__INVALID_FEE_BASIS_POINTS
+  | typeof CPMM_POC_ERROR__INVALID_MINT
   | typeof CPMM_POC_ERROR__INVALID_OWNER
   | typeof CPMM_POC_ERROR__INVALID_POOL_OWNER
-  | typeof CPMM_POC_ERROR__INVALID_TREASURY_AUTHORITY
   | typeof CPMM_POC_ERROR__INVALID_VIRTUAL_RESERVE
   | typeof CPMM_POC_ERROR__NONZERO_BALANCE
   | typeof CPMM_POC_ERROR__SLIPPAGE_EXCEEDED
@@ -73,13 +70,12 @@ if (process.env.NODE_ENV !== 'production') {
     [CPMM_POC_ERROR__CANNOT_CLOSE_ACTIVE_BURN_ALLOWANCE]: `Cannot close active burn allowance`,
     [CPMM_POC_ERROR__INSUFFICIENT_BURN_ALLOWANCE]: `Insufficient burn allowance`,
     [CPMM_POC_ERROR__INSUFFICIENT_VIRTUAL_TOKEN_BALANCE]: `Insufficient virtual token balance`,
-    [CPMM_POC_ERROR__INVALID_ADMIN]: `Invalid admin`,
     [CPMM_POC_ERROR__INVALID_BURN_ACCOUNT_PAYER]: `Invalid burn account payer`,
     [CPMM_POC_ERROR__INVALID_BUYBACK_FEE_BASIS_POINTS]: `Invalid buyback fee basis points`,
     [CPMM_POC_ERROR__INVALID_FEE_BASIS_POINTS]: `Invalid fee basis points`,
+    [CPMM_POC_ERROR__INVALID_MINT]: `Invalid mint`,
     [CPMM_POC_ERROR__INVALID_OWNER]: `Invalid owner`,
     [CPMM_POC_ERROR__INVALID_POOL_OWNER]: `Invalid pool owner`,
-    [CPMM_POC_ERROR__INVALID_TREASURY_AUTHORITY]: `Invalid treasury authority`,
     [CPMM_POC_ERROR__INVALID_VIRTUAL_RESERVE]: `Invalid virtual reserve`,
     [CPMM_POC_ERROR__NONZERO_BALANCE]: `Nonzero balance`,
     [CPMM_POC_ERROR__SLIPPAGE_EXCEEDED]: `Slippage exceeded`,

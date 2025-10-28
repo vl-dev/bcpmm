@@ -25,6 +25,8 @@ import {
   getStructEncoder,
   getU16Decoder,
   getU16Encoder,
+  getU32Decoder,
+  getU32Encoder,
   getU64Decoder,
   getU64Encoder,
   getU8Decoder,
@@ -57,6 +59,8 @@ export type BcpmmPool = {
   bump: number;
   /** Pool creator address */
   creator: Address;
+  /** Pool index per creator */
+  poolIndex: number;
   /** A mint address */
   aMint: Address;
   /** A reserve including decimals */
@@ -64,8 +68,6 @@ export type BcpmmPool = {
   /** A virtual reserve including decimals */
   aVirtualReserve: bigint;
   aRemainingTopup: bigint;
-  /** B mint is virtual and denoted by index */
-  bMintIndex: bigint;
   /** B mint decimals */
   bMintDecimals: number;
   /** B reserve including decimals */
@@ -88,6 +90,8 @@ export type BcpmmPoolArgs = {
   bump: number;
   /** Pool creator address */
   creator: Address;
+  /** Pool index per creator */
+  poolIndex: number;
   /** A mint address */
   aMint: Address;
   /** A reserve including decimals */
@@ -95,8 +99,6 @@ export type BcpmmPoolArgs = {
   /** A virtual reserve including decimals */
   aVirtualReserve: number | bigint;
   aRemainingTopup: number | bigint;
-  /** B mint is virtual and denoted by index */
-  bMintIndex: number | bigint;
   /** B mint decimals */
   bMintDecimals: number;
   /** B reserve including decimals */
@@ -120,11 +122,11 @@ export function getBcpmmPoolEncoder(): FixedSizeEncoder<BcpmmPoolArgs> {
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
       ['bump', getU8Encoder()],
       ['creator', getAddressEncoder()],
+      ['poolIndex', getU32Encoder()],
       ['aMint', getAddressEncoder()],
       ['aReserve', getU64Encoder()],
       ['aVirtualReserve', getU64Encoder()],
       ['aRemainingTopup', getU64Encoder()],
-      ['bMintIndex', getU64Encoder()],
       ['bMintDecimals', getU8Encoder()],
       ['bReserve', getU64Encoder()],
       ['creatorFeesBalance', getU64Encoder()],
@@ -143,11 +145,11 @@ export function getBcpmmPoolDecoder(): FixedSizeDecoder<BcpmmPool> {
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
     ['bump', getU8Decoder()],
     ['creator', getAddressDecoder()],
+    ['poolIndex', getU32Decoder()],
     ['aMint', getAddressDecoder()],
     ['aReserve', getU64Decoder()],
     ['aVirtualReserve', getU64Decoder()],
     ['aRemainingTopup', getU64Decoder()],
-    ['bMintIndex', getU64Decoder()],
     ['bMintDecimals', getU8Decoder()],
     ['bReserve', getU64Decoder()],
     ['creatorFeesBalance', getU64Decoder()],
@@ -217,5 +219,5 @@ export async function fetchAllMaybeBcpmmPool(
 }
 
 export function getBcpmmPoolSize(): number {
-  return 144;
+  return 140;
 }

@@ -7,13 +7,11 @@
 
   pub(crate) mod r#bcpmm_pool;
   pub(crate) mod r#central_state;
-  pub(crate) mod r#treasury;
   pub(crate) mod r#user_burn_allowance;
   pub(crate) mod r#virtual_token_account;
 
   pub use self::r#bcpmm_pool::*;
   pub use self::r#central_state::*;
-  pub use self::r#treasury::*;
   pub use self::r#user_burn_allowance::*;
   pub use self::r#virtual_token_account::*;
 

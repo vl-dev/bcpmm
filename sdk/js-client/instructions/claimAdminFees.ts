@@ -16,8 +16,6 @@ import {
   getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
-  getU64Decoder,
-  getU64Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -53,14 +51,17 @@ export function getClaimAdminFeesDiscriminatorBytes() {
 
 export type ClaimAdminFeesInstruction<
   TProgram extends string = typeof CPMM_POC_PROGRAM_ADDRESS,
-  TAccountAuthority extends string | AccountMeta<string> = string,
-  TAccountAuthorityAta extends string | AccountMeta<string> = string,
-  TAccountTreasury extends string | AccountMeta<string> = string,
-  TAccountTreasuryAta extends string | AccountMeta<string> = string,
+  TAccountSigner extends string | AccountMeta<string> = string,
+  TAccountAdminAta extends string | AccountMeta<string> = string,
+  TAccountCentralState extends string | AccountMeta<string> = string,
+  TAccountCentralStateAta extends string | AccountMeta<string> = string,
   TAccountAMint extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends
     | string
     | AccountMeta<string> = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+  TAccountAssociatedTokenProgram extends
+    | string
+    | AccountMeta<string> = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
   TAccountSystemProgram extends
     | string
     | AccountMeta<string> = '11111111111111111111111111111111',
@@ -69,25 +70,28 @@ export type ClaimAdminFeesInstruction<
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountAuthority extends string
-        ? WritableSignerAccount<TAccountAuthority> &
-            AccountSignerMeta<TAccountAuthority>
-        : TAccountAuthority,
-      TAccountAuthorityAta extends string
-        ? WritableAccount<TAccountAuthorityAta>
-        : TAccountAuthorityAta,
-      TAccountTreasury extends string
-        ? WritableAccount<TAccountTreasury>
-        : TAccountTreasury,
-      TAccountTreasuryAta extends string
-        ? WritableAccount<TAccountTreasuryAta>
-        : TAccountTreasuryAta,
+      TAccountSigner extends string
+        ? WritableSignerAccount<TAccountSigner> &
+            AccountSignerMeta<TAccountSigner>
+        : TAccountSigner,
+      TAccountAdminAta extends string
+        ? WritableAccount<TAccountAdminAta>
+        : TAccountAdminAta,
+      TAccountCentralState extends string
+        ? WritableAccount<TAccountCentralState>
+        : TAccountCentralState,
+      TAccountCentralStateAta extends string
+        ? WritableAccount<TAccountCentralStateAta>
+        : TAccountCentralStateAta,
       TAccountAMint extends string
         ? ReadonlyAccount<TAccountAMint>
         : TAccountAMint,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
+      TAccountAssociatedTokenProgram extends string
+        ? ReadonlyAccount<TAccountAssociatedTokenProgram>
+        : TAccountAssociatedTokenProgram,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -97,17 +101,13 @@ export type ClaimAdminFeesInstruction<
 
 export type ClaimAdminFeesInstructionData = {
   discriminator: ReadonlyUint8Array;
-  amount: bigint;
 };
 
-export type ClaimAdminFeesInstructionDataArgs = { amount: number | bigint };
+export type ClaimAdminFeesInstructionDataArgs = {};
 
 export function getClaimAdminFeesInstructionDataEncoder(): FixedSizeEncoder<ClaimAdminFeesInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([
-      ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
-      ['amount', getU64Encoder()],
-    ]),
+    getStructEncoder([['discriminator', fixEncoderSize(getBytesEncoder(), 8)]]),
     (value) => ({ ...value, discriminator: CLAIM_ADMIN_FEES_DISCRIMINATOR })
   );
 }
@@ -115,7 +115,6 @@ export function getClaimAdminFeesInstructionDataEncoder(): FixedSizeEncoder<Clai
 export function getClaimAdminFeesInstructionDataDecoder(): FixedSizeDecoder<ClaimAdminFeesInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-    ['amount', getU64Decoder()],
   ]);
 }
 
@@ -130,53 +129,57 @@ export function getClaimAdminFeesInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type ClaimAdminFeesAsyncInput<
-  TAccountAuthority extends string = string,
-  TAccountAuthorityAta extends string = string,
-  TAccountTreasury extends string = string,
-  TAccountTreasuryAta extends string = string,
+  TAccountSigner extends string = string,
+  TAccountAdminAta extends string = string,
+  TAccountCentralState extends string = string,
+  TAccountCentralStateAta extends string = string,
   TAccountAMint extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountAssociatedTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
-  authority: TransactionSigner<TAccountAuthority>;
-  authorityAta?: Address<TAccountAuthorityAta>;
-  treasury?: Address<TAccountTreasury>;
-  treasuryAta?: Address<TAccountTreasuryAta>;
+  signer: TransactionSigner<TAccountSigner>;
+  adminAta: Address<TAccountAdminAta>;
+  centralState?: Address<TAccountCentralState>;
+  centralStateAta?: Address<TAccountCentralStateAta>;
   aMint: Address<TAccountAMint>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
-  amount: ClaimAdminFeesInstructionDataArgs['amount'];
 };
 
 export async function getClaimAdminFeesInstructionAsync<
-  TAccountAuthority extends string,
-  TAccountAuthorityAta extends string,
-  TAccountTreasury extends string,
-  TAccountTreasuryAta extends string,
+  TAccountSigner extends string,
+  TAccountAdminAta extends string,
+  TAccountCentralState extends string,
+  TAccountCentralStateAta extends string,
   TAccountAMint extends string,
   TAccountTokenProgram extends string,
+  TAccountAssociatedTokenProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof CPMM_POC_PROGRAM_ADDRESS,
 >(
   input: ClaimAdminFeesAsyncInput<
-    TAccountAuthority,
-    TAccountAuthorityAta,
-    TAccountTreasury,
-    TAccountTreasuryAta,
+    TAccountSigner,
+    TAccountAdminAta,
+    TAccountCentralState,
+    TAccountCentralStateAta,
     TAccountAMint,
     TAccountTokenProgram,
+    TAccountAssociatedTokenProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress }
 ): Promise<
   ClaimAdminFeesInstruction<
     TProgramAddress,
-    TAccountAuthority,
-    TAccountAuthorityAta,
-    TAccountTreasury,
-    TAccountTreasuryAta,
+    TAccountSigner,
+    TAccountAdminAta,
+    TAccountCentralState,
+    TAccountCentralStateAta,
     TAccountAMint,
     TAccountTokenProgram,
+    TAccountAssociatedTokenProgram,
     TAccountSystemProgram
   >
 > {
@@ -185,12 +188,16 @@ export async function getClaimAdminFeesInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    authority: { value: input.authority ?? null, isWritable: true },
-    authorityAta: { value: input.authorityAta ?? null, isWritable: true },
-    treasury: { value: input.treasury ?? null, isWritable: true },
-    treasuryAta: { value: input.treasuryAta ?? null, isWritable: true },
+    signer: { value: input.signer ?? null, isWritable: true },
+    adminAta: { value: input.adminAta ?? null, isWritable: true },
+    centralState: { value: input.centralState ?? null, isWritable: true },
+    centralStateAta: { value: input.centralStateAta ?? null, isWritable: true },
     aMint: { value: input.aMint ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    associatedTokenProgram: {
+      value: input.associatedTokenProgram ?? null,
+      isWritable: false,
+    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -198,46 +205,37 @@ export async function getClaimAdminFeesInstructionAsync<
     ResolvedAccount
   >;
 
-  // Original args.
-  const args = { ...input };
-
   // Resolve default values.
+  if (!accounts.centralState.value) {
+    accounts.centralState.value = await getProgramDerivedAddress({
+      programAddress,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([
+            99, 101, 110, 116, 114, 97, 108, 95, 115, 116, 97, 116, 101,
+          ])
+        ),
+      ],
+    });
+  }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
       'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>;
   }
-  if (!accounts.authorityAta.value) {
-    accounts.authorityAta.value = await getProgramDerivedAddress({
+  if (!accounts.centralStateAta.value) {
+    accounts.centralStateAta.value = await getProgramDerivedAddress({
       programAddress:
         'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>,
       seeds: [
-        getAddressEncoder().encode(expectAddress(accounts.authority.value)),
+        getAddressEncoder().encode(expectAddress(accounts.centralState.value)),
         getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
         getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
       ],
     });
   }
-  if (!accounts.treasury.value) {
-    accounts.treasury.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([116, 114, 101, 97, 115, 117, 114, 121])
-        ),
-        getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
-      ],
-    });
-  }
-  if (!accounts.treasuryAta.value) {
-    accounts.treasuryAta.value = await getProgramDerivedAddress({
-      programAddress:
-        'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>,
-      seeds: [
-        getAddressEncoder().encode(expectAddress(accounts.treasury.value)),
-        getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
-        getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
-      ],
-    });
+  if (!accounts.associatedTokenProgram.value) {
+    accounts.associatedTokenProgram.value =
+      'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>;
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
@@ -247,77 +245,81 @@ export async function getClaimAdminFeesInstructionAsync<
   const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.authority),
-      getAccountMeta(accounts.authorityAta),
-      getAccountMeta(accounts.treasury),
-      getAccountMeta(accounts.treasuryAta),
+      getAccountMeta(accounts.signer),
+      getAccountMeta(accounts.adminAta),
+      getAccountMeta(accounts.centralState),
+      getAccountMeta(accounts.centralStateAta),
       getAccountMeta(accounts.aMint),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.associatedTokenProgram),
       getAccountMeta(accounts.systemProgram),
     ],
-    data: getClaimAdminFeesInstructionDataEncoder().encode(
-      args as ClaimAdminFeesInstructionDataArgs
-    ),
+    data: getClaimAdminFeesInstructionDataEncoder().encode({}),
     programAddress,
   } as ClaimAdminFeesInstruction<
     TProgramAddress,
-    TAccountAuthority,
-    TAccountAuthorityAta,
-    TAccountTreasury,
-    TAccountTreasuryAta,
+    TAccountSigner,
+    TAccountAdminAta,
+    TAccountCentralState,
+    TAccountCentralStateAta,
     TAccountAMint,
     TAccountTokenProgram,
+    TAccountAssociatedTokenProgram,
     TAccountSystemProgram
   >);
 }
 
 export type ClaimAdminFeesInput<
-  TAccountAuthority extends string = string,
-  TAccountAuthorityAta extends string = string,
-  TAccountTreasury extends string = string,
-  TAccountTreasuryAta extends string = string,
+  TAccountSigner extends string = string,
+  TAccountAdminAta extends string = string,
+  TAccountCentralState extends string = string,
+  TAccountCentralStateAta extends string = string,
   TAccountAMint extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountAssociatedTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
-  authority: TransactionSigner<TAccountAuthority>;
-  authorityAta: Address<TAccountAuthorityAta>;
-  treasury: Address<TAccountTreasury>;
-  treasuryAta: Address<TAccountTreasuryAta>;
+  signer: TransactionSigner<TAccountSigner>;
+  adminAta: Address<TAccountAdminAta>;
+  centralState: Address<TAccountCentralState>;
+  centralStateAta: Address<TAccountCentralStateAta>;
   aMint: Address<TAccountAMint>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
-  amount: ClaimAdminFeesInstructionDataArgs['amount'];
 };
 
 export function getClaimAdminFeesInstruction<
-  TAccountAuthority extends string,
-  TAccountAuthorityAta extends string,
-  TAccountTreasury extends string,
-  TAccountTreasuryAta extends string,
+  TAccountSigner extends string,
+  TAccountAdminAta extends string,
+  TAccountCentralState extends string,
+  TAccountCentralStateAta extends string,
   TAccountAMint extends string,
   TAccountTokenProgram extends string,
+  TAccountAssociatedTokenProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof CPMM_POC_PROGRAM_ADDRESS,
 >(
   input: ClaimAdminFeesInput<
-    TAccountAuthority,
-    TAccountAuthorityAta,
-    TAccountTreasury,
-    TAccountTreasuryAta,
+    TAccountSigner,
+    TAccountAdminAta,
+    TAccountCentralState,
+    TAccountCentralStateAta,
     TAccountAMint,
     TAccountTokenProgram,
+    TAccountAssociatedTokenProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress }
 ): ClaimAdminFeesInstruction<
   TProgramAddress,
-  TAccountAuthority,
-  TAccountAuthorityAta,
-  TAccountTreasury,
-  TAccountTreasuryAta,
+  TAccountSigner,
+  TAccountAdminAta,
+  TAccountCentralState,
+  TAccountCentralStateAta,
   TAccountAMint,
   TAccountTokenProgram,
+  TAccountAssociatedTokenProgram,
   TAccountSystemProgram
 > {
   // Program address.
@@ -325,12 +327,16 @@ export function getClaimAdminFeesInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    authority: { value: input.authority ?? null, isWritable: true },
-    authorityAta: { value: input.authorityAta ?? null, isWritable: true },
-    treasury: { value: input.treasury ?? null, isWritable: true },
-    treasuryAta: { value: input.treasuryAta ?? null, isWritable: true },
+    signer: { value: input.signer ?? null, isWritable: true },
+    adminAta: { value: input.adminAta ?? null, isWritable: true },
+    centralState: { value: input.centralState ?? null, isWritable: true },
+    centralStateAta: { value: input.centralStateAta ?? null, isWritable: true },
     aMint: { value: input.aMint ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    associatedTokenProgram: {
+      value: input.associatedTokenProgram ?? null,
+      isWritable: false,
+    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -338,13 +344,14 @@ export function getClaimAdminFeesInstruction<
     ResolvedAccount
   >;
 
-  // Original args.
-  const args = { ...input };
-
   // Resolve default values.
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
       'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>;
+  }
+  if (!accounts.associatedTokenProgram.value) {
+    accounts.associatedTokenProgram.value =
+      'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>;
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
@@ -354,26 +361,26 @@ export function getClaimAdminFeesInstruction<
   const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.authority),
-      getAccountMeta(accounts.authorityAta),
-      getAccountMeta(accounts.treasury),
-      getAccountMeta(accounts.treasuryAta),
+      getAccountMeta(accounts.signer),
+      getAccountMeta(accounts.adminAta),
+      getAccountMeta(accounts.centralState),
+      getAccountMeta(accounts.centralStateAta),
       getAccountMeta(accounts.aMint),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.associatedTokenProgram),
       getAccountMeta(accounts.systemProgram),
     ],
-    data: getClaimAdminFeesInstructionDataEncoder().encode(
-      args as ClaimAdminFeesInstructionDataArgs
-    ),
+    data: getClaimAdminFeesInstructionDataEncoder().encode({}),
     programAddress,
   } as ClaimAdminFeesInstruction<
     TProgramAddress,
-    TAccountAuthority,
-    TAccountAuthorityAta,
-    TAccountTreasury,
-    TAccountTreasuryAta,
+    TAccountSigner,
+    TAccountAdminAta,
+    TAccountCentralState,
+    TAccountCentralStateAta,
     TAccountAMint,
     TAccountTokenProgram,
+    TAccountAssociatedTokenProgram,
     TAccountSystemProgram
   >);
 }
@@ -384,13 +391,14 @@ export type ParsedClaimAdminFeesInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    authority: TAccountMetas[0];
-    authorityAta: TAccountMetas[1];
-    treasury: TAccountMetas[2];
-    treasuryAta: TAccountMetas[3];
+    signer: TAccountMetas[0];
+    adminAta: TAccountMetas[1];
+    centralState: TAccountMetas[2];
+    centralStateAta: TAccountMetas[3];
     aMint: TAccountMetas[4];
     tokenProgram: TAccountMetas[5];
-    systemProgram: TAccountMetas[6];
+    associatedTokenProgram: TAccountMetas[6];
+    systemProgram: TAccountMetas[7];
   };
   data: ClaimAdminFeesInstructionData;
 };
@@ -403,7 +411,7 @@ export function parseClaimAdminFeesInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>
 ): ParsedClaimAdminFeesInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 7) {
+  if (instruction.accounts.length < 8) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
   }
@@ -416,12 +424,13 @@ export function parseClaimAdminFeesInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      authority: getNextAccount(),
-      authorityAta: getNextAccount(),
-      treasury: getNextAccount(),
-      treasuryAta: getNextAccount(),
+      signer: getNextAccount(),
+      adminAta: getNextAccount(),
+      centralState: getNextAccount(),
+      centralStateAta: getNextAccount(),
       aMint: getNextAccount(),
       tokenProgram: getNextAccount(),
+      associatedTokenProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },
     data: getClaimAdminFeesInstructionDataDecoder().decode(instruction.data),

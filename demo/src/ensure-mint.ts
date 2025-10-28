@@ -18,66 +18,11 @@ import {
 import { generateKeyPair } from '@solana/keys';
 import { getMintSize, getInitializeMintInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { getCreateAccountInstruction } from '@solana-program/system';
-import { CPMM_POC_PROGRAM_ADDRESS, getInitializeTreasuryInstructionAsync, fetchMaybeTreasury } from '@bcpmm/js-client';
+import { CPMM_POC_PROGRAM_ADDRESS } from '@bcpmm/js-client';
 import { getTxClient } from './solana/tx-client';
 
 const MINT_STORAGE_KEY = 'mint_address';
 const DECIMALS = 6; // Adjust decimals as needed
-
-export async function ensureTreasury(
-  adminKeypair: KeyPairSigner,
-  mint: Address
-): Promise<Address> {
-  const { rpc, sendAndConfirmTransaction } = await getTxClient();
-  const adminSigner = await createSignerFromKeyPair(adminKeypair.keyPair);
-  console.log('Admin signer', adminSigner.address.toString());
-
-  const [mintTreasuryAddress, _bump] = await getProgramDerivedAddress({
-    programAddress: CPMM_POC_PROGRAM_ADDRESS,
-    seeds: [
-      getBytesEncoder().encode(
-        new Uint8Array([116, 114, 101, 97, 115, 117, 114, 121]) // "treasury"
-      ),
-      getAddressEncoder().encode(mint),
-    ],
-  });
-
-  const mintTreasury = await fetchMaybeTreasury(rpc, mintTreasuryAddress);
-  if (mintTreasury.exists) {
-    return mintTreasury.address;
-  }
-
-  console.log('Treasury does not exist, creating...');
-
-  const initializeTreasuryInstruction = await getInitializeTreasuryInstructionAsync({
-    admin: adminSigner,
-    aMint: mint,
-    treasuryAuthority: adminSigner.address,
-  });
-
-  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-  const transactionMessage = pipe(
-    createTransactionMessage({ version: 0 }),
-    (tx) => setTransactionMessageFeePayerSigner(adminSigner, tx),
-    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-    (tx) => appendTransactionMessageInstruction(initializeTreasuryInstruction, tx),
-  );
-
-  const signedTx = await signTransactionMessageWithSigners(transactionMessage);
-  assertIsSendableTransaction(signedTx);
-  
-  console.log('Sending treasury creation transaction');
-  try {
-    await sendAndConfirmTransaction(signedTx as any, { commitment: 'confirmed' });
-    console.log('✅ Treasury created')
-
-    return mintTreasuryAddress;
-  } catch (error) {
-    console.error('Error creating treasury:', error);
-    throw error;
-  }
-}
 
 export async function ensureMint(
   adminKeypair: KeyPairSigner

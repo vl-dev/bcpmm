@@ -76,16 +76,16 @@ export type InitializeCentralStateInstruction<
 
 export type InitializeCentralStateInstructionData = {
   discriminator: ReadonlyUint8Array;
-  dailyBurnAllowance: number;
-  creatorDailyBurnAllowance: number;
+  maxUserDailyBurnCount: number;
+  maxCreatorDailyBurnCount: number;
   userBurnBpX100: number;
   creatorBurnBpX100: number;
   burnResetTimeOfDaySeconds: number;
 };
 
 export type InitializeCentralStateInstructionDataArgs = {
-  dailyBurnAllowance: number;
-  creatorDailyBurnAllowance: number;
+  maxUserDailyBurnCount: number;
+  maxCreatorDailyBurnCount: number;
   userBurnBpX100: number;
   creatorBurnBpX100: number;
   burnResetTimeOfDaySeconds: number;
@@ -95,8 +95,8 @@ export function getInitializeCentralStateInstructionDataEncoder(): FixedSizeEnco
   return transformEncoder(
     getStructEncoder([
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
-      ['dailyBurnAllowance', getU16Encoder()],
-      ['creatorDailyBurnAllowance', getU16Encoder()],
+      ['maxUserDailyBurnCount', getU16Encoder()],
+      ['maxCreatorDailyBurnCount', getU16Encoder()],
       ['userBurnBpX100', getU32Encoder()],
       ['creatorBurnBpX100', getU32Encoder()],
       ['burnResetTimeOfDaySeconds', getU32Encoder()],
@@ -111,8 +111,8 @@ export function getInitializeCentralStateInstructionDataEncoder(): FixedSizeEnco
 export function getInitializeCentralStateInstructionDataDecoder(): FixedSizeDecoder<InitializeCentralStateInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-    ['dailyBurnAllowance', getU16Decoder()],
-    ['creatorDailyBurnAllowance', getU16Decoder()],
+    ['maxUserDailyBurnCount', getU16Decoder()],
+    ['maxCreatorDailyBurnCount', getU16Decoder()],
     ['userBurnBpX100', getU32Decoder()],
     ['creatorBurnBpX100', getU32Decoder()],
     ['burnResetTimeOfDaySeconds', getU32Decoder()],
@@ -137,8 +137,8 @@ export type InitializeCentralStateAsyncInput<
   admin: TransactionSigner<TAccountAdmin>;
   centralState?: Address<TAccountCentralState>;
   systemProgram?: Address<TAccountSystemProgram>;
-  dailyBurnAllowance: InitializeCentralStateInstructionDataArgs['dailyBurnAllowance'];
-  creatorDailyBurnAllowance: InitializeCentralStateInstructionDataArgs['creatorDailyBurnAllowance'];
+  maxUserDailyBurnCount: InitializeCentralStateInstructionDataArgs['maxUserDailyBurnCount'];
+  maxCreatorDailyBurnCount: InitializeCentralStateInstructionDataArgs['maxCreatorDailyBurnCount'];
   userBurnBpX100: InitializeCentralStateInstructionDataArgs['userBurnBpX100'];
   creatorBurnBpX100: InitializeCentralStateInstructionDataArgs['creatorBurnBpX100'];
   burnResetTimeOfDaySeconds: InitializeCentralStateInstructionDataArgs['burnResetTimeOfDaySeconds'];
@@ -226,8 +226,8 @@ export type InitializeCentralStateInput<
   admin: TransactionSigner<TAccountAdmin>;
   centralState: Address<TAccountCentralState>;
   systemProgram?: Address<TAccountSystemProgram>;
-  dailyBurnAllowance: InitializeCentralStateInstructionDataArgs['dailyBurnAllowance'];
-  creatorDailyBurnAllowance: InitializeCentralStateInstructionDataArgs['creatorDailyBurnAllowance'];
+  maxUserDailyBurnCount: InitializeCentralStateInstructionDataArgs['maxUserDailyBurnCount'];
+  maxCreatorDailyBurnCount: InitializeCentralStateInstructionDataArgs['maxCreatorDailyBurnCount'];
   userBurnBpX100: InitializeCentralStateInstructionDataArgs['userBurnBpX100'];
   creatorBurnBpX100: InitializeCentralStateInstructionDataArgs['creatorBurnBpX100'];
   burnResetTimeOfDaySeconds: InitializeCentralStateInstructionDataArgs['burnResetTimeOfDaySeconds'];

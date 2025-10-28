@@ -25,8 +25,6 @@ import {
   getU16Encoder,
   getU32Decoder,
   getU32Encoder,
-  getU64Decoder,
-  getU64Encoder,
   getU8Decoder,
   getU8Encoder,
   transformEncoder,
@@ -57,9 +55,8 @@ export type CentralState = {
   discriminator: ReadonlyUint8Array;
   bump: number;
   admin: Address;
-  bMintIndex: bigint;
-  dailyBurnAllowance: number;
-  creatorDailyBurnAllowance: number;
+  maxUserDailyBurnCount: number;
+  maxCreatorDailyBurnCount: number;
   userBurnBpX100: number;
   creatorBurnBpX100: number;
   burnResetTimeOfDaySeconds: number;
@@ -68,9 +65,8 @@ export type CentralState = {
 export type CentralStateArgs = {
   bump: number;
   admin: Address;
-  bMintIndex: number | bigint;
-  dailyBurnAllowance: number;
-  creatorDailyBurnAllowance: number;
+  maxUserDailyBurnCount: number;
+  maxCreatorDailyBurnCount: number;
   userBurnBpX100: number;
   creatorBurnBpX100: number;
   burnResetTimeOfDaySeconds: number;
@@ -82,9 +78,8 @@ export function getCentralStateEncoder(): FixedSizeEncoder<CentralStateArgs> {
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
       ['bump', getU8Encoder()],
       ['admin', getAddressEncoder()],
-      ['bMintIndex', getU64Encoder()],
-      ['dailyBurnAllowance', getU16Encoder()],
-      ['creatorDailyBurnAllowance', getU16Encoder()],
+      ['maxUserDailyBurnCount', getU16Encoder()],
+      ['maxCreatorDailyBurnCount', getU16Encoder()],
       ['userBurnBpX100', getU32Encoder()],
       ['creatorBurnBpX100', getU32Encoder()],
       ['burnResetTimeOfDaySeconds', getU32Encoder()],
@@ -98,9 +93,8 @@ export function getCentralStateDecoder(): FixedSizeDecoder<CentralState> {
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
     ['bump', getU8Decoder()],
     ['admin', getAddressDecoder()],
-    ['bMintIndex', getU64Decoder()],
-    ['dailyBurnAllowance', getU16Decoder()],
-    ['creatorDailyBurnAllowance', getU16Decoder()],
+    ['maxUserDailyBurnCount', getU16Decoder()],
+    ['maxCreatorDailyBurnCount', getU16Decoder()],
     ['userBurnBpX100', getU32Decoder()],
     ['creatorBurnBpX100', getU32Decoder()],
     ['burnResetTimeOfDaySeconds', getU32Decoder()],
@@ -168,5 +162,5 @@ export async function fetchAllMaybeCentralState(
 }
 
 export function getCentralStateSize(): number {
-  return 65;
+  return 57;
 }

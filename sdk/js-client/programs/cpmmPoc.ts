@@ -22,11 +22,9 @@ import {
   type ParsedCloseVirtualTokenAccountInstruction,
   type ParsedCreatePoolInstruction,
   type ParsedInitializeCentralStateInstruction,
-  type ParsedInitializeTreasuryInstruction,
   type ParsedInitializeUserBurnAllowanceInstruction,
   type ParsedInitializeVirtualTokenAccountInstruction,
   type ParsedSellVirtualTokenInstruction,
-  type ParsedUpdateTreasuryAuthorityInstruction,
 } from '../instructions';
 
 export const CPMM_POC_PROGRAM_ADDRESS =
@@ -35,7 +33,6 @@ export const CPMM_POC_PROGRAM_ADDRESS =
 export enum CpmmPocAccount {
   BcpmmPool,
   CentralState,
-  Treasury,
   UserBurnAllowance,
   VirtualTokenAccount,
 }
@@ -65,17 +62,6 @@ export function identifyCpmmPocAccount(
     )
   ) {
     return CpmmPocAccount.CentralState;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([238, 239, 123, 238, 89, 1, 168, 253])
-      ),
-      0
-    )
-  ) {
-    return CpmmPocAccount.Treasury;
   }
   if (
     containsBytes(
@@ -113,11 +99,9 @@ export enum CpmmPocInstruction {
   CloseVirtualTokenAccount,
   CreatePool,
   InitializeCentralState,
-  InitializeTreasury,
   InitializeUserBurnAllowance,
   InitializeVirtualTokenAccount,
   SellVirtualToken,
-  UpdateTreasuryAuthority,
 }
 
 export function identifyCpmmPocInstruction(
@@ -216,17 +200,6 @@ export function identifyCpmmPocInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([124, 186, 211, 195, 85, 165, 129, 166])
-      ),
-      0
-    )
-  ) {
-    return CpmmPocInstruction.InitializeTreasury;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([160, 177, 207, 127, 14, 112, 211, 70])
       ),
       0
@@ -255,17 +228,6 @@ export function identifyCpmmPocInstruction(
     )
   ) {
     return CpmmPocInstruction.SellVirtualToken;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([185, 149, 66, 195, 105, 183, 32, 244])
-      ),
-      0
-    )
-  ) {
-    return CpmmPocInstruction.UpdateTreasuryAuthority;
   }
   throw new Error(
     'The provided instruction could not be identified as a cpmmPoc instruction.'
@@ -300,9 +262,6 @@ export type ParsedCpmmPocInstruction<
       instructionType: CpmmPocInstruction.InitializeCentralState;
     } & ParsedInitializeCentralStateInstruction<TProgram>)
   | ({
-      instructionType: CpmmPocInstruction.InitializeTreasury;
-    } & ParsedInitializeTreasuryInstruction<TProgram>)
-  | ({
       instructionType: CpmmPocInstruction.InitializeUserBurnAllowance;
     } & ParsedInitializeUserBurnAllowanceInstruction<TProgram>)
   | ({
@@ -310,7 +269,4 @@ export type ParsedCpmmPocInstruction<
     } & ParsedInitializeVirtualTokenAccountInstruction<TProgram>)
   | ({
       instructionType: CpmmPocInstruction.SellVirtualToken;
-    } & ParsedSellVirtualTokenInstruction<TProgram>)
-  | ({
-      instructionType: CpmmPocInstruction.UpdateTreasuryAuthority;
-    } & ParsedUpdateTreasuryAuthorityInstruction<TProgram>);
+    } & ParsedSellVirtualTokenInstruction<TProgram>);
