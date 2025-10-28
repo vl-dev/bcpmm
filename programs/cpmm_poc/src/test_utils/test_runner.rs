@@ -309,12 +309,20 @@ impl TestRunner {
         a_amount: u64,
         b_amount_min: u64,
     ) -> std::result::Result<(), TransactionError> {
-        let (treasury_pda, _treasury_bump) = Pubkey::find_program_address(
-            &[cpmm_state::TREASURY_SEED, mint.as_ref()],
+
+        let pool_ata = anchor_spl::associated_token::get_associated_token_address(
+            &anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
+            &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
+        );
+
+        // Derive the CentralState PDA
+        let (central_state_pda, _central_bump) = Pubkey::find_program_address(
+            &[cpmm_state::CENTRAL_STATE_SEED],
             &self.program_id,
         );
-        let treasury_ata = anchor_spl::associated_token::get_associated_token_address(
-            &anchor_lang::prelude::Pubkey::from(treasury_pda.to_bytes()),
+
+        let central_state_ata = anchor_spl::associated_token::get_associated_token_address(
+            &anchor_lang::prelude::Pubkey::from(central_state_pda.to_bytes()),
             &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
         );
 
@@ -323,8 +331,9 @@ impl TestRunner {
             AccountMeta::new(payer_ata, false),
             AccountMeta::new(virtual_token_account, false),
             AccountMeta::new(pool, false),
-            AccountMeta::new(treasury_pda, false),
-            AccountMeta::new(Pubkey::from(treasury_ata.to_bytes()), false),
+            AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false),
+            AccountMeta::new(Pubkey::from(central_state_ata.to_bytes()), false),
+            AccountMeta::new(central_state_pda, false),
             AccountMeta::new(mint, false),
             AccountMeta::new_readonly(
                 Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),

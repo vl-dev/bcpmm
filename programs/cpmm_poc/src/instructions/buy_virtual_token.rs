@@ -171,7 +171,9 @@ mod tests {
         let payer_ata = runner.create_associated_token_account(&payer, a_mint, &payer.pubkey());
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
 
-        runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
+        let central_state = runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
+        // central state ata
+        runner.create_associated_token_account(&payer, a_mint, &central_state);
 
         let test_pool = runner.create_pool_mock(
             &payer,
@@ -185,6 +187,8 @@ mod tests {
             creator_fees_balance,
             buyback_fees_balance,
         );
+        // pool ata
+        runner.create_associated_token_account(&payer, a_mint, &test_pool.pool);
 
         (runner, payer, another_wallet, test_pool, payer_ata, a_mint)
     }
@@ -214,7 +218,8 @@ mod tests {
             a_amount,
             calculated_b_amount_min,
         );
-        assert!(result_buy.is_ok());
+        result_buy.unwrap();
+        //assert!(result_buy.is_ok());
 
         // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
