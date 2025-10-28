@@ -95,9 +95,8 @@ describe("cpmm-poc", () => {
       [Buffer.from('central_state')],
       program.programId
     );
-    const centralStateAccount = await program.account.centralState.fetch(centralStatePDA);
     const [pool] = PublicKey.findProgramAddressSync(
-      [Buffer.from('bcpmm_pool'), centralStateAccount.bMintIndex.toArrayLike(Buffer, 'le', 8)],
+      [Buffer.from('bcpmm_pool'), Buffer.from([0, 0, 0, 0]), provider.wallet.publicKey.toBuffer()],
       program.programId
     );
 
@@ -107,12 +106,19 @@ describe("cpmm-poc", () => {
       true
     );
 
+    const centralStateAta = await getAssociatedTokenAddress(
+      aMint,
+      centralStatePDA,
+      true
+    );
+
     const createPoolAccounts = {
       payer: provider.wallet.publicKey,
       aMint: aMint,
       pool: pool,
       poolAta: poolAta,
       centralState: centralStatePDA,
+      centralStateAta: centralStateAta,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
@@ -235,7 +241,6 @@ describe("cpmm-poc", () => {
     console.log("Mint B Reserve: ", poolAccount.bReserve.toString());
     console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
     console.log("Mint A: ", poolAccount.aMint.toBase58());
-    console.log("Mint B Index: ", poolAccount.bMintIndex.toString());
     console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
     console.log("Creator Fee Basis Points: ", poolAccount.creatorFeeBasisPoints.toString());
     console.log("Buyback Fee Basis Points: ", poolAccount.buybackFeeBasisPoints.toString());

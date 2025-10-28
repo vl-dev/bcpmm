@@ -25,7 +25,7 @@ pub struct CreatePool<'info> {
     #[account(init,
          payer = payer, 
          space = BcpmmPool::INIT_SPACE + 8,
-         seeds = [BCPMM_POOL_SEED, central_state.b_mint_index.to_le_bytes().as_ref()],
+         seeds = [BCPMM_POOL_SEED, BCPMM_POOL_INDEX_SEED.to_le_bytes().as_ref(), payer.key().as_ref()],
          bump
     )]
     pub pool: Account<'info, BcpmmPool>,        
@@ -59,13 +59,11 @@ pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()>
     ctx.accounts.pool.set_inner(BcpmmPool::try_new(
         ctx.bumps.pool,
         ctx.accounts.payer.key(),
+        BCPMM_POOL_INDEX_SEED,
         ctx.accounts.a_mint.key(),
         args.a_virtual_reserve,
-        ctx.accounts.central_state.b_mint_index,
         args.creator_fee_basis_points,
         args.buyback_fee_basis_points,
     )?);
-
-    ctx.accounts.central_state.b_mint_index += 1;
     Ok(())
 }

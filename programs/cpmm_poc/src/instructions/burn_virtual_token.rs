@@ -9,7 +9,7 @@ pub struct BurnVirtualToken<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump = pool.bump)]
+    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
 
     #[account(mut, seeds = [USER_BURN_ALLOWANCE_SEED, signer.key().as_ref(), &[pool_owner as u8]], bump)]
