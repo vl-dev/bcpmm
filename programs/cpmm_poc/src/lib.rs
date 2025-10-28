@@ -10,7 +10,7 @@ mod test_utils;
 
 use instructions::*;
 
-declare_id!("J2rzAsBbYpMVEA3dtuudvzizpbwJXLJgR3yEToKzq1jB");
+declare_id!("2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz");
 
 #[program]
 pub mod cpmm_poc {
