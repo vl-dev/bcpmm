@@ -1,5 +1,5 @@
 import { CPMM_POC_PROGRAM_ADDRESS, getCreatePoolInstructionAsync, fetchCentralState } from "@bcpmm/js-client";
-import { Address, createSignerFromKeyPair, getBytesEncoder, getProgramDerivedAddress, KeyPairSigner, appendTransactionMessageInstruction, setTransactionMessageLifetimeUsingBlockhash, setTransactionMessageFeePayerSigner, signTransactionMessageWithSigners, assertIsSendableTransaction, getBase64EncodedWireTransaction, pipe, getBase64Encoder } from "@solana/kit";
+import { Address, createSignerFromKeyPair, getBytesEncoder, getProgramDerivedAddress, KeyPairSigner, appendTransactionMessageInstruction, setTransactionMessageLifetimeUsingBlockhash, setTransactionMessageFeePayerSigner, signTransactionMessageWithSigners, assertIsSendableTransaction, getBase64EncodedWireTransaction, pipe, getBase64Encoder, getAddressEncoder } from "@solana/kit";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getTxClient } from "../solana/tx-client";
 import { SYSTEM_PROGRAM_ADDRESS } from "@solana-program/system";
@@ -31,27 +31,20 @@ export function useCreatePool() {
         ],
       });
 
-      // Fetch central state to get b_mint_index
-      const centralState = await fetchCentralState(rpc, centralStateAddress);
-      const bMintIndex = centralState.data.bMintIndex;
 
-      // Derive pool address
-      const bMintIndexBytes = new Uint8Array(8);
-      const dataView = new DataView(bMintIndexBytes.buffer);
-      dataView.setBigUint64(0, bMintIndex, true); // little-endian u64
-
+      const userAddress = getAddressEncoder().encode(userSigner.address);
       const [poolAddress] = await getProgramDerivedAddress({
         programAddress: CPMM_POC_PROGRAM_ADDRESS,
         seeds: [
           getBytesEncoder().encode(new Uint8Array([98, 99, 112, 109, 109, 95, 112, 111, 111, 108])), // "bcpmm_pool"
-          bMintIndexBytes,
+          getBytesEncoder().encode(new Uint8Array([0, 0, 0, 0])),
+          userAddress,
         ],
       });
 
       const createPoolInstruction = await getCreatePoolInstructionAsync({
         payer: userSigner,
         aMint: mint,
-        pool: poolAddress,
         centralState: centralStateAddress,
         tokenProgram: TOKEN_PROGRAM_ADDRESS,
         systemProgram: SYSTEM_PROGRAM_ADDRESS,

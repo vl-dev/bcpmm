@@ -33,6 +33,12 @@ export async function ensureCentralStateAta(
   if (!mintAddress) throw new Error('Mint address not found');
   const mint = address(mintAddress);
 
+  // Verify the mint actually exists on-chain
+  const mintAccount = await rpc.getAccountInfo(mint, { commitment: 'confirmed' }).send();
+  if (!mintAccount.value) {
+    throw new Error(`Mint account ${mintAddress} does not exist on-chain`);
+  }
+
   // Derive central state PDA
   const [centralStateAddress] = await getProgramDerivedAddress({
     programAddress: CPMM_POC_PROGRAM_ADDRESS,
@@ -88,6 +94,7 @@ export async function ensureCentralStateAta(
         .send();
 
       console.log('createCentralStateAta simulation', simulateResult);
+      console.log('txBase64', txBase64);
 
       await sendAndConfirmTransaction(signedTx as any, { commitment: 'confirmed' });
       console.log('Central state ATA created')

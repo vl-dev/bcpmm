@@ -17,8 +17,12 @@ export function useTokenBalance(user: Address | null) {
         tokenProgram: TOKEN_PROGRAM_ADDRESS,
       });
 
-      const balance = await rpc.getTokenAccountBalance(associatedTokenAddress).send();
-      return balance.value.uiAmountString;
+      try {
+        const balance = await rpc.getTokenAccountBalance(associatedTokenAddress).send();
+        return balance.value.uiAmountString;
+      } catch (error) {
+        return '0';
+      }
     },
     enabled: !!user && !!mintAddress,
   });
