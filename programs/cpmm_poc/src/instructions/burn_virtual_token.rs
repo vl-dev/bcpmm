@@ -46,16 +46,14 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> R
             .central_state
             .is_after_burn_reset(ctx.accounts.user_burn_allowance.last_burn_timestamp)?
     {
-        ctx.accounts.user_burn_allowance.burns_today = 1;
+        ctx.accounts.user_burn_allowance.burns_today = 0;
 
     // If not resetting, check we have enough burn allowance.
     } else if ctx.accounts.user_burn_allowance.burns_today >= max_daily_burns {
         return Err(BcpmmError::InsufficientBurnAllowance.into());
-
-    // Not resetting and enough allowance, increment the burn count for today.
-    } else {
-        ctx.accounts.user_burn_allowance.burns_today += 1;
     }
+
+    ctx.accounts.user_burn_allowance.burns_today += 1;
     ctx.accounts.user_burn_allowance.last_burn_timestamp = now;
 
     // Check if we should reset the pool's daily burn count
