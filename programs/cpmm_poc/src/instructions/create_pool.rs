@@ -22,7 +22,12 @@ pub struct CreatePool<'info> {
     #[account(mut)]
     pub a_mint: InterfaceAccount<'info, Mint>,    
     
-    #[account(init, payer = payer, space = BcpmmPool::INIT_SPACE + 8, seeds = [BCPMM_POOL_SEED, central_state.b_mint_index.to_le_bytes().as_ref()], bump)]
+    #[account(init,
+         payer = payer, 
+         space = BcpmmPool::INIT_SPACE + 8,
+         seeds = [BCPMM_POOL_SEED, central_state.b_mint_index.to_le_bytes().as_ref()],
+         bump
+    )]
     pub pool: Account<'info, BcpmmPool>,        
 
     #[account(
@@ -36,6 +41,15 @@ pub struct CreatePool<'info> {
 
     #[account(mut)]
     pub central_state: Account<'info, CentralState>,
+
+    #[account(
+        init_if_needed, 
+        payer = payer, 
+        associated_token::mint = a_mint, 
+        associated_token::authority = central_state, 
+        associated_token::token_program = token_program
+    )]
+    pub central_state_ata: InterfaceAccount<'info, TokenAccount>,
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
