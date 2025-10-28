@@ -16,17 +16,24 @@ import {
 import {
   type ParsedBurnVirtualTokenInstruction,
   type ParsedBuyVirtualTokenInstruction,
+  type ParsedClaimAdminFeesInstruction,
+  type ParsedClaimCreatorFeesInstruction,
+  type ParsedCloseUserBurnAllowanceInstruction,
   type ParsedCloseVirtualTokenAccountInstruction,
   type ParsedCreatePoolInstruction,
+  type ParsedInitializeCentralStateInstruction,
+  type ParsedInitializeUserBurnAllowanceInstruction,
   type ParsedInitializeVirtualTokenAccountInstruction,
   type ParsedSellVirtualTokenInstruction,
 } from '../instructions';
 
 export const CPMM_POC_PROGRAM_ADDRESS =
-  '2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz' as Address<'2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz'>;
+  'J2rzAsBbYpMVEA3dtuudvzizpbwJXLJgR3yEToKzq1jB' as Address<'J2rzAsBbYpMVEA3dtuudvzizpbwJXLJgR3yEToKzq1jB'>;
 
 export enum CpmmPocAccount {
   BcpmmPool,
+  CentralState,
+  UserBurnAllowance,
   VirtualTokenAccount,
 }
 
@@ -49,6 +56,28 @@ export function identifyCpmmPocAccount(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([201, 49, 35, 231, 4, 164, 205, 91])
+      ),
+      0
+    )
+  ) {
+    return CpmmPocAccount.CentralState;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([154, 213, 227, 142, 136, 30, 145, 155])
+      ),
+      0
+    )
+  ) {
+    return CpmmPocAccount.UserBurnAllowance;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([213, 245, 54, 92, 159, 127, 14, 1])
       ),
       0
@@ -64,8 +93,13 @@ export function identifyCpmmPocAccount(
 export enum CpmmPocInstruction {
   BurnVirtualToken,
   BuyVirtualToken,
+  ClaimAdminFees,
+  ClaimCreatorFees,
+  CloseUserBurnAllowance,
   CloseVirtualTokenAccount,
   CreatePool,
+  InitializeCentralState,
+  InitializeUserBurnAllowance,
   InitializeVirtualTokenAccount,
   SellVirtualToken,
 }
@@ -100,6 +134,39 @@ export function identifyCpmmPocInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([68, 216, 128, 44, 49, 31, 91, 149])
+      ),
+      0
+    )
+  ) {
+    return CpmmPocInstruction.ClaimAdminFees;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([0, 23, 125, 234, 156, 118, 134, 89])
+      ),
+      0
+    )
+  ) {
+    return CpmmPocInstruction.ClaimCreatorFees;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([217, 24, 207, 62, 181, 123, 16, 187])
+      ),
+      0
+    )
+  ) {
+    return CpmmPocInstruction.CloseUserBurnAllowance;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([27, 182, 37, 28, 100, 111, 12, 0])
       ),
       0
@@ -117,6 +184,28 @@ export function identifyCpmmPocInstruction(
     )
   ) {
     return CpmmPocInstruction.CreatePool;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([204, 64, 162, 125, 253, 90, 119, 4])
+      ),
+      0
+    )
+  ) {
+    return CpmmPocInstruction.InitializeCentralState;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([160, 177, 207, 127, 14, 112, 211, 70])
+      ),
+      0
+    )
+  ) {
+    return CpmmPocInstruction.InitializeUserBurnAllowance;
   }
   if (
     containsBytes(
@@ -146,7 +235,7 @@ export function identifyCpmmPocInstruction(
 }
 
 export type ParsedCpmmPocInstruction<
-  TProgram extends string = '2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz',
+  TProgram extends string = 'J2rzAsBbYpMVEA3dtuudvzizpbwJXLJgR3yEToKzq1jB',
 > =
   | ({
       instructionType: CpmmPocInstruction.BurnVirtualToken;
@@ -155,11 +244,26 @@ export type ParsedCpmmPocInstruction<
       instructionType: CpmmPocInstruction.BuyVirtualToken;
     } & ParsedBuyVirtualTokenInstruction<TProgram>)
   | ({
+      instructionType: CpmmPocInstruction.ClaimAdminFees;
+    } & ParsedClaimAdminFeesInstruction<TProgram>)
+  | ({
+      instructionType: CpmmPocInstruction.ClaimCreatorFees;
+    } & ParsedClaimCreatorFeesInstruction<TProgram>)
+  | ({
+      instructionType: CpmmPocInstruction.CloseUserBurnAllowance;
+    } & ParsedCloseUserBurnAllowanceInstruction<TProgram>)
+  | ({
       instructionType: CpmmPocInstruction.CloseVirtualTokenAccount;
     } & ParsedCloseVirtualTokenAccountInstruction<TProgram>)
   | ({
       instructionType: CpmmPocInstruction.CreatePool;
     } & ParsedCreatePoolInstruction<TProgram>)
+  | ({
+      instructionType: CpmmPocInstruction.InitializeCentralState;
+    } & ParsedInitializeCentralStateInstruction<TProgram>)
+  | ({
+      instructionType: CpmmPocInstruction.InitializeUserBurnAllowance;
+    } & ParsedInitializeUserBurnAllowanceInstruction<TProgram>)
   | ({
       instructionType: CpmmPocInstruction.InitializeVirtualTokenAccount;
     } & ParsedInitializeVirtualTokenAccountInstruction<TProgram>)

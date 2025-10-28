@@ -10,4 +10,26 @@ pub enum BcpmmError {
     InvalidOwner,
     #[msg("Nonzero balance")]
     NonzeroBalance,
+    #[msg("Invalid fee basis points")]
+    InvalidFeeBasisPoints,
+    #[msg("Amount too big")]
+    AmountTooBig,
+    #[msg("Slippage exceeded")]
+    SlippageExceeded,
+    #[msg("Insufficient burn allowance")]
+    InsufficientBurnAllowance,
+    #[msg("Cannot close active burn allowance")]
+    CannotCloseActiveBurnAllowance,
+    #[msg("Invalid burn account payer")]
+    InvalidBurnAccountPayer,
+    #[msg("Invalid virtual reserve")]
+    InvalidVirtualReserve,
+    #[msg("Invalid buyback fee basis points")]
+    InvalidBuybackFeeBasisPoints,
+    #[msg("Underflow")]
+    Underflow,
+    #[msg("Invalid pool owner")]
+    InvalidPoolOwner,
+    #[msg("Invalid mint")]
+    InvalidMint,
 }

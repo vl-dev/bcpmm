@@ -21,15 +21,36 @@ describe("cpmm-poc", () => {
   }
 
   beforeEach(async () => {
+    const provider = anchor.getProvider();
+
     // Get all PDAs we need to check
     const [centralStatePDA] = PublicKey.findProgramAddressSync(
       [Buffer.from('central_state')],
       program.programId
     );
 
-    // If central state exists, we'll skip initialization in the test
+    // If central state doesn't exist, initialize it
     const centralStateExists = await accountExists(centralStatePDA);
-    if (centralStateExists) {
+    if (!centralStateExists) {
+      console.log("Initializing central state");
+      const initializeCentralStateArgs = {
+        maxUserDailyBurnCount: 10,
+        maxCreatorDailyBurnCount: 10,
+        userBurnBpX100: 1000, // 10%
+        creatorBurnBpX100: 500, // 5%
+        burnResetTimeOfDaySeconds: Date.now() / 1000 + 86400, // 24 hours from now
+      };
+      const initializeCentralStateAccounts = {
+        admin: provider.wallet.publicKey,
+        centralState: centralStatePDA,
+        systemProgram: SystemProgram.programId,
+      };
+      await program.methods
+        .initializeCentralState(initializeCentralStateArgs)
+        .accounts(initializeCentralStateAccounts)
+        .rpc();
+      console.log("Central state initialized");
+    } else {
       console.log("Central state already exists, skipping initialization");
     }
   });
@@ -67,12 +88,15 @@ describe("cpmm-poc", () => {
       BigInt("1000000000000000000"), // 1B tokens
     );
 
-    const bMintKeypair = new Keypair();
-    const bMint = bMintKeypair.publicKey;
     // Create CPMM Pool
     console.log("Creating CPMM Pool");
+    // Get the current b_mint_index from central state to calculate pool PDA
+    const [centralStatePDA] = PublicKey.findProgramAddressSync(
+      [Buffer.from('central_state')],
+      program.programId
+    );
     const [pool] = PublicKey.findProgramAddressSync(
-      [Buffer.from('bcpmm_pool'), bMint.toBuffer()],
+      [Buffer.from('bcpmm_pool'), Buffer.from([0, 0, 0, 0]), provider.wallet.publicKey.toBuffer()],
       program.programId
     );
 
@@ -82,19 +106,24 @@ describe("cpmm-poc", () => {
       true
     );
 
+    const centralStateAta = await getAssociatedTokenAddress(
+      aMint,
+      centralStatePDA,
+      true
+    );
+
     const createPoolAccounts = {
       payer: provider.wallet.publicKey,
       aMint: aMint,
-      bMint: bMint,
       pool: pool,
       poolAta: poolAta,
+      centralState: centralStatePDA,
+      centralStateAta: centralStateAta,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     };
     const createPoolArgs = {
-      bInitialSupply: new BN(10_000_000_000_000),
-      bDecimals: 6,
       aVirtualReserve: new BN("2000000000000000000"),
       creatorFeeBasisPoints: 500,
       buybackFeeBasisPoints: 100,
@@ -127,17 +156,40 @@ describe("cpmm-poc", () => {
 
     console.log("Initialize virtual token account tx: ", initVirtualTokenAccountSx);
 
+    // Initialize user burn allowance
+    console.log("Initializing user burn allowance");
+    const [userBurnAllowanceAddress] = PublicKey.findProgramAddressSync(
+      [Buffer.from('user_burn_allowance'), provider.wallet.publicKey.toBuffer(), Buffer.from([1])],
+      program.programId
+    );
+
+    const initializeUserBurnAllowanceAccounts = {
+      payer: provider.wallet.publicKey,
+      owner: provider.wallet.publicKey,
+      centralState: centralStatePDA,
+      userBurnAllowance: userBurnAllowanceAddress,
+    };
+    const initializeUserBurnAllowanceSx = await program.methods
+      .initializeUserBurnAllowance(true)
+      .accounts(initializeUserBurnAllowanceAccounts)
+      .rpc();
+
+    console.log("Initialize user burn allowance tx: ", initializeUserBurnAllowanceSx);
+
+
     // Burn tokens
     console.log("Burning tokens");
     const burnVirtualTokenArgs = {
-      bAmountBasisPoints: 9000,
+      poolOwner: true,
     };
     const burnVirtualTokenAccounts = {
       payer: provider.wallet.publicKey,
       pool: pool,
+      userBurnAllowance: userBurnAllowanceAddress,
+      centralState: centralStatePDA,
     };
     const burnVirtualTokenSx = await program.methods
-      .burnVirtualToken(burnVirtualTokenArgs)
+      .burnVirtualToken(true)
       .accounts(burnVirtualTokenAccounts)
       .signers([payer])
       .rpc();
@@ -150,7 +202,6 @@ describe("cpmm-poc", () => {
     console.log("B reserve: ", poolAccount.bReserve.toString());
     console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
     console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
-    console.log("Buyback Fees Balance: ", poolAccount.buybackFeesBalance.toString());
     console.log("Creator Fee Basis Points: ", poolAccount.creatorFeeBasisPoints.toString());
     console.log("Buyback Fee Basis Points: ", poolAccount.buybackFeeBasisPoints.toString());
 
@@ -158,6 +209,7 @@ describe("cpmm-poc", () => {
     console.log("Buying tokens");
     const buyVirtualTokenArgs = {
       aAmount: new BN(1_000_000_000_000),
+      bAmountMin: new BN(0), // No minimum for testing
     };
     const buyVirtualTokenAccounts = {
       payer: provider.wallet.publicKey,
@@ -166,7 +218,6 @@ describe("cpmm-poc", () => {
       pool: pool,
       poolAta: poolAta,
       aMint: aMint,
-      bMint: bMint,
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     };
@@ -190,9 +241,7 @@ describe("cpmm-poc", () => {
     console.log("Mint B Reserve: ", poolAccount.bReserve.toString());
     console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
     console.log("Mint A: ", poolAccount.aMint.toBase58());
-    console.log("Mint B: ", poolAccount.bMint.toBase58());
     console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
-    console.log("Buyback Fees Balance: ", poolAccount.buybackFeesBalance.toString());
     console.log("Creator Fee Basis Points: ", poolAccount.creatorFeeBasisPoints.toString());
     console.log("Buyback Fee Basis Points: ", poolAccount.buybackFeeBasisPoints.toString());
 
@@ -208,7 +257,6 @@ describe("cpmm-poc", () => {
       pool: pool,
       poolAta: poolAta,
       aMint: aMint,
-      bMint: bMint,
       tokenProgram: TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     };

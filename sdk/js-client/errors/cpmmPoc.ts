@@ -22,20 +22,64 @@ export const CPMM_POC_ERROR__AMOUNT_TOO_SMALL = 0x1771; // 6001
 export const CPMM_POC_ERROR__INVALID_OWNER = 0x1772; // 6002
 /** NonzeroBalance: Nonzero balance */
 export const CPMM_POC_ERROR__NONZERO_BALANCE = 0x1773; // 6003
+/** InvalidFeeBasisPoints: Invalid fee basis points */
+export const CPMM_POC_ERROR__INVALID_FEE_BASIS_POINTS = 0x1774; // 6004
+/** AmountTooBig: Amount too big */
+export const CPMM_POC_ERROR__AMOUNT_TOO_BIG = 0x1775; // 6005
+/** SlippageExceeded: Slippage exceeded */
+export const CPMM_POC_ERROR__SLIPPAGE_EXCEEDED = 0x1776; // 6006
+/** InsufficientBurnAllowance: Insufficient burn allowance */
+export const CPMM_POC_ERROR__INSUFFICIENT_BURN_ALLOWANCE = 0x1777; // 6007
+/** CannotCloseActiveBurnAllowance: Cannot close active burn allowance */
+export const CPMM_POC_ERROR__CANNOT_CLOSE_ACTIVE_BURN_ALLOWANCE = 0x1778; // 6008
+/** InvalidBurnAccountPayer: Invalid burn account payer */
+export const CPMM_POC_ERROR__INVALID_BURN_ACCOUNT_PAYER = 0x1779; // 6009
+/** InvalidVirtualReserve: Invalid virtual reserve */
+export const CPMM_POC_ERROR__INVALID_VIRTUAL_RESERVE = 0x177a; // 6010
+/** InvalidBuybackFeeBasisPoints: Invalid buyback fee basis points */
+export const CPMM_POC_ERROR__INVALID_BUYBACK_FEE_BASIS_POINTS = 0x177b; // 6011
+/** Underflow: Underflow */
+export const CPMM_POC_ERROR__UNDERFLOW = 0x177c; // 6012
+/** InvalidPoolOwner: Invalid pool owner */
+export const CPMM_POC_ERROR__INVALID_POOL_OWNER = 0x177d; // 6013
+/** InvalidMint: Invalid mint */
+export const CPMM_POC_ERROR__INVALID_MINT = 0x177e; // 6014
 
 export type CpmmPocError =
+  | typeof CPMM_POC_ERROR__AMOUNT_TOO_BIG
   | typeof CPMM_POC_ERROR__AMOUNT_TOO_SMALL
+  | typeof CPMM_POC_ERROR__CANNOT_CLOSE_ACTIVE_BURN_ALLOWANCE
+  | typeof CPMM_POC_ERROR__INSUFFICIENT_BURN_ALLOWANCE
   | typeof CPMM_POC_ERROR__INSUFFICIENT_VIRTUAL_TOKEN_BALANCE
+  | typeof CPMM_POC_ERROR__INVALID_BURN_ACCOUNT_PAYER
+  | typeof CPMM_POC_ERROR__INVALID_BUYBACK_FEE_BASIS_POINTS
+  | typeof CPMM_POC_ERROR__INVALID_FEE_BASIS_POINTS
+  | typeof CPMM_POC_ERROR__INVALID_MINT
   | typeof CPMM_POC_ERROR__INVALID_OWNER
-  | typeof CPMM_POC_ERROR__NONZERO_BALANCE;
+  | typeof CPMM_POC_ERROR__INVALID_POOL_OWNER
+  | typeof CPMM_POC_ERROR__INVALID_VIRTUAL_RESERVE
+  | typeof CPMM_POC_ERROR__NONZERO_BALANCE
+  | typeof CPMM_POC_ERROR__SLIPPAGE_EXCEEDED
+  | typeof CPMM_POC_ERROR__UNDERFLOW;
 
 let cpmmPocErrorMessages: Record<CpmmPocError, string> | undefined;
 if (process.env.NODE_ENV !== 'production') {
   cpmmPocErrorMessages = {
+    [CPMM_POC_ERROR__AMOUNT_TOO_BIG]: `Amount too big`,
     [CPMM_POC_ERROR__AMOUNT_TOO_SMALL]: `Amount too small`,
+    [CPMM_POC_ERROR__CANNOT_CLOSE_ACTIVE_BURN_ALLOWANCE]: `Cannot close active burn allowance`,
+    [CPMM_POC_ERROR__INSUFFICIENT_BURN_ALLOWANCE]: `Insufficient burn allowance`,
     [CPMM_POC_ERROR__INSUFFICIENT_VIRTUAL_TOKEN_BALANCE]: `Insufficient virtual token balance`,
+    [CPMM_POC_ERROR__INVALID_BURN_ACCOUNT_PAYER]: `Invalid burn account payer`,
+    [CPMM_POC_ERROR__INVALID_BUYBACK_FEE_BASIS_POINTS]: `Invalid buyback fee basis points`,
+    [CPMM_POC_ERROR__INVALID_FEE_BASIS_POINTS]: `Invalid fee basis points`,
+    [CPMM_POC_ERROR__INVALID_MINT]: `Invalid mint`,
     [CPMM_POC_ERROR__INVALID_OWNER]: `Invalid owner`,
+    [CPMM_POC_ERROR__INVALID_POOL_OWNER]: `Invalid pool owner`,
+    [CPMM_POC_ERROR__INVALID_VIRTUAL_RESERVE]: `Invalid virtual reserve`,
     [CPMM_POC_ERROR__NONZERO_BALANCE]: `Nonzero balance`,
+    [CPMM_POC_ERROR__SLIPPAGE_EXCEEDED]: `Slippage exceeded`,
+    [CPMM_POC_ERROR__UNDERFLOW]: `Underflow`,
   };
 }
 

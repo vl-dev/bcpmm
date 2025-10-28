@@ -19,10 +19,14 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
+  getI64Decoder,
+  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
   getU16Decoder,
   getU16Encoder,
+  getU32Decoder,
+  getU32Encoder,
   getU64Decoder,
   getU64Encoder,
   getU8Decoder,
@@ -51,8 +55,12 @@ export function getBcpmmPoolDiscriminatorBytes() {
 
 export type BcpmmPool = {
   discriminator: ReadonlyUint8Array;
+  /** Bump seed */
+  bump: number;
   /** Pool creator address */
   creator: Address;
+  /** Pool index per creator */
+  poolIndex: number;
   /** A mint address */
   aMint: Address;
   /** A reserve including decimals */
@@ -60,25 +68,30 @@ export type BcpmmPool = {
   /** A virtual reserve including decimals */
   aVirtualReserve: bigint;
   aRemainingTopup: bigint;
-  /** B mint address */
-  bMint: Address;
   /** B mint decimals */
   bMintDecimals: number;
   /** B reserve including decimals */
   bReserve: bigint;
   /** Creator fees balance denominated in Mint A including decimals */
   creatorFeesBalance: bigint;
-  /** Buyback fees balance denominated in Mint A including decimals */
-  buybackFeesBalance: bigint;
+  /** Total buyback fees accumulated in Mint A including decimals */
+  buybackFeesAccumulated: bigint;
   /** Creator fee basis points */
   creatorFeeBasisPoints: number;
   /** Buyback fee basis points */
   buybackFeeBasisPoints: number;
+  /** Burn allowance for the pool */
+  burnsToday: number;
+  lastBurnTimestamp: bigint;
 };
 
 export type BcpmmPoolArgs = {
+  /** Bump seed */
+  bump: number;
   /** Pool creator address */
   creator: Address;
+  /** Pool index per creator */
+  poolIndex: number;
   /** A mint address */
   aMint: Address;
   /** A reserve including decimals */
@@ -86,38 +99,42 @@ export type BcpmmPoolArgs = {
   /** A virtual reserve including decimals */
   aVirtualReserve: number | bigint;
   aRemainingTopup: number | bigint;
-  /** B mint address */
-  bMint: Address;
   /** B mint decimals */
   bMintDecimals: number;
   /** B reserve including decimals */
   bReserve: number | bigint;
   /** Creator fees balance denominated in Mint A including decimals */
   creatorFeesBalance: number | bigint;
-  /** Buyback fees balance denominated in Mint A including decimals */
-  buybackFeesBalance: number | bigint;
+  /** Total buyback fees accumulated in Mint A including decimals */
+  buybackFeesAccumulated: number | bigint;
   /** Creator fee basis points */
   creatorFeeBasisPoints: number;
   /** Buyback fee basis points */
   buybackFeeBasisPoints: number;
+  /** Burn allowance for the pool */
+  burnsToday: number;
+  lastBurnTimestamp: number | bigint;
 };
 
 export function getBcpmmPoolEncoder(): FixedSizeEncoder<BcpmmPoolArgs> {
   return transformEncoder(
     getStructEncoder([
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
+      ['bump', getU8Encoder()],
       ['creator', getAddressEncoder()],
+      ['poolIndex', getU32Encoder()],
       ['aMint', getAddressEncoder()],
       ['aReserve', getU64Encoder()],
       ['aVirtualReserve', getU64Encoder()],
       ['aRemainingTopup', getU64Encoder()],
-      ['bMint', getAddressEncoder()],
       ['bMintDecimals', getU8Encoder()],
       ['bReserve', getU64Encoder()],
       ['creatorFeesBalance', getU64Encoder()],
-      ['buybackFeesBalance', getU64Encoder()],
+      ['buybackFeesAccumulated', getU64Encoder()],
       ['creatorFeeBasisPoints', getU16Encoder()],
       ['buybackFeeBasisPoints', getU16Encoder()],
+      ['burnsToday', getU16Encoder()],
+      ['lastBurnTimestamp', getI64Encoder()],
     ]),
     (value) => ({ ...value, discriminator: BCPMM_POOL_DISCRIMINATOR })
   );
@@ -126,18 +143,21 @@ export function getBcpmmPoolEncoder(): FixedSizeEncoder<BcpmmPoolArgs> {
 export function getBcpmmPoolDecoder(): FixedSizeDecoder<BcpmmPool> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
+    ['bump', getU8Decoder()],
     ['creator', getAddressDecoder()],
+    ['poolIndex', getU32Decoder()],
     ['aMint', getAddressDecoder()],
     ['aReserve', getU64Decoder()],
     ['aVirtualReserve', getU64Decoder()],
     ['aRemainingTopup', getU64Decoder()],
-    ['bMint', getAddressDecoder()],
     ['bMintDecimals', getU8Decoder()],
     ['bReserve', getU64Decoder()],
     ['creatorFeesBalance', getU64Decoder()],
-    ['buybackFeesBalance', getU64Decoder()],
+    ['buybackFeesAccumulated', getU64Decoder()],
     ['creatorFeeBasisPoints', getU16Decoder()],
     ['buybackFeeBasisPoints', getU16Decoder()],
+    ['burnsToday', getU16Decoder()],
+    ['lastBurnTimestamp', getI64Decoder()],
   ]);
 }
 
@@ -199,5 +219,5 @@ export async function fetchAllMaybeBcpmmPool(
 }
 
 export function getBcpmmPoolSize(): number {
-  return 157;
+  return 140;
 }

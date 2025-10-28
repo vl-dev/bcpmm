@@ -23,6 +23,8 @@ import {
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
+  getU8Decoder,
+  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -49,6 +51,8 @@ export function getVirtualTokenAccountDiscriminatorBytes() {
 
 export type VirtualTokenAccount = {
   discriminator: ReadonlyUint8Array;
+  /** Bump seed */
+  bump: number;
   /** Pool address */
   pool: Address;
   /** Owner address */
@@ -60,6 +64,8 @@ export type VirtualTokenAccount = {
 };
 
 export type VirtualTokenAccountArgs = {
+  /** Bump seed */
+  bump: number;
   /** Pool address */
   pool: Address;
   /** Owner address */
@@ -74,6 +80,7 @@ export function getVirtualTokenAccountEncoder(): FixedSizeEncoder<VirtualTokenAc
   return transformEncoder(
     getStructEncoder([
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
+      ['bump', getU8Encoder()],
       ['pool', getAddressEncoder()],
       ['owner', getAddressEncoder()],
       ['balance', getU64Encoder()],
@@ -89,6 +96,7 @@ export function getVirtualTokenAccountEncoder(): FixedSizeEncoder<VirtualTokenAc
 export function getVirtualTokenAccountDecoder(): FixedSizeDecoder<VirtualTokenAccount> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
+    ['bump', getU8Decoder()],
     ['pool', getAddressDecoder()],
     ['owner', getAddressDecoder()],
     ['balance', getU64Decoder()],
@@ -176,5 +184,5 @@ export async function fetchAllMaybeVirtualTokenAccount(
 }
 
 export function getVirtualTokenAccountSize(): number {
-  return 88;
+  return 89;
 }

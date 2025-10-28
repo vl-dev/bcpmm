@@ -1,7 +1,8 @@
 // Based on https://solana.stackexchange.com/questions/16703/can-anchor-client-be-used-with-solana-web3-js-2-0rc
 import { createFromRoot } from "codama";
 import { rootNodeFromAnchor } from "@codama/nodes-from-anchor";
-import { renderVisitor } from "@codama/renderers-js";
+import { renderVisitor as renderVisitorJs } from "@codama/renderers-js";
+import { renderVisitor as renderVisitorRust } from "@codama/renderers-rust";
 import path from "path";
 import { promises as fs } from "fs";
 
@@ -42,8 +43,10 @@ const main = async () => {
     const codama = createFromRoot(rootNodeFromAnchor(idl));
 
     // Render JavaScript.
-    const generatedPath = path.join("sdk", "js-client");
-    codama.accept(renderVisitor(generatedPath));
+    const jsGeneratedPath = path.join("sdk", "js-client");
+    const rustGeneratedPath = path.join("sdk", "rust-client");
+    codama.accept(renderVisitorJs(jsGeneratedPath));
+    codama.accept(renderVisitorRust(rustGeneratedPath));
 };
 
 main().catch(console.error);

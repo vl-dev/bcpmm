@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-cpmm_poc = "2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz"
+cpmm_poc = "J2rzAsBbYpMVEA3dtuudvzizpbwJXLJgR3yEToKzq1jB"
 
 [registry]
 url = "https://api.apr.dev"
@@ -16,4 +16,4 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "cargo test -p cpmm-poc -- --nocapture && yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
