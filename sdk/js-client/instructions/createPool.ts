@@ -20,8 +20,6 @@ import {
   getU16Encoder,
   getU64Decoder,
   getU64Encoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -57,15 +55,16 @@ export type CreatePoolInstruction<
   TProgram extends string = typeof CPMM_POC_PROGRAM_ADDRESS,
   TAccountPayer extends string | AccountMeta<string> = string,
   TAccountAMint extends string | AccountMeta<string> = string,
-  TAccountBMint extends string | AccountMeta<string> = string,
   TAccountPool extends string | AccountMeta<string> = string,
   TAccountPoolAta extends string | AccountMeta<string> = string,
-  TAccountAssociatedTokenProgram extends
-    | string
-    | AccountMeta<string> = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+  TAccountCentralState extends string | AccountMeta<string> = string,
+  TAccountCentralStateAta extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends
     | string
     | AccountMeta<string> = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+  TAccountAssociatedTokenProgram extends
+    | string
+    | AccountMeta<string> = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
   TAccountSystemProgram extends
     | string
     | AccountMeta<string> = '11111111111111111111111111111111',
@@ -81,21 +80,24 @@ export type CreatePoolInstruction<
       TAccountAMint extends string
         ? WritableAccount<TAccountAMint>
         : TAccountAMint,
-      TAccountBMint extends string
-        ? WritableAccount<TAccountBMint>
-        : TAccountBMint,
       TAccountPool extends string
         ? WritableAccount<TAccountPool>
         : TAccountPool,
       TAccountPoolAta extends string
         ? WritableAccount<TAccountPoolAta>
         : TAccountPoolAta,
-      TAccountAssociatedTokenProgram extends string
-        ? ReadonlyAccount<TAccountAssociatedTokenProgram>
-        : TAccountAssociatedTokenProgram,
+      TAccountCentralState extends string
+        ? WritableAccount<TAccountCentralState>
+        : TAccountCentralState,
+      TAccountCentralStateAta extends string
+        ? WritableAccount<TAccountCentralStateAta>
+        : TAccountCentralStateAta,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
+      TAccountAssociatedTokenProgram extends string
+        ? ReadonlyAccount<TAccountAssociatedTokenProgram>
+        : TAccountAssociatedTokenProgram,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -105,10 +107,6 @@ export type CreatePoolInstruction<
 
 export type CreatePoolInstructionData = {
   discriminator: ReadonlyUint8Array;
-  /** b_initial_supply is the initial supply of the B mint including decimals */
-  bInitialSupply: bigint;
-  /** b_decimals is the decimals of the B mint. */
-  bDecimals: number;
   /** a_virtual_reserve is the virtual reserve of the A mint including decimals */
   aVirtualReserve: bigint;
   /** creator_fee_basis_points is the fee basis points for the creator. */
@@ -118,10 +116,6 @@ export type CreatePoolInstructionData = {
 };
 
 export type CreatePoolInstructionDataArgs = {
-  /** b_initial_supply is the initial supply of the B mint including decimals */
-  bInitialSupply: number | bigint;
-  /** b_decimals is the decimals of the B mint. */
-  bDecimals: number;
   /** a_virtual_reserve is the virtual reserve of the A mint including decimals */
   aVirtualReserve: number | bigint;
   /** creator_fee_basis_points is the fee basis points for the creator. */
@@ -134,8 +128,6 @@ export function getCreatePoolInstructionDataEncoder(): FixedSizeEncoder<CreatePo
   return transformEncoder(
     getStructEncoder([
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
-      ['bInitialSupply', getU64Encoder()],
-      ['bDecimals', getU8Encoder()],
       ['aVirtualReserve', getU64Encoder()],
       ['creatorFeeBasisPoints', getU16Encoder()],
       ['buybackFeeBasisPoints', getU16Encoder()],
@@ -147,8 +139,6 @@ export function getCreatePoolInstructionDataEncoder(): FixedSizeEncoder<CreatePo
 export function getCreatePoolInstructionDataDecoder(): FixedSizeDecoder<CreatePoolInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-    ['bInitialSupply', getU64Decoder()],
-    ['bDecimals', getU8Decoder()],
     ['aVirtualReserve', getU64Decoder()],
     ['creatorFeeBasisPoints', getU16Decoder()],
     ['buybackFeeBasisPoints', getU16Decoder()],
@@ -168,24 +158,23 @@ export function getCreatePoolInstructionDataCodec(): FixedSizeCodec<
 export type CreatePoolAsyncInput<
   TAccountPayer extends string = string,
   TAccountAMint extends string = string,
-  TAccountBMint extends string = string,
   TAccountPool extends string = string,
   TAccountPoolAta extends string = string,
-  TAccountAssociatedTokenProgram extends string = string,
+  TAccountCentralState extends string = string,
+  TAccountCentralStateAta extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountAssociatedTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   payer: TransactionSigner<TAccountPayer>;
   aMint: Address<TAccountAMint>;
-  /** UNCHECKED: this is a virtual mint so it doesn't really exist */
-  bMint: Address<TAccountBMint>;
   pool?: Address<TAccountPool>;
   poolAta?: Address<TAccountPoolAta>;
-  associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
+  centralState: Address<TAccountCentralState>;
+  centralStateAta?: Address<TAccountCentralStateAta>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
-  bInitialSupply: CreatePoolInstructionDataArgs['bInitialSupply'];
-  bDecimals: CreatePoolInstructionDataArgs['bDecimals'];
   aVirtualReserve: CreatePoolInstructionDataArgs['aVirtualReserve'];
   creatorFeeBasisPoints: CreatePoolInstructionDataArgs['creatorFeeBasisPoints'];
   buybackFeeBasisPoints: CreatePoolInstructionDataArgs['buybackFeeBasisPoints'];
@@ -194,22 +183,24 @@ export type CreatePoolAsyncInput<
 export async function getCreatePoolInstructionAsync<
   TAccountPayer extends string,
   TAccountAMint extends string,
-  TAccountBMint extends string,
   TAccountPool extends string,
   TAccountPoolAta extends string,
-  TAccountAssociatedTokenProgram extends string,
+  TAccountCentralState extends string,
+  TAccountCentralStateAta extends string,
   TAccountTokenProgram extends string,
+  TAccountAssociatedTokenProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof CPMM_POC_PROGRAM_ADDRESS,
 >(
   input: CreatePoolAsyncInput<
     TAccountPayer,
     TAccountAMint,
-    TAccountBMint,
     TAccountPool,
     TAccountPoolAta,
-    TAccountAssociatedTokenProgram,
+    TAccountCentralState,
+    TAccountCentralStateAta,
     TAccountTokenProgram,
+    TAccountAssociatedTokenProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress }
@@ -218,11 +209,12 @@ export async function getCreatePoolInstructionAsync<
     TProgramAddress,
     TAccountPayer,
     TAccountAMint,
-    TAccountBMint,
     TAccountPool,
     TAccountPoolAta,
-    TAccountAssociatedTokenProgram,
+    TAccountCentralState,
+    TAccountCentralStateAta,
     TAccountTokenProgram,
+    TAccountAssociatedTokenProgram,
     TAccountSystemProgram
   >
 > {
@@ -233,14 +225,15 @@ export async function getCreatePoolInstructionAsync<
   const originalAccounts = {
     payer: { value: input.payer ?? null, isWritable: true },
     aMint: { value: input.aMint ?? null, isWritable: true },
-    bMint: { value: input.bMint ?? null, isWritable: true },
     pool: { value: input.pool ?? null, isWritable: true },
     poolAta: { value: input.poolAta ?? null, isWritable: true },
+    centralState: { value: input.centralState ?? null, isWritable: true },
+    centralStateAta: { value: input.centralStateAta ?? null, isWritable: true },
+    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     associatedTokenProgram: {
       value: input.associatedTokenProgram ?? null,
       isWritable: false,
     },
-    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -259,7 +252,8 @@ export async function getCreatePoolInstructionAsync<
         getBytesEncoder().encode(
           new Uint8Array([98, 99, 112, 109, 109, 95, 112, 111, 111, 108])
         ),
-        getAddressEncoder().encode(expectAddress(accounts.bMint.value)),
+        getBytesEncoder().encode(new Uint8Array([0, 0, 0, 0])),
+        getAddressEncoder().encode(expectAddress(accounts.payer.value)),
       ],
     });
   }
@@ -273,6 +267,17 @@ export async function getCreatePoolInstructionAsync<
         'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>,
       seeds: [
         getAddressEncoder().encode(expectAddress(accounts.pool.value)),
+        getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
+        getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
+      ],
+    });
+  }
+  if (!accounts.centralStateAta.value) {
+    accounts.centralStateAta.value = await getProgramDerivedAddress({
+      programAddress:
+        'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>,
+      seeds: [
+        getAddressEncoder().encode(expectAddress(accounts.centralState.value)),
         getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
         getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
       ],
@@ -292,11 +297,12 @@ export async function getCreatePoolInstructionAsync<
     accounts: [
       getAccountMeta(accounts.payer),
       getAccountMeta(accounts.aMint),
-      getAccountMeta(accounts.bMint),
       getAccountMeta(accounts.pool),
       getAccountMeta(accounts.poolAta),
-      getAccountMeta(accounts.associatedTokenProgram),
+      getAccountMeta(accounts.centralState),
+      getAccountMeta(accounts.centralStateAta),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.associatedTokenProgram),
       getAccountMeta(accounts.systemProgram),
     ],
     data: getCreatePoolInstructionDataEncoder().encode(
@@ -307,11 +313,12 @@ export async function getCreatePoolInstructionAsync<
     TProgramAddress,
     TAccountPayer,
     TAccountAMint,
-    TAccountBMint,
     TAccountPool,
     TAccountPoolAta,
-    TAccountAssociatedTokenProgram,
+    TAccountCentralState,
+    TAccountCentralStateAta,
     TAccountTokenProgram,
+    TAccountAssociatedTokenProgram,
     TAccountSystemProgram
   >);
 }
@@ -319,24 +326,23 @@ export async function getCreatePoolInstructionAsync<
 export type CreatePoolInput<
   TAccountPayer extends string = string,
   TAccountAMint extends string = string,
-  TAccountBMint extends string = string,
   TAccountPool extends string = string,
   TAccountPoolAta extends string = string,
-  TAccountAssociatedTokenProgram extends string = string,
+  TAccountCentralState extends string = string,
+  TAccountCentralStateAta extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountAssociatedTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   payer: TransactionSigner<TAccountPayer>;
   aMint: Address<TAccountAMint>;
-  /** UNCHECKED: this is a virtual mint so it doesn't really exist */
-  bMint: Address<TAccountBMint>;
   pool: Address<TAccountPool>;
   poolAta: Address<TAccountPoolAta>;
-  associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
+  centralState: Address<TAccountCentralState>;
+  centralStateAta: Address<TAccountCentralStateAta>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
-  bInitialSupply: CreatePoolInstructionDataArgs['bInitialSupply'];
-  bDecimals: CreatePoolInstructionDataArgs['bDecimals'];
   aVirtualReserve: CreatePoolInstructionDataArgs['aVirtualReserve'];
   creatorFeeBasisPoints: CreatePoolInstructionDataArgs['creatorFeeBasisPoints'];
   buybackFeeBasisPoints: CreatePoolInstructionDataArgs['buybackFeeBasisPoints'];
@@ -345,22 +351,24 @@ export type CreatePoolInput<
 export function getCreatePoolInstruction<
   TAccountPayer extends string,
   TAccountAMint extends string,
-  TAccountBMint extends string,
   TAccountPool extends string,
   TAccountPoolAta extends string,
-  TAccountAssociatedTokenProgram extends string,
+  TAccountCentralState extends string,
+  TAccountCentralStateAta extends string,
   TAccountTokenProgram extends string,
+  TAccountAssociatedTokenProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof CPMM_POC_PROGRAM_ADDRESS,
 >(
   input: CreatePoolInput<
     TAccountPayer,
     TAccountAMint,
-    TAccountBMint,
     TAccountPool,
     TAccountPoolAta,
-    TAccountAssociatedTokenProgram,
+    TAccountCentralState,
+    TAccountCentralStateAta,
     TAccountTokenProgram,
+    TAccountAssociatedTokenProgram,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress }
@@ -368,11 +376,12 @@ export function getCreatePoolInstruction<
   TProgramAddress,
   TAccountPayer,
   TAccountAMint,
-  TAccountBMint,
   TAccountPool,
   TAccountPoolAta,
-  TAccountAssociatedTokenProgram,
+  TAccountCentralState,
+  TAccountCentralStateAta,
   TAccountTokenProgram,
+  TAccountAssociatedTokenProgram,
   TAccountSystemProgram
 > {
   // Program address.
@@ -382,14 +391,15 @@ export function getCreatePoolInstruction<
   const originalAccounts = {
     payer: { value: input.payer ?? null, isWritable: true },
     aMint: { value: input.aMint ?? null, isWritable: true },
-    bMint: { value: input.bMint ?? null, isWritable: true },
     pool: { value: input.pool ?? null, isWritable: true },
     poolAta: { value: input.poolAta ?? null, isWritable: true },
+    centralState: { value: input.centralState ?? null, isWritable: true },
+    centralStateAta: { value: input.centralStateAta ?? null, isWritable: true },
+    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     associatedTokenProgram: {
       value: input.associatedTokenProgram ?? null,
       isWritable: false,
     },
-    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -419,11 +429,12 @@ export function getCreatePoolInstruction<
     accounts: [
       getAccountMeta(accounts.payer),
       getAccountMeta(accounts.aMint),
-      getAccountMeta(accounts.bMint),
       getAccountMeta(accounts.pool),
       getAccountMeta(accounts.poolAta),
-      getAccountMeta(accounts.associatedTokenProgram),
+      getAccountMeta(accounts.centralState),
+      getAccountMeta(accounts.centralStateAta),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.associatedTokenProgram),
       getAccountMeta(accounts.systemProgram),
     ],
     data: getCreatePoolInstructionDataEncoder().encode(
@@ -434,11 +445,12 @@ export function getCreatePoolInstruction<
     TProgramAddress,
     TAccountPayer,
     TAccountAMint,
-    TAccountBMint,
     TAccountPool,
     TAccountPoolAta,
-    TAccountAssociatedTokenProgram,
+    TAccountCentralState,
+    TAccountCentralStateAta,
     TAccountTokenProgram,
+    TAccountAssociatedTokenProgram,
     TAccountSystemProgram
   >);
 }
@@ -451,13 +463,13 @@ export type ParsedCreatePoolInstruction<
   accounts: {
     payer: TAccountMetas[0];
     aMint: TAccountMetas[1];
-    /** UNCHECKED: this is a virtual mint so it doesn't really exist */
-    bMint: TAccountMetas[2];
-    pool: TAccountMetas[3];
-    poolAta: TAccountMetas[4];
-    associatedTokenProgram: TAccountMetas[5];
+    pool: TAccountMetas[2];
+    poolAta: TAccountMetas[3];
+    centralState: TAccountMetas[4];
+    centralStateAta: TAccountMetas[5];
     tokenProgram: TAccountMetas[6];
-    systemProgram: TAccountMetas[7];
+    associatedTokenProgram: TAccountMetas[7];
+    systemProgram: TAccountMetas[8];
   };
   data: CreatePoolInstructionData;
 };
@@ -470,7 +482,7 @@ export function parseCreatePoolInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>
 ): ParsedCreatePoolInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 8) {
+  if (instruction.accounts.length < 9) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
   }
@@ -485,11 +497,12 @@ export function parseCreatePoolInstruction<
     accounts: {
       payer: getNextAccount(),
       aMint: getNextAccount(),
-      bMint: getNextAccount(),
       pool: getNextAccount(),
       poolAta: getNextAccount(),
-      associatedTokenProgram: getNextAccount(),
+      centralState: getNextAccount(),
+      centralStateAta: getNextAccount(),
       tokenProgram: getNextAccount(),
+      associatedTokenProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },
     data: getCreatePoolInstructionDataDecoder().decode(instruction.data),

@@ -1,9 +1,8 @@
 use crate::errors::BcpmmError;
-use crate::helpers::{calculate_fees, calculate_sell_output_amount};
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
-    transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
+    Mint, TokenAccount, TokenInterface,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -15,27 +14,41 @@ pub struct SellVirtualTokenArgs {
 pub struct SellVirtualToken<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
+
     #[account(mut,
         associated_token::mint = a_mint,
         associated_token::authority = payer,
         associated_token::token_program = token_program        
     )]
     pub payer_ata: InterfaceAccount<'info, TokenAccount>,
-    #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump)]
+
+    #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump = virtual_token_account.bump)]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
-    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump)]
+
+    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
+
     #[account(mut,
         associated_token::mint = a_mint,
         associated_token::authority = pool,
         associated_token::token_program = token_program        
     )]
     pub pool_ata: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(mut,
+        associated_token::mint = a_mint,
+        associated_token::authority = central_state,
+        associated_token::token_program = token_program        
+    )]
+    pub central_state_ata: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(mut, seeds = [CENTRAL_STATE_SEED], bump)]
+    pub central_state: Account<'info, CentralState>,
+
     pub a_mint: InterfaceAccount<'info, Mint>,
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
 }
-
 pub fn sell_virtual_token(
     ctx: Context<SellVirtualToken>,
     args: SellVirtualTokenArgs,
@@ -50,36 +63,62 @@ pub fn sell_virtual_token(
     let fees = pool.calculate_fees(output_amount)?;
 
     virtual_token_account.sub(args.b_amount, fees.creator_fees_amount, fees.buyback_fees_amount)?;
-    pool.add(output_amount, args.b_amount, fees.creator_fees_amount, fees.buyback_fees_amount);
 
-    let output_amount_less_fees =
+    // Update the pool state
+    pool.a_reserve -= output_amount;
+    pool.b_reserve += args.b_amount;
+    pool.creator_fees_balance += fees.creator_fees_amount;
+
+    let mut buyback_fees = 0;
+    if pool.a_remaining_topup > 0 {
+        let remaining_topup_amount = pool.a_remaining_topup;
+        let real_topup_amount = if remaining_topup_amount > fees.buyback_fees_amount {
+            fees.buyback_fees_amount
+        } else {
+            remaining_topup_amount
+        };
+        pool.a_remaining_topup = pool.a_remaining_topup - real_topup_amount;
+        pool.a_reserve += real_topup_amount;
+    } else {
+        pool.buyback_fees_accumulated += fees.buyback_fees_amount;
+        buyback_fees = fees.buyback_fees_amount;
+    }
+
+    let output_amount_after_fees =
         output_amount - fees.creator_fees_amount - fees.buyback_fees_amount;
 
-    // todo this cloning is kinda hacky, we should find a better way to do this
-    let cloned_pool = pool.clone();
+    let pool_account_info = pool.to_account_info();
     pool.transfer_out(
-        output_amount_less_fees,
-        &cloned_pool,
+        output_amount_after_fees,
+        pool_account_info.clone(),
         &ctx.accounts.a_mint,
         &ctx.accounts.pool_ata,
         &ctx.accounts.payer_ata,
         &ctx.accounts.token_program)?;
+
+    if buyback_fees > 0 {
+        pool.transfer_out(
+            buyback_fees,
+            pool_account_info,
+            &ctx.accounts.a_mint,
+            &ctx.accounts.pool_ata,
+            &ctx.accounts.central_state_ata,
+            &ctx.accounts.token_program,
+        )?;
+    }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::helpers::{calculate_sell_output_amount};
     use crate::state::BcpmmPool;
     use crate::test_utils::TestRunner;
     use anchor_lang::prelude::*;
     use solana_sdk::signature::{Keypair, Signer};
+    use solana_sdk::pubkey::Pubkey;
 
-    #[test]
-    fn test_sell_virtual_token() {
+    fn setup_test() -> (TestRunner, Keypair, Keypair, Pubkey, Pubkey, Pubkey) {
         // Parameters
-        let b_amount = 1000;
-        let b_sell_amount = 500;
         let a_reserve = 5000;
         let a_virtual_reserve = 1_000_000;
         let b_reserve = 2_000_000;
@@ -89,19 +128,21 @@ mod tests {
         let creator_fees_balance = 0;
         let buyback_fees_balance = 0;
 
-        // Initialize the test environment and related accounts
+        let mut runner = TestRunner::new();
         let payer = Keypair::new();
         let another_wallet = Keypair::new();
-        let mut runner = TestRunner::new();
+        
         runner.airdrop(&payer.pubkey(), 10_000_000_000);
         runner.airdrop(&another_wallet.pubkey(), 10_000_000_000);
         let a_mint = runner.create_mint(&payer, 9);
         let payer_ata = runner.create_associated_token_account(&payer, a_mint, &payer.pubkey());
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
+        let central_state = runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
 
-        runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
+        // central state ata
+        runner.create_associated_token_account(&payer, a_mint, &central_state);
 
-        let test_pool = runner.create_pool_mock(
+        let created_pool = runner.create_pool_mock(
             &payer,
             a_mint,
             a_reserve,
@@ -114,80 +155,125 @@ mod tests {
             buyback_fees_balance,
         );
 
+        // pool ata
+        runner.create_associated_token_account(&payer, a_mint, &created_pool.pool);
+        runner.mint_tokens(&payer, created_pool.pool, a_mint, a_reserve);
+        (runner, payer, another_wallet, created_pool.pool, payer_ata, a_mint)
+    }
+
+    #[test]
+    fn test_sell_virtual_token_success() {
+        let (mut runner, payer, _, pool, payer_ata, a_mint) = setup_test();
+        
+        let b_amount = 1000;
+        let b_sell_amount = 500;
+        let a_reserve = 5000;
+        let a_virtual_reserve = 1_000_000;
+        let b_reserve = 2_000_000;
+
         // Create virtual token account with some balance to sell
         let virtual_token_account = runner.create_virtual_token_account_mock(
             payer.pubkey(),
-            test_pool.pool,
+            pool,
             b_amount, // Start with balance to sell
             0,
         );
-
-        // Test selling with insufficient balance
-        let virtual_token_account_insufficient = runner.create_virtual_token_account_mock(
-            another_wallet.pubkey(),
-            test_pool.pool,
-            b_amount - 1, // Insufficient balance
-            0,
-        );
-        let result_sell_insufficient = runner.sell_virtual_token(
-            &another_wallet,
-            payer_ata,
-            a_mint,
-            test_pool.pool,
-            virtual_token_account_insufficient,
-            b_amount,
-        );
-        assert!(result_sell_insufficient.is_err());
-
-        // Test selling with wrong virtual token account owner
-        let virtual_token_account_wrong_owner = runner.create_virtual_token_account_mock(
-            another_wallet.pubkey(),
-            test_pool.pool,
-            b_amount,
-            0,
-        );
-        let result_sell_wrong_owner = runner.sell_virtual_token(
-            &payer, // payer is different from virtual token account owner
-            payer_ata,
-            a_mint,
-            test_pool.pool,
-            virtual_token_account_wrong_owner,
-            b_amount,
-        );
-        assert!(result_sell_wrong_owner.is_err());
-
-        // Test trying to sell more than user has
-        let result_sell_above_balance = runner.sell_virtual_token(
-            &payer,
-            payer_ata,
-            a_mint,
-            test_pool.pool,
-            virtual_token_account,
-            b_amount + 1,
-        );
-        assert!(result_sell_above_balance.is_err());
 
         // Test successful sell
         let result_sell = runner.sell_virtual_token(
             &payer,
             payer_ata,
             a_mint,
-            test_pool.pool,
+            pool,
             virtual_token_account,
             b_sell_amount,
         );
         assert!(result_sell.is_ok());
 
-        // Fetch the test_pool from testrunner lite svm and deserialize the account data
-        let pool_account = runner.svm.get_account(&test_pool.pool).unwrap();
+        // Check that the reserves are updated correctly
+        let pool_account = runner.svm.get_account(&pool).unwrap();
         let pool_data: BcpmmPool =
             BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
 
-        // Check that the reserves are updated correctly
-        let output_amount =
-            calculate_sell_output_amount(b_sell_amount, b_reserve, a_reserve, a_virtual_reserve);
-        assert_eq!(pool_data.a_reserve, a_reserve - output_amount);
+        let expected_output_amount = 251;
+        assert_eq!(pool_data.a_reserve, a_reserve - expected_output_amount);
         assert_eq!(pool_data.b_reserve, b_reserve + b_sell_amount);
         assert_eq!(pool_data.a_virtual_reserve, a_virtual_reserve); // Unchanged
+    }
+
+    #[test]
+    fn test_sell_virtual_token_insufficient_balance() {
+        let (mut runner, _, another_wallet, pool, payer_ata, a_mint) = setup_test();
+        
+        let b_amount = 1000;
+
+        // Create virtual token account with insufficient balance
+        let virtual_token_account_insufficient = runner.create_virtual_token_account_mock(
+            another_wallet.pubkey(),
+            pool,
+            b_amount - 1, // Insufficient balance
+            0,
+        );
+
+        let result_sell_insufficient = runner.sell_virtual_token(
+            &another_wallet,
+            payer_ata,
+            a_mint,
+            pool,
+            virtual_token_account_insufficient,
+            b_amount,
+        );
+        assert!(result_sell_insufficient.is_err());
+    }
+
+    #[test]
+    fn test_sell_virtual_token_wrong_owner() {
+        let (mut runner, payer, another_wallet, pool, payer_ata, a_mint) = setup_test();
+        
+        let b_amount = 1000;
+
+        // Create virtual token account with wrong owner
+        let virtual_token_account_wrong_owner = runner.create_virtual_token_account_mock(
+            another_wallet.pubkey(),
+            pool,
+            b_amount,
+            0,
+        );
+
+        let result_sell_wrong_owner = runner.sell_virtual_token(
+            &payer, // payer is different from virtual token account owner
+            payer_ata,
+            a_mint,
+            pool,
+            virtual_token_account_wrong_owner,
+            b_amount,
+        );
+        assert!(result_sell_wrong_owner.is_err());
+    }
+
+    #[test]
+    fn test_sell_virtual_token_above_balance() {
+        let (mut runner, payer, _, pool, payer_ata, a_mint) = setup_test();
+        
+        let b_amount = 1000;
+
+        // Create virtual token account with some balance to sell
+        let virtual_token_account = runner.create_virtual_token_account_mock(
+            payer.pubkey(),
+            pool,
+            b_amount, // Start with balance to sell
+            0,
+        );
+
+        // Test trying to sell more than user has
+        let result_sell_above_balance = runner.sell_virtual_token(
+            &payer,
+            payer_ata,
+            a_mint,
+            pool,
+            virtual_token_account,
+            b_amount + 1,
+        );
+        assert!(result_sell_above_balance.is_err());
     }
 }

@@ -10,12 +10,13 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
+  getBooleanDecoder,
+  getBooleanEncoder,
   getBytesDecoder,
   getBytesEncoder,
+  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
-  getU16Decoder,
-  getU16Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -46,38 +47,44 @@ export function getBurnVirtualTokenDiscriminatorBytes() {
 
 export type BurnVirtualTokenInstruction<
   TProgram extends string = typeof CPMM_POC_PROGRAM_ADDRESS,
-  TAccountPayer extends string | AccountMeta<string> = string,
+  TAccountSigner extends string | AccountMeta<string> = string,
   TAccountPool extends string | AccountMeta<string> = string,
+  TAccountUserBurnAllowance extends string | AccountMeta<string> = string,
+  TAccountCentralState extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountPayer extends string
-        ? WritableSignerAccount<TAccountPayer> &
-            AccountSignerMeta<TAccountPayer>
-        : TAccountPayer,
+      TAccountSigner extends string
+        ? WritableSignerAccount<TAccountSigner> &
+            AccountSignerMeta<TAccountSigner>
+        : TAccountSigner,
       TAccountPool extends string
         ? WritableAccount<TAccountPool>
         : TAccountPool,
+      TAccountUserBurnAllowance extends string
+        ? WritableAccount<TAccountUserBurnAllowance>
+        : TAccountUserBurnAllowance,
+      TAccountCentralState extends string
+        ? WritableAccount<TAccountCentralState>
+        : TAccountCentralState,
       ...TRemainingAccounts,
     ]
   >;
 
 export type BurnVirtualTokenInstructionData = {
   discriminator: ReadonlyUint8Array;
-  bAmountBasisPoints: number;
+  poolOwner: boolean;
 };
 
-export type BurnVirtualTokenInstructionDataArgs = {
-  bAmountBasisPoints: number;
-};
+export type BurnVirtualTokenInstructionDataArgs = { poolOwner: boolean };
 
 export function getBurnVirtualTokenInstructionDataEncoder(): FixedSizeEncoder<BurnVirtualTokenInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
-      ['bAmountBasisPoints', getU16Encoder()],
+      ['poolOwner', getBooleanEncoder()],
     ]),
     (value) => ({ ...value, discriminator: BURN_VIRTUAL_TOKEN_DISCRIMINATOR })
   );
@@ -86,7 +93,7 @@ export function getBurnVirtualTokenInstructionDataEncoder(): FixedSizeEncoder<Bu
 export function getBurnVirtualTokenInstructionDataDecoder(): FixedSizeDecoder<BurnVirtualTokenInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-    ['bAmountBasisPoints', getU16Decoder()],
+    ['poolOwner', getBooleanDecoder()],
   ]);
 }
 
@@ -100,30 +107,144 @@ export function getBurnVirtualTokenInstructionDataCodec(): FixedSizeCodec<
   );
 }
 
-export type BurnVirtualTokenInput<
-  TAccountPayer extends string = string,
+export type BurnVirtualTokenAsyncInput<
+  TAccountSigner extends string = string,
   TAccountPool extends string = string,
+  TAccountUserBurnAllowance extends string = string,
+  TAccountCentralState extends string = string,
 > = {
-  payer: TransactionSigner<TAccountPayer>;
+  signer: TransactionSigner<TAccountSigner>;
   pool: Address<TAccountPool>;
-  bAmountBasisPoints: BurnVirtualTokenInstructionDataArgs['bAmountBasisPoints'];
+  userBurnAllowance: Address<TAccountUserBurnAllowance>;
+  centralState?: Address<TAccountCentralState>;
+  poolOwner: BurnVirtualTokenInstructionDataArgs['poolOwner'];
 };
 
-export function getBurnVirtualTokenInstruction<
-  TAccountPayer extends string,
+export async function getBurnVirtualTokenInstructionAsync<
+  TAccountSigner extends string,
   TAccountPool extends string,
+  TAccountUserBurnAllowance extends string,
+  TAccountCentralState extends string,
   TProgramAddress extends Address = typeof CPMM_POC_PROGRAM_ADDRESS,
 >(
-  input: BurnVirtualTokenInput<TAccountPayer, TAccountPool>,
+  input: BurnVirtualTokenAsyncInput<
+    TAccountSigner,
+    TAccountPool,
+    TAccountUserBurnAllowance,
+    TAccountCentralState
+  >,
   config?: { programAddress?: TProgramAddress }
-): BurnVirtualTokenInstruction<TProgramAddress, TAccountPayer, TAccountPool> {
+): Promise<
+  BurnVirtualTokenInstruction<
+    TProgramAddress,
+    TAccountSigner,
+    TAccountPool,
+    TAccountUserBurnAllowance,
+    TAccountCentralState
+  >
+> {
   // Program address.
   const programAddress = config?.programAddress ?? CPMM_POC_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
-    payer: { value: input.payer ?? null, isWritable: true },
+    signer: { value: input.signer ?? null, isWritable: true },
     pool: { value: input.pool ?? null, isWritable: true },
+    userBurnAllowance: {
+      value: input.userBurnAllowance ?? null,
+      isWritable: true,
+    },
+    centralState: { value: input.centralState ?? null, isWritable: true },
+  };
+  const accounts = originalAccounts as Record<
+    keyof typeof originalAccounts,
+    ResolvedAccount
+  >;
+
+  // Original args.
+  const args = { ...input };
+
+  // Resolve default values.
+  if (!accounts.centralState.value) {
+    accounts.centralState.value = await getProgramDerivedAddress({
+      programAddress,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([
+            99, 101, 110, 116, 114, 97, 108, 95, 115, 116, 97, 116, 101,
+          ])
+        ),
+      ],
+    });
+  }
+
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
+  return Object.freeze({
+    accounts: [
+      getAccountMeta(accounts.signer),
+      getAccountMeta(accounts.pool),
+      getAccountMeta(accounts.userBurnAllowance),
+      getAccountMeta(accounts.centralState),
+    ],
+    data: getBurnVirtualTokenInstructionDataEncoder().encode(
+      args as BurnVirtualTokenInstructionDataArgs
+    ),
+    programAddress,
+  } as BurnVirtualTokenInstruction<
+    TProgramAddress,
+    TAccountSigner,
+    TAccountPool,
+    TAccountUserBurnAllowance,
+    TAccountCentralState
+  >);
+}
+
+export type BurnVirtualTokenInput<
+  TAccountSigner extends string = string,
+  TAccountPool extends string = string,
+  TAccountUserBurnAllowance extends string = string,
+  TAccountCentralState extends string = string,
+> = {
+  signer: TransactionSigner<TAccountSigner>;
+  pool: Address<TAccountPool>;
+  userBurnAllowance: Address<TAccountUserBurnAllowance>;
+  centralState: Address<TAccountCentralState>;
+  poolOwner: BurnVirtualTokenInstructionDataArgs['poolOwner'];
+};
+
+export function getBurnVirtualTokenInstruction<
+  TAccountSigner extends string,
+  TAccountPool extends string,
+  TAccountUserBurnAllowance extends string,
+  TAccountCentralState extends string,
+  TProgramAddress extends Address = typeof CPMM_POC_PROGRAM_ADDRESS,
+>(
+  input: BurnVirtualTokenInput<
+    TAccountSigner,
+    TAccountPool,
+    TAccountUserBurnAllowance,
+    TAccountCentralState
+  >,
+  config?: { programAddress?: TProgramAddress }
+): BurnVirtualTokenInstruction<
+  TProgramAddress,
+  TAccountSigner,
+  TAccountPool,
+  TAccountUserBurnAllowance,
+  TAccountCentralState
+> {
+  // Program address.
+  const programAddress = config?.programAddress ?? CPMM_POC_PROGRAM_ADDRESS;
+
+  // Original accounts.
+  const originalAccounts = {
+    signer: { value: input.signer ?? null, isWritable: true },
+    pool: { value: input.pool ?? null, isWritable: true },
+    userBurnAllowance: {
+      value: input.userBurnAllowance ?? null,
+      isWritable: true,
+    },
+    centralState: { value: input.centralState ?? null, isWritable: true },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -135,15 +256,22 @@ export function getBurnVirtualTokenInstruction<
 
   const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
   return Object.freeze({
-    accounts: [getAccountMeta(accounts.payer), getAccountMeta(accounts.pool)],
+    accounts: [
+      getAccountMeta(accounts.signer),
+      getAccountMeta(accounts.pool),
+      getAccountMeta(accounts.userBurnAllowance),
+      getAccountMeta(accounts.centralState),
+    ],
     data: getBurnVirtualTokenInstructionDataEncoder().encode(
       args as BurnVirtualTokenInstructionDataArgs
     ),
     programAddress,
   } as BurnVirtualTokenInstruction<
     TProgramAddress,
-    TAccountPayer,
-    TAccountPool
+    TAccountSigner,
+    TAccountPool,
+    TAccountUserBurnAllowance,
+    TAccountCentralState
   >);
 }
 
@@ -153,8 +281,10 @@ export type ParsedBurnVirtualTokenInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    payer: TAccountMetas[0];
+    signer: TAccountMetas[0];
     pool: TAccountMetas[1];
+    userBurnAllowance: TAccountMetas[2];
+    centralState: TAccountMetas[3];
   };
   data: BurnVirtualTokenInstructionData;
 };
@@ -167,7 +297,7 @@ export function parseBurnVirtualTokenInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>
 ): ParsedBurnVirtualTokenInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 2) {
+  if (instruction.accounts.length < 4) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
   }
@@ -179,7 +309,12 @@ export function parseBurnVirtualTokenInstruction<
   };
   return {
     programAddress: instruction.programAddress,
-    accounts: { payer: getNextAccount(), pool: getNextAccount() },
+    accounts: {
+      signer: getNextAccount(),
+      pool: getNextAccount(),
+      userBurnAllowance: getNextAccount(),
+      centralState: getNextAccount(),
+    },
     data: getBurnVirtualTokenInstructionDataDecoder().decode(instruction.data),
   };
 }

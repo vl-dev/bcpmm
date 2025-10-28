@@ -1,14 +1,13 @@
-use crate::helpers::{calculate_burn_amount, calculate_new_virtual_reserve};
 use crate::state::*;
 use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializeCentralStateArgs {
-    pub daily_burn_allowance: u64,         // todo change some micro units
-    pub creator_daily_burn_allowance: u64, // todo change some micro units
-    pub user_burn_bp: u16,                 // todo change some micro units
-    pub creator_burn_bp: u16,              // todo change some micro units
-    pub burn_reset_time: u64,
+    pub max_user_daily_burn_count: u16,
+    pub max_creator_daily_burn_count: u16,
+    pub user_burn_bp_x100: u32,
+    pub creator_burn_bp_x100: u32,
+    pub burn_reset_time_of_day_seconds: u32, // Seconds from midnight
 }
 
 #[derive(Accounts)]
@@ -27,11 +26,11 @@ pub fn initialize_central_state(
     ctx.accounts.central_state.set_inner(CentralState::new(
         ctx.bumps.central_state,
         ctx.accounts.admin.key(),
-        args.daily_burn_allowance,
-        args.creator_daily_burn_allowance,
-        args.user_burn_bp,
-        args.creator_burn_bp,
-        args.burn_reset_time,
+        args.max_user_daily_burn_count,
+        args.max_creator_daily_burn_count,
+        args.user_burn_bp_x100,
+        args.creator_burn_bp_x100,
+        args.burn_reset_time_of_day_seconds,
     ));
     Ok(())
 }
