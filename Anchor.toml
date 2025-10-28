@@ -6,7 +6,8 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-cpmm_poc = "J2rzAsBbYpMVEA3dtuudvzizpbwJXLJgR3yEToKzq1jB"
+cpmm_poc = "2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz"
+
 
 [registry]
 url = "https://api.apr.dev"
