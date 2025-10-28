@@ -7,13 +7,14 @@ import {
   lamports,
   type Address,
 } from '@solana/kit';
-import { getrLocalWallets } from './wallet-storage';
+import { getLocalWallets } from './wallet-storage';
 import { useAdminKeypair } from './hooks/use-admin-keypair';
 import { ensureCentralState } from './ensure-central-state';
 import { getAdminKeypair } from './admin-keypair';
 import { ensureMint } from './ensure-mint';
 import { ensureCentralStateAta } from './ensure-central-state-ata';
 import AccountDetails from './components/account-details';
+import PoolList from './components/pool-list';
 
 const RPC_URL = import.meta.env.VITE_RPC_URL as string;
 const WS_URL = import.meta.env.VITE_WS_URL as string;
@@ -23,7 +24,6 @@ function App() {
   const [initializingAccounts, setInitializingAccounts] = useState(true);
   const [selectedWallet, setSelectedWallet] = useState<KeyPairSigner | null>(null);
   const { data: adminKeypair } = useAdminKeypair();
-
   useEffect(() => {
     async function initializeWallets() {
       setInitializingAccounts(true);
@@ -34,7 +34,7 @@ function App() {
       const airdrop = airdropFactory({ rpc, rpcSubscriptions });
 
       // Get or create wallet addresses (persists across reloads)
-      const wallets = await getrLocalWallets();
+      const wallets = await getLocalWallets();
       setWallets(wallets);
 
       // Check balances and airdrop only if below 0.5 SOL
@@ -148,6 +148,7 @@ function App() {
           </div>
         }
 
+        <PoolList />
       </div>
     </div>
   );

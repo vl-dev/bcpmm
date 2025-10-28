@@ -6,6 +6,7 @@ import { useUserPool } from "../hooks/use-user-pool";
 import { useState } from "react";
 import { useCreatePool } from "../hooks/use-create-pool";
 import { address } from "@solana/kit";
+import PoolDetails from "./pool-details";
 
 export default function AccountDetails({ selectedWallet }: { selectedWallet: KeyPairSigner }) {
   const walletAddress = selectedWallet?.address;
@@ -16,7 +17,6 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
   const [mintAmount, setMintAmount] = useState('100000');
   const { mutateAsync: createPool, isPending: isCreatingPool } = useCreatePool();
 
-
   return (
     <div style={{
       backgroundColor: '#fff',
@@ -24,7 +24,7 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
       padding: '1.5rem',
       borderRadius: '8px',
     }}>
-      <h2 style={{ marginTop: 0 }}>Wallet Details</h2>
+      <h2 style={{ marginTop: 0 }}>Selected Wallet</h2>
       
       <div style={{ marginBottom: '1rem' }}>
         <strong>Address:</strong>
@@ -121,59 +121,7 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
           <strong>Pool Info:</strong> Loading...
         </div>
       ) : userPool ? (
-        <div style={{ 
-          marginTop: '1.5rem',
-          padding: '1rem',
-          backgroundColor: '#f9f9f9',
-          borderRadius: '8px',
-          border: '1px solid #ddd',
-        }}>
-          <h3 style={{ marginTop: 0 }}>Pool Info</h3>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>Pool Address:</strong>
-            <div style={{
-              fontFamily: 'monospace',
-              fontSize: '0.85rem',
-              marginTop: '0.25rem',
-              wordBreak: 'break-all',
-            }}>
-              {userPool.poolAddress.toString()}
-            </div>
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>A Reserve:</strong> {(userPool.pool.aReserve / BigInt(10n ** 6n)).toString()}
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>B Reserve:</strong> {(userPool.pool.bReserve / BigInt(10n ** 6n)).toString()}
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>A Virtual Reserve:</strong> {(userPool.pool.aVirtualReserve / BigInt(10n ** 6n)).toString()}
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>A Remaining Topup:</strong> {(userPool.pool.aRemainingTopup / BigInt(10n ** 6n)).toString()}
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>Creator Fees Balance:</strong> {(userPool.pool.creatorFeesBalance / BigInt(10n ** 6n)).toString()}
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>Buyback Fees Accumulated:</strong> {(userPool.pool.buybackFeesAccumulated / BigInt(10n ** 6n)).toString()}
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>Creator Fee (bp):</strong> {userPool.pool.creatorFeeBasisPoints}
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>Buyback Fee (bp):</strong> {userPool.pool.buybackFeeBasisPoints}
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>Burns Today:</strong> {userPool.pool.burnsToday}
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>B Mint Index:</strong> {userPool.pool.bMintIndex.toString()}
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <strong>B Mint Decimals:</strong> {userPool.pool.bMintDecimals}
-          </div>
-        </div>
+        <PoolDetails poolAddress={userPool.poolAddress} pool={userPool.pool} />
       ) : (
         <div style={{ 
           marginTop: '1.5rem',
