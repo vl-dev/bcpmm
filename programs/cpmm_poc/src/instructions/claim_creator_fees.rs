@@ -26,15 +26,12 @@ pub struct ClaimCreatorFees<'info> {
     #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
 
-    #[account(mut, seeds = [TREASURY_SEED, a_mint.key().as_ref()], bump = treasury.bump)]
-    pub treasury: Account<'info, Treasury>,
-
     #[account(mut,
         associated_token::mint = a_mint,
-        associated_token::authority = treasury,
+        associated_token::authority = pool,
         associated_token::token_program = token_program        
     )]
-    pub treasury_ata: InterfaceAccount<'info, TokenAccount>,
+    pub pool_ata: InterfaceAccount<'info, TokenAccount>,
 
     pub a_mint: InterfaceAccount<'info, Mint>,
     pub token_program: Interface<'info, TokenInterface>,
@@ -49,11 +46,12 @@ pub fn claim_creator_fees(ctx: Context<ClaimCreatorFees>, args: ClaimCreatorFees
 
     // Subtract the claimed amount and transfer to owner
     pool.creator_fees_balance -= args.amount;
-    pool.treasury_transfer_out(
+    let pool_account_info = pool.to_account_info();
+    pool.transfer_out(
         args.amount,
-        &ctx.accounts.treasury,
+        pool_account_info,
         &ctx.accounts.a_mint,
-        &ctx.accounts.treasury_ata,
+        &ctx.accounts.pool_ata,
         &ctx.accounts.owner_ata,
         &ctx.accounts.token_program,
     )?;
@@ -71,7 +69,7 @@ mod tests {
     use solana_sdk::pubkey::Pubkey;
     use test_case::test_case;
 
-    fn setup_test() -> (TestRunner, Keypair, TestPool, Pubkey, Pubkey) {
+    fn setup_test() -> (TestRunner, Keypair, Pubkey, Pubkey, Pubkey) {
         // Parameters
         let a_reserve = 0;
         let a_virtual_reserve = 1_000_000;
@@ -88,12 +86,10 @@ mod tests {
         runner.airdrop(&owner.pubkey(), 10_000_000_000);
         let a_mint = runner.create_mint(&owner, 9);
         let owner_ata = runner.create_associated_token_account(&owner, a_mint, &owner.pubkey());
-        runner.create_treasury_mock(owner.pubkey(), a_mint);
-        runner.create_treasury_ata(&owner, a_mint, a_reserve + creator_fees_balance + buyback_fees_balance);
 
         runner.create_central_state_mock(&owner, 5, 5, 2, 1, 10000);
 
-        let test_pool = runner.create_pool_mock(
+        let pool_created = runner.create_pool_mock(
             &owner,
             a_mint,
             a_reserve,
@@ -106,7 +102,11 @@ mod tests {
             buyback_fees_balance,
         );
 
-        (runner, owner, test_pool, owner_ata, a_mint)
+        // pool ata
+        runner.create_associated_token_account(&owner, a_mint, &pool_created.pool);
+        runner.mint_tokens(&owner, pool_created.pool, a_mint, creator_fees_balance);
+
+        (runner, owner, pool_created.pool, owner_ata, a_mint)
     }
 
     #[test_case(500, true)]
@@ -122,14 +122,15 @@ mod tests {
             &owner,
             owner_ata,
             a_mint,
-            pool.pool,
+            pool,
             claim_amount,
         );
-        assert_eq!(result.is_ok(), success);
+        assert!(result.is_ok() == success);
+
         if success {
 
           // Check that creator fees were subtracted from pool balance
-          let pool_account = runner.svm.get_account(&pool.pool).unwrap();
+          let pool_account = runner.svm.get_account(&pool).unwrap();
           let final_pool_data: BcpmmPool =
               BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
           assert_eq!(final_pool_data.creator_fees_balance, initial_creator_fees - claim_amount);
@@ -156,7 +157,7 @@ mod tests {
             &other_user,
             other_user_ata,
             a_mint,
-            pool.pool,
+            pool,
             claim_amount,
         );
         assert!(result.is_err());

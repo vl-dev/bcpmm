@@ -194,25 +194,26 @@ impl BcpmmPool {
         )
     }
 
-
-    pub fn treasury_transfer_out<'info>(
+    pub fn transfer_out<'info>(
         &mut self,
         amount: u64,
-        treasury: &Account<'info, Treasury>,
+        pool_account_info: AccountInfo<'info>,
         mint: &InterfaceAccount<'info, Mint>,
-        treasury_ata: &InterfaceAccount<'info, TokenAccount>,
+        pool_ata: &InterfaceAccount<'info, TokenAccount>,
         to: &InterfaceAccount<'info, TokenAccount>,
         token_program: &Interface<'info, TokenInterface>,
     ) -> Result<()> {
         let cpi_accounts = TransferChecked {
             mint: mint.to_account_info(),
-            from: treasury_ata.to_account_info(),
+            from: pool_ata.to_account_info(),
             to: to.to_account_info(),
-            authority: treasury.to_account_info(),
+            authority: pool_account_info,
         };
-        let bump_seed = treasury.bump;
-        let mint_key = mint.key();
-        let signer_seeds: &[&[&[u8]]] = &[&[TREASURY_SEED, mint_key.as_ref(), &[bump_seed]]];
+        let bump_seed = self.bump;
+        let b_mint_index = &self.b_mint_index;
+        let b_mint_index_bytes = b_mint_index.to_le_bytes().to_vec();
+        let signer_seeds: &[&[&[u8]]] =
+            &[&[BCPMM_POOL_SEED, b_mint_index_bytes.as_slice(), &[bump_seed]]];
         let cpi_context = CpiContext::new(token_program.to_account_info(), cpi_accounts)
             .with_signer(signer_seeds);
         let decimals = mint.decimals;
@@ -282,22 +283,5 @@ impl UserBurnAllowance {
         payer: Pubkey,
     ) -> Self {
         Self { bump, user, payer, burns_today: 0, last_burn_timestamp: 0 }
-    }
-}
-
-#[account]
-#[derive(Default, InitSpace)]
-pub struct Treasury {
-    pub authority: Pubkey,
-    pub bump: u8,
-    pub fees_available: u64,
-}
-
-impl Treasury {
-    pub fn new(
-        authority: Pubkey,
-        bump: u8,
-    ) -> Self {
-        Self { authority, bump, fees_available: 0 }
     }
 }

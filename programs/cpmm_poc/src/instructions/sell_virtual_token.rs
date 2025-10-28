@@ -14,26 +14,36 @@ pub struct SellVirtualTokenArgs {
 pub struct SellVirtualToken<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
+
     #[account(mut,
         associated_token::mint = a_mint,
         associated_token::authority = payer,
         associated_token::token_program = token_program        
     )]
     pub payer_ata: InterfaceAccount<'info, TokenAccount>,
+
     #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump = virtual_token_account.bump)]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
+
     #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
 
-    #[account(mut, seeds = [TREASURY_SEED, a_mint.key().as_ref()], bump = treasury.bump)]
-    pub treasury: Account<'info, Treasury>,
+    #[account(mut,
+        associated_token::mint = a_mint,
+        associated_token::authority = pool,
+        associated_token::token_program = token_program        
+    )]
+    pub pool_ata: InterfaceAccount<'info, TokenAccount>,
 
     #[account(mut,
         associated_token::mint = a_mint,
-        associated_token::authority = treasury,
+        associated_token::authority = central_state,
         associated_token::token_program = token_program        
     )]
-    pub treasury_ata: InterfaceAccount<'info, TokenAccount>,
+    pub central_state_ata: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(mut, seeds = [CENTRAL_STATE_SEED], bump)]
+    pub central_state: Account<'info, CentralState>,
 
     pub a_mint: InterfaceAccount<'info, Mint>,
     pub system_program: Program<'info, System>,
@@ -44,7 +54,6 @@ pub fn sell_virtual_token(
     args: SellVirtualTokenArgs,
 ) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
-    let treasury = &mut ctx.accounts.treasury;
     let virtual_token_account = &mut ctx.accounts.virtual_token_account;
     require_gte!(virtual_token_account.balance, args.b_amount, BcpmmError::InsufficientVirtualTokenBalance);
 
@@ -60,6 +69,7 @@ pub fn sell_virtual_token(
     pool.b_reserve += args.b_amount;
     pool.creator_fees_balance += fees.creator_fees_amount;
 
+    let mut buyback_fees = 0;
     if pool.a_remaining_topup > 0 {
         let remaining_topup_amount = pool.a_remaining_topup;
         let real_topup_amount = if remaining_topup_amount > fees.buyback_fees_amount {
@@ -71,19 +81,31 @@ pub fn sell_virtual_token(
         pool.a_reserve += real_topup_amount;
     } else {
         pool.buyback_fees_accumulated += fees.buyback_fees_amount;
-        treasury.fees_available += fees.buyback_fees_amount;
+        buyback_fees = fees.buyback_fees_amount;
     }
 
     let output_amount_after_fees =
         output_amount - fees.creator_fees_amount - fees.buyback_fees_amount;
 
-    pool.treasury_transfer_out(
+    let pool_account_info = pool.to_account_info();
+    pool.transfer_out(
         output_amount_after_fees,
-        &ctx.accounts.treasury,
+        pool_account_info.clone(),
         &ctx.accounts.a_mint,
-        &ctx.accounts.treasury_ata,
+        &ctx.accounts.pool_ata,
         &ctx.accounts.payer_ata,
         &ctx.accounts.token_program)?;
+
+    if buyback_fees > 0 {
+        pool.transfer_out(
+            buyback_fees,
+            pool_account_info,
+            &ctx.accounts.a_mint,
+            &ctx.accounts.pool_ata,
+            &ctx.accounts.central_state_ata,
+            &ctx.accounts.token_program,
+        )?;
+    }
     Ok(())
 }
 
@@ -115,8 +137,6 @@ mod tests {
         let a_mint = runner.create_mint(&payer, 9);
         let payer_ata = runner.create_associated_token_account(&payer, a_mint, &payer.pubkey());
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
-        runner.create_treasury_mock(payer.pubkey(), a_mint);
-        runner.create_treasury_ata(&payer, a_mint, a_reserve + creator_fees_balance + buyback_fees_balance);
         runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
 
         let test_pool = runner.create_pool_mock(

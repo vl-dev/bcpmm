@@ -32,6 +32,6 @@ pub enum BcpmmError {
     InvalidPoolOwner,
     #[msg("Invalid admin")]
     InvalidAdmin,
-    #[msg("Invalid treasury authority")]
-    InvalidTreasuryAuthority,
+    #[msg("Invalid mint")]
+    InvalidMint,
 }

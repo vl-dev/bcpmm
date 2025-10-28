@@ -23,20 +23,6 @@ pub mod cpmm_poc {
         instructions::initialize_central_state(ctx, args)
     }
 
-    pub fn initialize_treasury(
-        ctx: Context<InitializeTreasury>,
-        args: InitializeTreasuryArgs,
-    ) -> Result<()> {
-        instructions::initialize_treasury(ctx, args)
-    }
-
-    pub fn update_treasury_authority(
-        ctx: Context<UpdateTreasuryAuthority>,
-        args: UpdateTreasuryAuthorityArgs,
-    ) -> Result<()> {
-        instructions::update_treasury_authority(ctx, args)
-    }
-
     pub fn initialize_user_burn_allowance(
         ctx: Context<InitializeUserBurnAllowance>,
         pool_owner: bool,

@@ -452,41 +452,49 @@ impl TestRunner {
         self.svm.set_sysvar::<Clock>(&initial_clock);
     }
 
-    pub fn create_treasury_mock(&mut self, authority: Pubkey, mint: Pubkey) -> Pubkey {
-        let (treasury_pda, treasury_bump) = Pubkey::find_program_address(
-            &[cpmm_state::TREASURY_SEED, mint.as_ref()],
-            &self.program_id,
-        );
-        let treasury = cpmm_state::Treasury::new(
-            anchor_lang::prelude::Pubkey::from(authority.to_bytes()),
-            treasury_bump,
-        );
-        self.put_account_on_chain(&treasury_pda, treasury);
-        treasury_pda
-    }
+    pub fn mint_tokens(&mut self, authority: &Keypair, recipient: Pubkey, mint: Pubkey, amount: u64) {
 
-    pub fn create_treasury_ata(&mut self, payer: &Keypair, mint: Pubkey, initial_balance: u64) -> Pubkey {
-        let (treasury_pda, _treasury_bump) = Pubkey::find_program_address(
-            &[cpmm_state::TREASURY_SEED, mint.as_ref()],
-            &self.program_id,
+        let recipient_ata = anchor_spl::associated_token::get_associated_token_address(
+            &anchor_lang::prelude::Pubkey::from(recipient.to_bytes()),
+            &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
         );
+        let recipient_ata_sdk = solana_sdk::pubkey::Pubkey::from(recipient_ata.to_bytes());
 
-        let treasury_ata = self.create_associated_token_account(payer, mint, &treasury_pda);
-
-        // mint appropriate amount of A tokens to pool
         MintTo::new(
-            &mut self.svm,
-            &payer,
-            &mint,
-            &treasury_ata,
-            initial_balance,
+            &mut self.svm, 
+            &authority,
+             &mint, 
+             &recipient_ata_sdk,
+             amount,
         )
-        .owner(&payer)
-        .send()
-        .unwrap();
-
-        return treasury_ata;
+            .owner(authority)
+            .send()
+            .unwrap();
     }
+
+
+    // pub fn create_treasury_ata(&mut self, payer: &Keypair, mint: Pubkey, initial_balance: u64) -> Pubkey {
+    //     let (treasury_pda, _treasury_bump) = Pubkey::find_program_address(
+    //         &[cpmm_state::TREASURY_SEED, mint.as_ref()],
+    //         &self.program_id,
+    //     );
+
+    //     let treasury_ata = self.create_associated_token_account(payer, mint, &treasury_pda);
+
+    //     // mint appropriate amount of A tokens to pool
+    //     MintTo::new(
+    //         &mut self.svm,
+    //         &payer,
+    //         &mint,
+    //         &treasury_ata,
+    //         initial_balance,
+    //     )
+    //     .owner(&payer)
+    //     .send()
+    //     .unwrap();
+
+    //     return treasury_ata;
+    // }
 
 
     pub fn claim_creator_fees(
@@ -497,12 +505,9 @@ impl TestRunner {
         pool: Pubkey,
         amount: u64,
     ) -> std::result::Result<(), TransactionError> {
-        let (treasury_pda, _treasury_bump) = Pubkey::find_program_address(
-            &[cpmm_state::TREASURY_SEED, mint.as_ref()],
-            &self.program_id,
-        );
-        let treasury_ata = anchor_spl::associated_token::get_associated_token_address(
-            &anchor_lang::prelude::Pubkey::from(treasury_pda.to_bytes()),
+
+        let pool_ata = anchor_spl::associated_token::get_associated_token_address(
+            &anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
             &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
         );
 
@@ -517,8 +522,7 @@ impl TestRunner {
             AccountMeta::new(owner_ata, false),
             AccountMeta::new(central_state_pda, false),
             AccountMeta::new(pool, false),
-            AccountMeta::new(treasury_pda, false),
-            AccountMeta::new(Pubkey::from(treasury_ata.to_bytes()), false),
+            AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false),
             AccountMeta::new(mint, false),
             AccountMeta::new_readonly(
                 Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
