@@ -7,4 +7,7 @@
  */
 
 export * from './bcpmmPool';
+export * from './centralState';
+export * from './treasury';
+export * from './userBurnAllowance';
 export * from './virtualTokenAccount';

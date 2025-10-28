@@ -11,14 +11,14 @@ pub struct ClaimAdminFeesArgs {
 #[derive(Accounts)]
 pub struct ClaimAdminFees<'info> {
     #[account(mut, address = treasury.authority @ BcpmmError::InvalidTreasuryAuthority)]
-    pub admin: Signer<'info>,
+    pub authority: Signer<'info>,
 
     #[account(mut,
         associated_token::mint = a_mint,
-        associated_token::authority = admin,
+        associated_token::authority = authority,
         associated_token::token_program = token_program        
     )]
-    pub admin_ata: InterfaceAccount<'info, TokenAccount>,
+    pub authority_ata: InterfaceAccount<'info, TokenAccount>,
 
     #[account(mut, seeds = [TREASURY_SEED, a_mint.key().as_ref()], bump = treasury.bump)]
     pub treasury: Account<'info, Treasury>,
@@ -51,7 +51,7 @@ pub fn claim_admin_fees(ctx: Context<ClaimAdminFees>, args: ClaimAdminFeesArgs) 
         &ctx.accounts.treasury,
         &ctx.accounts.a_mint,
         &ctx.accounts.treasury_ata,
-        &ctx.accounts.admin_ata,
+        &ctx.accounts.authority_ata,
         &ctx.accounts.token_program,
     )?;
 

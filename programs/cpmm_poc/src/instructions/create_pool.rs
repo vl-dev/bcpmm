@@ -20,6 +20,7 @@ pub struct CreatePool<'info> {
     pub payer: Signer<'info>,
     #[account(mut)]
     pub a_mint: Account<'info, Mint>,    
+    
     #[account(init, payer = payer, space = BcpmmPool::INIT_SPACE + 8, seeds = [BCPMM_POOL_SEED, central_state.b_mint_index.to_le_bytes().as_ref()], bump)]
     pub pool: Account<'info, BcpmmPool>,        
 

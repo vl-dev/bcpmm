@@ -57,9 +57,9 @@ export type BuyVirtualTokenInstruction<
   TAccountPayerAta extends string | AccountMeta<string> = string,
   TAccountVirtualTokenAccount extends string | AccountMeta<string> = string,
   TAccountPool extends string | AccountMeta<string> = string,
-  TAccountPoolAta extends string | AccountMeta<string> = string,
+  TAccountTreasury extends string | AccountMeta<string> = string,
+  TAccountTreasuryAta extends string | AccountMeta<string> = string,
   TAccountAMint extends string | AccountMeta<string> = string,
-  TAccountBMint extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends
     | string
     | AccountMeta<string> = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
@@ -84,15 +84,15 @@ export type BuyVirtualTokenInstruction<
       TAccountPool extends string
         ? WritableAccount<TAccountPool>
         : TAccountPool,
-      TAccountPoolAta extends string
-        ? WritableAccount<TAccountPoolAta>
-        : TAccountPoolAta,
+      TAccountTreasury extends string
+        ? WritableAccount<TAccountTreasury>
+        : TAccountTreasury,
+      TAccountTreasuryAta extends string
+        ? WritableAccount<TAccountTreasuryAta>
+        : TAccountTreasuryAta,
       TAccountAMint extends string
         ? ReadonlyAccount<TAccountAMint>
         : TAccountAMint,
-      TAccountBMint extends string
-        ? ReadonlyAccount<TAccountBMint>
-        : TAccountBMint,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
@@ -107,11 +107,15 @@ export type BuyVirtualTokenInstructionData = {
   discriminator: ReadonlyUint8Array;
   /** a_amount is the amount of Mint A to swap for Mint B. Includes decimals. */
   aAmount: bigint;
+  /** The minimum amount of Mint B to receive. If below this, the transaction will fail. */
+  bAmountMin: bigint;
 };
 
 export type BuyVirtualTokenInstructionDataArgs = {
   /** a_amount is the amount of Mint A to swap for Mint B. Includes decimals. */
   aAmount: number | bigint;
+  /** The minimum amount of Mint B to receive. If below this, the transaction will fail. */
+  bAmountMin: number | bigint;
 };
 
 export function getBuyVirtualTokenInstructionDataEncoder(): FixedSizeEncoder<BuyVirtualTokenInstructionDataArgs> {
@@ -119,6 +123,7 @@ export function getBuyVirtualTokenInstructionDataEncoder(): FixedSizeEncoder<Buy
     getStructEncoder([
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
       ['aAmount', getU64Encoder()],
+      ['bAmountMin', getU64Encoder()],
     ]),
     (value) => ({ ...value, discriminator: BUY_VIRTUAL_TOKEN_DISCRIMINATOR })
   );
@@ -128,6 +133,7 @@ export function getBuyVirtualTokenInstructionDataDecoder(): FixedSizeDecoder<Buy
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
     ['aAmount', getU64Decoder()],
+    ['bAmountMin', getU64Decoder()],
   ]);
 }
 
@@ -146,23 +152,23 @@ export type BuyVirtualTokenAsyncInput<
   TAccountPayerAta extends string = string,
   TAccountVirtualTokenAccount extends string = string,
   TAccountPool extends string = string,
-  TAccountPoolAta extends string = string,
+  TAccountTreasury extends string = string,
+  TAccountTreasuryAta extends string = string,
   TAccountAMint extends string = string,
-  TAccountBMint extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   payer: TransactionSigner<TAccountPayer>;
-  payerAta: Address<TAccountPayerAta>;
-  virtualTokenAccount: Address<TAccountVirtualTokenAccount>;
-  pool?: Address<TAccountPool>;
-  poolAta: Address<TAccountPoolAta>;
+  payerAta?: Address<TAccountPayerAta>;
+  virtualTokenAccount?: Address<TAccountVirtualTokenAccount>;
+  pool: Address<TAccountPool>;
+  treasury?: Address<TAccountTreasury>;
+  treasuryAta?: Address<TAccountTreasuryAta>;
   aMint: Address<TAccountAMint>;
-  /** UNCHECKED: this is a virtual mint so it doesn't really exist */
-  bMint: Address<TAccountBMint>;
   tokenProgram?: Address<TAccountTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
   aAmount: BuyVirtualTokenInstructionDataArgs['aAmount'];
+  bAmountMin: BuyVirtualTokenInstructionDataArgs['bAmountMin'];
 };
 
 export async function getBuyVirtualTokenInstructionAsync<
@@ -170,9 +176,9 @@ export async function getBuyVirtualTokenInstructionAsync<
   TAccountPayerAta extends string,
   TAccountVirtualTokenAccount extends string,
   TAccountPool extends string,
-  TAccountPoolAta extends string,
+  TAccountTreasury extends string,
+  TAccountTreasuryAta extends string,
   TAccountAMint extends string,
-  TAccountBMint extends string,
   TAccountTokenProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof CPMM_POC_PROGRAM_ADDRESS,
@@ -182,9 +188,9 @@ export async function getBuyVirtualTokenInstructionAsync<
     TAccountPayerAta,
     TAccountVirtualTokenAccount,
     TAccountPool,
-    TAccountPoolAta,
+    TAccountTreasury,
+    TAccountTreasuryAta,
     TAccountAMint,
-    TAccountBMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >,
@@ -196,9 +202,9 @@ export async function getBuyVirtualTokenInstructionAsync<
     TAccountPayerAta,
     TAccountVirtualTokenAccount,
     TAccountPool,
-    TAccountPoolAta,
+    TAccountTreasury,
+    TAccountTreasuryAta,
     TAccountAMint,
-    TAccountBMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >
@@ -215,9 +221,9 @@ export async function getBuyVirtualTokenInstructionAsync<
       isWritable: true,
     },
     pool: { value: input.pool ?? null, isWritable: true },
-    poolAta: { value: input.poolAta ?? null, isWritable: true },
+    treasury: { value: input.treasury ?? null, isWritable: true },
+    treasuryAta: { value: input.treasuryAta ?? null, isWritable: true },
     aMint: { value: input.aMint ?? null, isWritable: false },
-    bMint: { value: input.bMint ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
@@ -230,20 +236,57 @@ export async function getBuyVirtualTokenInstructionAsync<
   const args = { ...input };
 
   // Resolve default values.
-  if (!accounts.pool.value) {
-    accounts.pool.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([98, 99, 112, 109, 109, 95, 112, 111, 111, 108])
-        ),
-        getAddressEncoder().encode(expectAddress(accounts.bMint.value)),
-      ],
-    });
-  }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
       'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>;
+  }
+  if (!accounts.payerAta.value) {
+    accounts.payerAta.value = await getProgramDerivedAddress({
+      programAddress:
+        'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>,
+      seeds: [
+        getAddressEncoder().encode(expectAddress(accounts.payer.value)),
+        getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
+        getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
+      ],
+    });
+  }
+  if (!accounts.virtualTokenAccount.value) {
+    accounts.virtualTokenAccount.value = await getProgramDerivedAddress({
+      programAddress,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([
+            118, 105, 114, 116, 117, 97, 108, 95, 116, 111, 107, 101, 110, 95,
+            97, 99, 99, 111, 117, 110, 116,
+          ])
+        ),
+        getAddressEncoder().encode(expectAddress(accounts.pool.value)),
+        getAddressEncoder().encode(expectAddress(accounts.payer.value)),
+      ],
+    });
+  }
+  if (!accounts.treasury.value) {
+    accounts.treasury.value = await getProgramDerivedAddress({
+      programAddress,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([116, 114, 101, 97, 115, 117, 114, 121])
+        ),
+        getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
+      ],
+    });
+  }
+  if (!accounts.treasuryAta.value) {
+    accounts.treasuryAta.value = await getProgramDerivedAddress({
+      programAddress:
+        'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>,
+      seeds: [
+        getAddressEncoder().encode(expectAddress(accounts.treasury.value)),
+        getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
+        getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
+      ],
+    });
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
@@ -257,9 +300,9 @@ export async function getBuyVirtualTokenInstructionAsync<
       getAccountMeta(accounts.payerAta),
       getAccountMeta(accounts.virtualTokenAccount),
       getAccountMeta(accounts.pool),
-      getAccountMeta(accounts.poolAta),
+      getAccountMeta(accounts.treasury),
+      getAccountMeta(accounts.treasuryAta),
       getAccountMeta(accounts.aMint),
-      getAccountMeta(accounts.bMint),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.systemProgram),
     ],
@@ -273,9 +316,9 @@ export async function getBuyVirtualTokenInstructionAsync<
     TAccountPayerAta,
     TAccountVirtualTokenAccount,
     TAccountPool,
-    TAccountPoolAta,
+    TAccountTreasury,
+    TAccountTreasuryAta,
     TAccountAMint,
-    TAccountBMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >);
@@ -286,9 +329,9 @@ export type BuyVirtualTokenInput<
   TAccountPayerAta extends string = string,
   TAccountVirtualTokenAccount extends string = string,
   TAccountPool extends string = string,
-  TAccountPoolAta extends string = string,
+  TAccountTreasury extends string = string,
+  TAccountTreasuryAta extends string = string,
   TAccountAMint extends string = string,
-  TAccountBMint extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
@@ -296,13 +339,13 @@ export type BuyVirtualTokenInput<
   payerAta: Address<TAccountPayerAta>;
   virtualTokenAccount: Address<TAccountVirtualTokenAccount>;
   pool: Address<TAccountPool>;
-  poolAta: Address<TAccountPoolAta>;
+  treasury: Address<TAccountTreasury>;
+  treasuryAta: Address<TAccountTreasuryAta>;
   aMint: Address<TAccountAMint>;
-  /** UNCHECKED: this is a virtual mint so it doesn't really exist */
-  bMint: Address<TAccountBMint>;
   tokenProgram?: Address<TAccountTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
   aAmount: BuyVirtualTokenInstructionDataArgs['aAmount'];
+  bAmountMin: BuyVirtualTokenInstructionDataArgs['bAmountMin'];
 };
 
 export function getBuyVirtualTokenInstruction<
@@ -310,9 +353,9 @@ export function getBuyVirtualTokenInstruction<
   TAccountPayerAta extends string,
   TAccountVirtualTokenAccount extends string,
   TAccountPool extends string,
-  TAccountPoolAta extends string,
+  TAccountTreasury extends string,
+  TAccountTreasuryAta extends string,
   TAccountAMint extends string,
-  TAccountBMint extends string,
   TAccountTokenProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof CPMM_POC_PROGRAM_ADDRESS,
@@ -322,9 +365,9 @@ export function getBuyVirtualTokenInstruction<
     TAccountPayerAta,
     TAccountVirtualTokenAccount,
     TAccountPool,
-    TAccountPoolAta,
+    TAccountTreasury,
+    TAccountTreasuryAta,
     TAccountAMint,
-    TAccountBMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >,
@@ -335,9 +378,9 @@ export function getBuyVirtualTokenInstruction<
   TAccountPayerAta,
   TAccountVirtualTokenAccount,
   TAccountPool,
-  TAccountPoolAta,
+  TAccountTreasury,
+  TAccountTreasuryAta,
   TAccountAMint,
-  TAccountBMint,
   TAccountTokenProgram,
   TAccountSystemProgram
 > {
@@ -353,9 +396,9 @@ export function getBuyVirtualTokenInstruction<
       isWritable: true,
     },
     pool: { value: input.pool ?? null, isWritable: true },
-    poolAta: { value: input.poolAta ?? null, isWritable: true },
+    treasury: { value: input.treasury ?? null, isWritable: true },
+    treasuryAta: { value: input.treasuryAta ?? null, isWritable: true },
     aMint: { value: input.aMint ?? null, isWritable: false },
-    bMint: { value: input.bMint ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
@@ -384,9 +427,9 @@ export function getBuyVirtualTokenInstruction<
       getAccountMeta(accounts.payerAta),
       getAccountMeta(accounts.virtualTokenAccount),
       getAccountMeta(accounts.pool),
-      getAccountMeta(accounts.poolAta),
+      getAccountMeta(accounts.treasury),
+      getAccountMeta(accounts.treasuryAta),
       getAccountMeta(accounts.aMint),
-      getAccountMeta(accounts.bMint),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.systemProgram),
     ],
@@ -400,9 +443,9 @@ export function getBuyVirtualTokenInstruction<
     TAccountPayerAta,
     TAccountVirtualTokenAccount,
     TAccountPool,
-    TAccountPoolAta,
+    TAccountTreasury,
+    TAccountTreasuryAta,
     TAccountAMint,
-    TAccountBMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >);
@@ -418,10 +461,9 @@ export type ParsedBuyVirtualTokenInstruction<
     payerAta: TAccountMetas[1];
     virtualTokenAccount: TAccountMetas[2];
     pool: TAccountMetas[3];
-    poolAta: TAccountMetas[4];
-    aMint: TAccountMetas[5];
-    /** UNCHECKED: this is a virtual mint so it doesn't really exist */
-    bMint: TAccountMetas[6];
+    treasury: TAccountMetas[4];
+    treasuryAta: TAccountMetas[5];
+    aMint: TAccountMetas[6];
     tokenProgram: TAccountMetas[7];
     systemProgram: TAccountMetas[8];
   };
@@ -453,9 +495,9 @@ export function parseBuyVirtualTokenInstruction<
       payerAta: getNextAccount(),
       virtualTokenAccount: getNextAccount(),
       pool: getNextAccount(),
-      poolAta: getNextAccount(),
+      treasury: getNextAccount(),
+      treasuryAta: getNextAccount(),
       aMint: getNextAccount(),
-      bMint: getNextAccount(),
       tokenProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },
