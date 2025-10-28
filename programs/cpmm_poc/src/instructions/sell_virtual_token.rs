@@ -112,12 +112,12 @@ pub fn sell_virtual_token(
 #[cfg(test)]
 mod tests {
     use crate::state::BcpmmPool;
-    use crate::test_utils::{TestRunner, TestPool};
+    use crate::test_utils::TestRunner;
     use anchor_lang::prelude::*;
     use solana_sdk::signature::{Keypair, Signer};
     use solana_sdk::pubkey::Pubkey;
 
-    fn setup_test() -> (TestRunner, Keypair, Keypair, TestPool, Pubkey, Pubkey) {
+    fn setup_test() -> (TestRunner, Keypair, Keypair, Pubkey, Pubkey, Pubkey) {
         // Parameters
         let a_reserve = 5000;
         let a_virtual_reserve = 1_000_000;
@@ -137,9 +137,12 @@ mod tests {
         let a_mint = runner.create_mint(&payer, 9);
         let payer_ata = runner.create_associated_token_account(&payer, a_mint, &payer.pubkey());
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
-        runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
+        let central_state = runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
 
-        let test_pool = runner.create_pool_mock(
+        // central state ata
+        runner.create_associated_token_account(&payer, a_mint, &central_state);
+
+        let created_pool = runner.create_pool_mock(
             &payer,
             a_mint,
             a_reserve,
@@ -152,7 +155,10 @@ mod tests {
             buyback_fees_balance,
         );
 
-        (runner, payer, another_wallet, test_pool, payer_ata, a_mint)
+        // pool ata
+        runner.create_associated_token_account(&payer, a_mint, &created_pool.pool);
+        runner.mint_tokens(&payer, created_pool.pool, a_mint, a_reserve);
+        (runner, payer, another_wallet, created_pool.pool, payer_ata, a_mint)
     }
 
     #[test]
@@ -168,7 +174,7 @@ mod tests {
         // Create virtual token account with some balance to sell
         let virtual_token_account = runner.create_virtual_token_account_mock(
             payer.pubkey(),
-            pool.pool,
+            pool,
             b_amount, // Start with balance to sell
             0,
         );
@@ -178,14 +184,14 @@ mod tests {
             &payer,
             payer_ata,
             a_mint,
-            pool.pool,
+            pool,
             virtual_token_account,
             b_sell_amount,
         );
         assert!(result_sell.is_ok());
 
         // Check that the reserves are updated correctly
-        let pool_account = runner.svm.get_account(&pool.pool).unwrap();
+        let pool_account = runner.svm.get_account(&pool).unwrap();
         let pool_data: BcpmmPool =
             BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
 
@@ -204,7 +210,7 @@ mod tests {
         // Create virtual token account with insufficient balance
         let virtual_token_account_insufficient = runner.create_virtual_token_account_mock(
             another_wallet.pubkey(),
-            pool.pool,
+            pool,
             b_amount - 1, // Insufficient balance
             0,
         );
@@ -213,7 +219,7 @@ mod tests {
             &another_wallet,
             payer_ata,
             a_mint,
-            pool.pool,
+            pool,
             virtual_token_account_insufficient,
             b_amount,
         );
@@ -229,7 +235,7 @@ mod tests {
         // Create virtual token account with wrong owner
         let virtual_token_account_wrong_owner = runner.create_virtual_token_account_mock(
             another_wallet.pubkey(),
-            pool.pool,
+            pool,
             b_amount,
             0,
         );
@@ -238,7 +244,7 @@ mod tests {
             &payer, // payer is different from virtual token account owner
             payer_ata,
             a_mint,
-            pool.pool,
+            pool,
             virtual_token_account_wrong_owner,
             b_amount,
         );
@@ -254,7 +260,7 @@ mod tests {
         // Create virtual token account with some balance to sell
         let virtual_token_account = runner.create_virtual_token_account_mock(
             payer.pubkey(),
-            pool.pool,
+            pool,
             b_amount, // Start with balance to sell
             0,
         );
@@ -264,7 +270,7 @@ mod tests {
             &payer,
             payer_ata,
             a_mint,
-            pool.pool,
+            pool,
             virtual_token_account,
             b_amount + 1,
         );

@@ -60,117 +60,88 @@ pub fn claim_admin_fees(ctx: Context<ClaimAdminFees>, args: ClaimAdminFeesArgs) 
     Ok(())
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use crate::test_utils::{TestRunner, TestPool};
-//     use anchor_lang::prelude::*;
-//     use solana_program::program_pack::Pack;
-//     use solana_sdk::signature::{Keypair, Signer};
-//     use solana_sdk::pubkey::Pubkey;
-//     use test_case::test_case;
+#[cfg(test)]
+mod tests {
+    use crate::test_utils::{TestRunner, TestPool};
+    use anchor_lang::prelude::*;
+    use solana_program::program_pack::Pack;
+    use solana_sdk::signature::{Keypair, Signer};
+    use solana_sdk::pubkey::Pubkey;
+    use test_case::test_case;
 
-//     fn setup_test() -> (TestRunner, Keypair, TestPool, Pubkey, Pubkey) {
-//         // Parameters
-//         let a_reserve = 0;
-//         let a_virtual_reserve = 1_000_000;
-//         let b_reserve = 2_000_000;
-//         let b_mint_decimals = 6;
-//         let creator_fee_basis_points = 200;
-//         let buyback_fee_basis_points = 600;
-//         let creator_fees_balance = 1000;
-//         let buyback_fees_balance = 0;
-//         let treasury_fees_available = 500; // Start with some admin fees available
+    fn setup_test() -> (TestRunner, Keypair, Pubkey, Pubkey, Pubkey) {
+        // Parameters
+        let a_reserve = 0;
+        let a_virtual_reserve = 1_000_000;
+        let b_reserve = 2_000_000;
+        let b_mint_decimals = 6;
+        let creator_fee_basis_points = 200;
+        let buyback_fee_basis_points = 600;
+        let creator_fees_balance = 1000;
+        let buyback_fees_balance = 0;
+        let admin_fees_balance = 500; // Start with some admin fees available
 
-//         let mut runner = TestRunner::new();
-//         let admin = Keypair::new();
+        let mut runner = TestRunner::new();
+        let admin = Keypair::new();
         
-//         runner.airdrop(&admin.pubkey(), 10_000_000_000);
-//         let a_mint = runner.create_mint(&admin, 9);
-//         let admin_ata = runner.create_associated_token_account(&admin, a_mint, &admin.pubkey());
-//         runner.create_treasury_mock(admin.pubkey(), a_mint);
-//         runner.create_treasury_ata(&admin, a_mint, a_reserve + creator_fees_balance + buyback_fees_balance + treasury_fees_available);
+        runner.airdrop(&admin.pubkey(), 10_000_000_000);
+        let a_mint = runner.create_mint(&admin, 9);
+        let admin_ata = runner.create_associated_token_account(&admin, a_mint, &admin.pubkey());
 
-//         runner.create_central_state_mock(&admin, 5, 5, 2, 1, 10000);
+        let central_state = runner.create_central_state_mock(&admin, 5, 5, 2, 1, 10000);
+        // central state ata
+        let central_state_ata = runner.create_associated_token_account(&admin, a_mint, &central_state);
+        runner.mint_tokens(&admin, central_state, a_mint, admin_fees_balance);
 
-//         let test_pool = runner.create_pool_mock(
-//             &admin,
-//             a_mint,
-//             a_reserve,
-//             a_virtual_reserve,
-//             b_reserve,
-//             b_mint_decimals,
-//             creator_fee_basis_points,
-//             buyback_fee_basis_points,
-//             creator_fees_balance,
-//             buyback_fees_balance,
-//         );
+        (runner, admin, central_state_ata, admin_ata, a_mint)
+    }
 
-//         // Set treasury fees_available
-//         let treasury_pda = runner.get_treasury_pda(a_mint);
-//         let treasury_account = runner.svm.get_account(&treasury_pda).unwrap();
-//         let mut treasury_data = Treasury::try_deserialize(&mut treasury_account.data.as_slice()).unwrap();
-//         treasury_data.fees_available = treasury_fees_available;
-//         let mut data = Vec::new();
-//         treasury_data.try_serialize(&mut data).unwrap();
-//         runner.svm.set_account(treasury_pda, solana_sdk::account::Account {
-//             lamports: treasury_account.lamports,
-//             data,
-//             owner: treasury_account.owner,
-//             executable: treasury_account.executable,
-//             rent_epoch: treasury_account.rent_epoch,
-//         }).unwrap();
+    #[test_case(250, true)]
+    #[test_case(500, true)]
+    #[test_case(501, false)]
+    #[test_case(0, false)]
+    fn test_claim_admin_fees(claim_amount: u64, success: bool) {
+        let (mut runner, admin, central_state_ata, admin_ata, a_mint) = setup_test();
+        let initial_admin_fees_balance = 500;
 
-//         (runner, admin, test_pool, admin_ata, a_mint)
-//     }
+        // Claim admin fees
+        let result = runner.claim_admin_fees(
+            &admin,
+            admin_ata,
+            a_mint,
+            claim_amount,
+        );
+        assert_eq!(result.is_ok(), success);
+        if success {
+            // Check that admin fees_balance was subtracted from central state pda
+            let central_state_account = runner.svm.get_account(&central_state_ata).unwrap();
+            let central_state_balance = anchor_spl::token::spl_token::state::Account::unpack(&central_state_account.data).unwrap().amount;
+            assert_eq!(central_state_balance, initial_admin_fees_balance - claim_amount);
 
-//     #[test_case(250, true)]
-//     #[test_case(500, true)]
-//     #[test_case(501, false)]
-//     #[test_case(0, false)]
-//     fn test_claim_admin_fees(claim_amount: u64, success: bool) {
-//         let (mut runner, admin, _, admin_ata, a_mint) = setup_test();
-//         let initial_treasury_fees = 500;
+            // Check that admin ATA balance increased by the claimed amount
+            let admin_ata_account = runner.svm.get_account(&admin_ata).unwrap();
+            let final_admin_balance = anchor_spl::token::spl_token::state::Account::unpack(&admin_ata_account.data).unwrap().amount;
+            assert_eq!(final_admin_balance, claim_amount);
+        }
+    }
 
-//         // Claim admin fees
-//         let result = runner.claim_admin_fees(
-//             &admin,
-//             admin_ata,
-//             a_mint,
-//             claim_amount,
-//         );
-//         assert_eq!(result.is_ok(), success);
-//         if success {
-//             // Check that treasury fees_available was subtracted
-//             let treasury_pda = runner.get_treasury_pda(a_mint);
-//             let treasury_account = runner.svm.get_account(&treasury_pda).unwrap();
-//             let final_treasury_data: Treasury =
-//                 Treasury::try_deserialize(&mut treasury_account.data.as_slice()).unwrap();
-//             assert_eq!(final_treasury_data.fees_available, initial_treasury_fees - claim_amount);
+    #[test]
+    fn test_claim_admin_fees_wrong_authority() {
+        let (mut runner, _, _, _, _) = setup_test();
+        let claim_amount = 250;
 
-//             // Check that admin ATA balance increased by the claimed amount
-//             let admin_ata_account = runner.svm.get_account(&admin_ata).unwrap();
-//             let final_admin_balance = anchor_spl::token::spl_token::state::Account::unpack(&admin_ata_account.data).unwrap().amount;
-//             assert_eq!(final_admin_balance, claim_amount);
-//         }
-//     }
+        let other_user = Keypair::new();
+        runner.airdrop(&other_user.pubkey(), 10_000_000_000);
+        let a_mint = runner.create_mint(&other_user, 9);
+        let other_user_ata = runner.create_associated_token_account(&other_user, a_mint, &other_user.pubkey());
 
-//     #[test]
-//     fn test_claim_admin_fees_wrong_authority() {
-//         let (mut runner, _, _, _, _) = setup_test();
-//         let claim_amount = 250;
-
-//         let other_user = Keypair::new();
-//         runner.airdrop(&other_user.pubkey(), 10_000_000_000);
-//         let a_mint = runner.create_mint(&other_user, 9);
-//         let other_user_ata = runner.create_associated_token_account(&other_user, a_mint, &other_user.pubkey());
-
-//         // Claim admin fees
-//         let result = runner.claim_admin_fees(
-//             &other_user,
-//             other_user_ata,
-//             a_mint,
-//             claim_amount,
-//         );
-//         assert!(result.is_err());
-//     }
-// }
+        // Claim admin fees
+        let result = runner.claim_admin_fees(
+            &other_user,
+            other_user_ata,
+            a_mint,
+            claim_amount,
+        );
+        assert!(result.is_err());
+    }
+}
