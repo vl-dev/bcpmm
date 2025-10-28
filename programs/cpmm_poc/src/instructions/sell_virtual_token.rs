@@ -25,7 +25,7 @@ pub struct SellVirtualToken<'info> {
     #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump = virtual_token_account.bump)]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
 
-    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump = pool.bump)]
+    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
 
     #[account(mut,

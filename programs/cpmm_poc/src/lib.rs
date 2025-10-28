@@ -10,7 +10,7 @@ mod test_utils;
 
 use instructions::*;
 
-declare_id!("2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz");
+declare_id!("J2rzAsBbYpMVEA3dtuudvzizpbwJXLJgR3yEToKzq1jB");
 
 #[program]
 pub mod cpmm_poc {
@@ -54,10 +54,7 @@ pub mod cpmm_poc {
         instructions::sell_virtual_token(ctx, args)
     }
 
-    pub fn burn_virtual_token(
-        ctx: Context<BurnVirtualToken>,
-        pool_owner: bool,
-    ) -> Result<()> {
+    pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> Result<()> {
         instructions::burn_virtual_token(ctx, pool_owner)
     }
 
@@ -76,9 +73,7 @@ pub mod cpmm_poc {
     ) -> Result<()> {
         instructions::claim_creator_fees(ctx, args)
     }
-    pub fn claim_admin_fees(
-        ctx: Context<ClaimAdminFees>,
-    ) -> Result<()> {
+    pub fn claim_admin_fees(ctx: Context<ClaimAdminFees>) -> Result<()> {
         instructions::claim_admin_fees(ctx)
     }
 }

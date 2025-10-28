@@ -23,7 +23,7 @@ pub struct ClaimCreatorFees<'info> {
     #[account(mut, seeds = [CENTRAL_STATE_SEED], bump)]
     pub central_state: Account<'info, CentralState>,
 
-    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.b_mint_index.to_le_bytes().as_ref()], bump = pool.bump)]
+    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
 
     #[account(mut,
