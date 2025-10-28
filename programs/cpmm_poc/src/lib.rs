@@ -76,11 +76,9 @@ pub mod cpmm_poc {
     ) -> Result<()> {
         instructions::claim_creator_fees(ctx, args)
     }
-
     pub fn claim_admin_fees(
         ctx: Context<ClaimAdminFees>,
-        args: ClaimAdminFeesArgs,
     ) -> Result<()> {
-        instructions::claim_admin_fees(ctx, args)
+        instructions::claim_admin_fees(ctx)
     }
 }

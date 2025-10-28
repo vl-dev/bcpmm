@@ -4,26 +4,20 @@ use anchor_spl::token_interface::{
     transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
 use crate::state::*;
-use crate::errors::BcpmmError;
-
-#[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct ClaimAdminFeesArgs {
-    pub amount: u64,
-}
 
 #[derive(Accounts)]
 pub struct ClaimAdminFees<'info> {
-    #[account(mut, address = central_state.admin @ BcpmmError::InvalidAdmin)]
-    pub admin: Signer<'info>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
 
     #[account(mut,
         associated_token::mint = a_mint,
-        associated_token::authority = admin,
+        associated_token::authority = central_state.admin,
         associated_token::token_program = token_program        
     )]
     pub admin_ata: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut, seeds = [CENTRAL_STATE_SEED], bump)]
+    #[account(mut, seeds = [CENTRAL_STATE_SEED], bump = central_state.bump)]
     pub central_state: Account<'info, CentralState>,
 
     #[account(mut,
@@ -39,11 +33,10 @@ pub struct ClaimAdminFees<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn claim_admin_fees(ctx: Context<ClaimAdminFees>, args: ClaimAdminFeesArgs) -> Result<()> {
+pub fn claim_admin_fees(ctx: Context<ClaimAdminFees>) -> Result<()> {
     
-    require!(args.amount > 0, BcpmmError::AmountTooSmall);
-
     // Transfer from central state's ATA to admin's ATA.
+    let token_balance = ctx.accounts.central_state_ata.amount;
     let cpi_accounts = TransferChecked {
         mint: ctx.accounts.a_mint.to_account_info(),
         from: ctx.accounts.central_state_ata.to_account_info(),
@@ -55,15 +48,14 @@ pub fn claim_admin_fees(ctx: Context<ClaimAdminFees>, args: ClaimAdminFeesArgs) 
     let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts)
         .with_signer(signer_seeds);
     let decimals = ctx.accounts.a_mint.decimals;
-    transfer_checked(cpi_ctx, args.amount, decimals)?;
+    transfer_checked(cpi_ctx, token_balance, decimals)?;
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::{TestRunner, TestPool};
-    use anchor_lang::prelude::*;
+    use crate::test_utils::TestRunner;
     use solana_program::program_pack::Pack;
     use solana_sdk::signature::{Keypair, Signer};
     use solana_sdk::pubkey::Pubkey;
@@ -71,14 +63,6 @@ mod tests {
 
     fn setup_test() -> (TestRunner, Keypair, Pubkey, Pubkey, Pubkey) {
         // Parameters
-        let a_reserve = 0;
-        let a_virtual_reserve = 1_000_000;
-        let b_reserve = 2_000_000;
-        let b_mint_decimals = 6;
-        let creator_fee_basis_points = 200;
-        let buyback_fee_basis_points = 600;
-        let creator_fees_balance = 1000;
-        let buyback_fees_balance = 0;
         let admin_fees_balance = 500; // Start with some admin fees available
 
         let mut runner = TestRunner::new();
@@ -96,39 +80,32 @@ mod tests {
         (runner, admin, central_state_ata, admin_ata, a_mint)
     }
 
-    #[test_case(250, true)]
-    #[test_case(500, true)]
-    #[test_case(501, false)]
-    #[test_case(0, false)]
-    fn test_claim_admin_fees(claim_amount: u64, success: bool) {
+    #[test]
+    fn test_claim_admin_fees() {
         let (mut runner, admin, central_state_ata, admin_ata, a_mint) = setup_test();
-        let initial_admin_fees_balance = 500;
 
         // Claim admin fees
         let result = runner.claim_admin_fees(
             &admin,
             admin_ata,
             a_mint,
-            claim_amount,
         );
-        assert_eq!(result.is_ok(), success);
-        if success {
-            // Check that admin fees_balance was subtracted from central state pda
-            let central_state_account = runner.svm.get_account(&central_state_ata).unwrap();
-            let central_state_balance = anchor_spl::token::spl_token::state::Account::unpack(&central_state_account.data).unwrap().amount;
-            assert_eq!(central_state_balance, initial_admin_fees_balance - claim_amount);
+        assert!(result.is_ok());
 
-            // Check that admin ATA balance increased by the claimed amount
-            let admin_ata_account = runner.svm.get_account(&admin_ata).unwrap();
-            let final_admin_balance = anchor_spl::token::spl_token::state::Account::unpack(&admin_ata_account.data).unwrap().amount;
-            assert_eq!(final_admin_balance, claim_amount);
-        }
+        // Check that admin fees_balance was subtracted from central state pda
+        let central_state_account = runner.svm.get_account(&central_state_ata).unwrap();
+        let central_state_balance = anchor_spl::token::spl_token::state::Account::unpack(&central_state_account.data).unwrap().amount;
+        assert_eq!(central_state_balance, 0);
+
+        // Check that admin ATA balance increased by the claimed amount
+        let admin_ata_account = runner.svm.get_account(&admin_ata).unwrap();
+        let final_admin_balance = anchor_spl::token::spl_token::state::Account::unpack(&admin_ata_account.data).unwrap().amount;
+        assert_eq!(final_admin_balance, 500);
     }
 
     #[test]
     fn test_claim_admin_fees_wrong_authority() {
         let (mut runner, _, _, _, _) = setup_test();
-        let claim_amount = 250;
 
         let other_user = Keypair::new();
         runner.airdrop(&other_user.pubkey(), 10_000_000_000);
@@ -140,7 +117,6 @@ mod tests {
             &other_user,
             other_user_ata,
             a_mint,
-            claim_amount,
         );
         assert!(result.is_err());
     }

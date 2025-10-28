@@ -34,43 +34,6 @@ pub fn is_after_burn_reset_with_time( time_to_check: i64, current_time: i64, res
     time_to_check >= todays_reset_ts
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_is_after_burn_reset_with_time_before_reset() {
-        let midnight = 1761177600;
-        let current_time = midnight + 1;
-        let time_before_reset = 1761177660; // Just after midnight
-        assert!(!is_after_burn_reset_with_time(time_before_reset, current_time, 43200));
-    }
-
-    #[test]
-    fn test_is_after_burn_reset_with_time_yesterday() {
-        let midnight = 1761177600;
-        let current_time = midnight + 1;
-        let yesterday_night = 1761166800;
-        assert!(!is_after_burn_reset_with_time(yesterday_night, current_time, 43200));
-    }
-
-    #[test]
-    fn test_is_after_burn_reset_with_time_same_day() {
-        let midnight = 1761177600;
-        let current_time = midnight + 1;
-        let time_after_reset_same_day = 1761224400;
-        assert!(is_after_burn_reset_with_time(time_after_reset_same_day, current_time, 43200));
-    }
-
-    #[test]
-    fn test_is_after_burn_reset_with_time_next_day() {
-        let midnight = 1761177600;
-        let current_time = midnight + 1;
-        let next_day = 1761264000;
-        assert!(is_after_burn_reset_with_time(next_day, current_time, 43200));
-    }
-}
-
 impl CentralState {
     pub fn new(
         bump: u8,
@@ -283,5 +246,42 @@ impl UserBurnAllowance {
         payer: Pubkey,
     ) -> Self {
         Self { bump, user, payer, burns_today: 0, last_burn_timestamp: 0 }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_after_burn_reset_with_time_before_reset() {
+        let midnight = 1761177600;
+        let current_time = midnight + 1;
+        let time_before_reset = 1761177660; // Just after midnight
+        assert!(!is_after_burn_reset_with_time(time_before_reset, current_time, 43200));
+    }
+
+    #[test]
+    fn test_is_after_burn_reset_with_time_yesterday() {
+        let midnight = 1761177600;
+        let current_time = midnight + 1;
+        let yesterday_night = 1761166800;
+        assert!(!is_after_burn_reset_with_time(yesterday_night, current_time, 43200));
+    }
+
+    #[test]
+    fn test_is_after_burn_reset_with_time_same_day() {
+        let midnight = 1761177600;
+        let current_time = midnight + 1;
+        let time_after_reset_same_day = 1761224400;
+        assert!(is_after_burn_reset_with_time(time_after_reset_same_day, current_time, 43200));
+    }
+
+    #[test]
+    fn test_is_after_burn_reset_with_time_next_day() {
+        let midnight = 1761177600;
+        let current_time = midnight + 1;
+        let next_day = 1761264000;
+        assert!(is_after_burn_reset_with_time(next_day, current_time, 43200));
     }
 }
