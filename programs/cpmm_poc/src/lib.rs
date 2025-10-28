@@ -10,7 +10,7 @@ mod test_utils;
 
 use instructions::*;
 
-declare_id!("J2rzAsBbYpMVEA3dtuudvzizpbwJXLJgR3yEToKzq1jB");
+declare_id!("2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz");
 
 #[program]
 pub mod cpmm_poc {
@@ -76,11 +76,9 @@ pub mod cpmm_poc {
     ) -> Result<()> {
         instructions::claim_creator_fees(ctx, args)
     }
-
     pub fn claim_admin_fees(
         ctx: Context<ClaimAdminFees>,
-        args: ClaimAdminFeesArgs,
     ) -> Result<()> {
-        instructions::claim_admin_fees(ctx, args)
+        instructions::claim_admin_fees(ctx)
     }
 }

@@ -556,7 +556,6 @@ impl TestRunner {
         admin: &Keypair,
         admin_ata: Pubkey,
         mint: Pubkey,
-        amount: u64,
     ) -> std::result::Result<(), TransactionError> {
         let central_state_pda = Pubkey::find_program_address(
             &[cpmm_state::CENTRAL_STATE_SEED],
@@ -584,9 +583,7 @@ impl TestRunner {
             AccountMeta::new(solana_sdk_ids::system_program::ID, false),
         ];
 
-        let args = crate::instructions::ClaimAdminFeesArgs { amount };
-
-        self.send_instruction("claim_admin_fees", accounts, args, &[admin])
+        self.send_instruction("claim_admin_fees", accounts, (), &[admin])
     }
 
     pub fn get_treasury_pda(&self, mint: Pubkey) -> Pubkey {
