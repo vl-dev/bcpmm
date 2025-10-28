@@ -34,11 +34,11 @@ describe("cpmm-poc", () => {
     if (!centralStateExists) {
       console.log("Initializing central state");
       const initializeCentralStateArgs = {
-        dailyBurnAllowance: new BN(1000000000000), // 1B tokens
-        creatorDailyBurnAllowance: new BN(1000000000000), // 1B tokens
-        userBurnBp: 1000, // 10%
-        creatorBurnBp: 500, // 5%
-        burnResetTime: new BN(Date.now() / 1000 + 86400), // 24 hours from now
+        maxUserDailyBurnCount: 10,
+        maxCreatorDailyBurnCount: 10,
+        userBurnBpX100: 1000, // 10%
+        creatorBurnBpX100: 500, // 5%
+        burnResetTimeOfDaySeconds: Date.now() / 1000 + 86400, // 24 hours from now
       };
       const initializeCentralStateAccounts = {
         admin: provider.wallet.publicKey,
@@ -150,17 +150,40 @@ describe("cpmm-poc", () => {
 
     console.log("Initialize virtual token account tx: ", initVirtualTokenAccountSx);
 
+    // Initialize user burn allowance
+    console.log("Initializing user burn allowance");
+    const [userBurnAllowanceAddress] = PublicKey.findProgramAddressSync(
+      [Buffer.from('user_burn_allowance'), provider.wallet.publicKey.toBuffer(), Buffer.from([1])],
+      program.programId
+    );
+
+    const initializeUserBurnAllowanceAccounts = {
+      payer: provider.wallet.publicKey,
+      owner: provider.wallet.publicKey,
+      centralState: centralStatePDA,
+      userBurnAllowance: userBurnAllowanceAddress,
+    };
+    const initializeUserBurnAllowanceSx = await program.methods
+      .initializeUserBurnAllowance(true)
+      .accounts(initializeUserBurnAllowanceAccounts)
+      .rpc();
+
+    console.log("Initialize user burn allowance tx: ", initializeUserBurnAllowanceSx);
+
+
     // Burn tokens
     console.log("Burning tokens");
     const burnVirtualTokenArgs = {
-      bAmountBasisPoints: 9000,
+      poolOwner: true,
     };
     const burnVirtualTokenAccounts = {
       payer: provider.wallet.publicKey,
       pool: pool,
+      userBurnAllowance: userBurnAllowanceAddress,
+      centralState: centralStatePDA,
     };
     const burnVirtualTokenSx = await program.methods
-      .burnVirtualToken(burnVirtualTokenArgs)
+      .burnVirtualToken(true)
       .accounts(burnVirtualTokenAccounts)
       .signers([payer])
       .rpc();
@@ -173,7 +196,6 @@ describe("cpmm-poc", () => {
     console.log("B reserve: ", poolAccount.bReserve.toString());
     console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
     console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
-    console.log("Buyback Fees Balance: ", poolAccount.buybackFeesBalance.toString());
     console.log("Creator Fee Basis Points: ", poolAccount.creatorFeeBasisPoints.toString());
     console.log("Buyback Fee Basis Points: ", poolAccount.buybackFeeBasisPoints.toString());
 
@@ -215,7 +237,6 @@ describe("cpmm-poc", () => {
     console.log("Mint A: ", poolAccount.aMint.toBase58());
     console.log("Mint B Index: ", poolAccount.bMintIndex.toString());
     console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
-    console.log("Buyback Fees Balance: ", poolAccount.buybackFeesBalance.toString());
     console.log("Creator Fee Basis Points: ", poolAccount.creatorFeeBasisPoints.toString());
     console.log("Buyback Fee Basis Points: ", poolAccount.buybackFeeBasisPoints.toString());
 

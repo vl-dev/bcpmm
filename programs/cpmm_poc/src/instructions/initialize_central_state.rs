@@ -3,10 +3,10 @@ use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializeCentralStateArgs {
-    pub daily_burn_allowance: u16,         
-    pub creator_daily_burn_allowance: u16, 
-    pub user_burn_bp_x100: u32,                 
-    pub creator_burn_bp_x100: u32,              
+    pub max_user_daily_burn_count: u16,
+    pub max_creator_daily_burn_count: u16,
+    pub user_burn_bp_x100: u32,
+    pub creator_burn_bp_x100: u32,
     pub burn_reset_time_of_day_seconds: u32, // Seconds from midnight
 }
 
@@ -26,8 +26,8 @@ pub fn initialize_central_state(
     ctx.accounts.central_state.set_inner(CentralState::new(
         ctx.bumps.central_state,
         ctx.accounts.admin.key(),
-        args.daily_burn_allowance,
-        args.creator_daily_burn_allowance,
+        args.max_user_daily_burn_count,
+        args.max_creator_daily_burn_count,
         args.user_burn_bp_x100,
         args.creator_burn_bp_x100,
         args.burn_reset_time_of_day_seconds,

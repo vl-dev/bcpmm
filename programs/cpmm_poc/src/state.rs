@@ -20,15 +20,19 @@ pub struct CentralState {
     pub bump: u8,
     pub admin: Pubkey,
     pub b_mint_index: u64,
-    pub daily_burn_allowance: u16,
-    pub creator_daily_burn_allowance: u16,
-    pub user_burn_bp_x100: u32, 
+    pub max_user_daily_burn_count: u16,
+    pub max_creator_daily_burn_count: u16,
+    pub user_burn_bp_x100: u32,
     pub creator_burn_bp_x100: u32,
     pub burn_reset_time_of_day_seconds: u32, // Seconds from midnight
 }
 
 /// Check if given time is after today's burn reset timestamp (for testing with mock time).
-pub fn is_after_burn_reset_with_time( time_to_check: i64, current_time: i64, reset_time_of_day_seconds: u32) -> bool {
+pub fn is_after_burn_reset_with_time(
+    time_to_check: i64,
+    current_time: i64,
+    reset_time_of_day_seconds: u32,
+) -> bool {
     let todays_midnight = current_time - current_time.rem_euclid(86400);
     let todays_reset_ts = todays_midnight + reset_time_of_day_seconds as i64;
     time_to_check >= todays_reset_ts
@@ -43,7 +47,11 @@ mod tests {
         let midnight = 1761177600;
         let current_time = midnight + 1;
         let time_before_reset = 1761177660; // Just after midnight
-        assert!(!is_after_burn_reset_with_time(time_before_reset, current_time, 43200));
+        assert!(!is_after_burn_reset_with_time(
+            time_before_reset,
+            current_time,
+            43200
+        ));
     }
 
     #[test]
@@ -51,7 +59,11 @@ mod tests {
         let midnight = 1761177600;
         let current_time = midnight + 1;
         let yesterday_night = 1761166800;
-        assert!(!is_after_burn_reset_with_time(yesterday_night, current_time, 43200));
+        assert!(!is_after_burn_reset_with_time(
+            yesterday_night,
+            current_time,
+            43200
+        ));
     }
 
     #[test]
@@ -59,7 +71,11 @@ mod tests {
         let midnight = 1761177600;
         let current_time = midnight + 1;
         let time_after_reset_same_day = 1761224400;
-        assert!(is_after_burn_reset_with_time(time_after_reset_same_day, current_time, 43200));
+        assert!(is_after_burn_reset_with_time(
+            time_after_reset_same_day,
+            current_time,
+            43200
+        ));
     }
 
     #[test]
@@ -75,8 +91,8 @@ impl CentralState {
     pub fn new(
         bump: u8,
         admin: Pubkey,
-        daily_burn_allowance: u16,
-        creator_daily_burn_allowance: u16,
+        max_user_daily_burn_count: u16,
+        max_creator_daily_burn_count: u16,
         user_burn_bp_x100: u32,
         creator_burn_bp_x100: u32,
         burn_reset_time_of_day_seconds: u32,
@@ -85,8 +101,8 @@ impl CentralState {
             bump,
             admin,
             b_mint_index: 0,
-            daily_burn_allowance,
-            creator_daily_burn_allowance,
+            max_user_daily_burn_count,
+            max_creator_daily_burn_count,
             user_burn_bp_x100,
             creator_burn_bp_x100,
             burn_reset_time_of_day_seconds,
@@ -96,9 +112,12 @@ impl CentralState {
     /// Check if given time is after today's burn reset timestamp.
     pub fn is_after_burn_reset(&self, time_to_check: i64) -> Result<bool> {
         let now = Clock::get()?.unix_timestamp;
-        Ok(is_after_burn_reset_with_time(time_to_check, now, self.burn_reset_time_of_day_seconds))
+        Ok(is_after_burn_reset_with_time(
+            time_to_check,
+            now,
+            self.burn_reset_time_of_day_seconds,
+        ))
     }
-
 }
 
 // A is the real SPL token
@@ -277,11 +296,13 @@ pub struct UserBurnAllowance {
 }
 
 impl UserBurnAllowance {
-    pub fn new(
-        bump: u8,
-        user: Pubkey,
-        payer: Pubkey,
-    ) -> Self {
-        Self { bump, user, payer, burns_today: 0, last_burn_timestamp: 0 }
+    pub fn new(bump: u8, user: Pubkey, payer: Pubkey) -> Self {
+        Self {
+            bump,
+            user,
+            payer,
+            burns_today: 0,
+            last_burn_timestamp: 0,
+        }
     }
 }
