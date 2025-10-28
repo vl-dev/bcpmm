@@ -5,6 +5,6 @@ mod test_runner;
 mod compute_metrics;
 
 #[cfg(test)]
-pub use test_runner::{TestRunner, TestPool};
+pub use compute_metrics::{init_metrics, print_metrics_report};
 #[cfg(test)]
-pub use compute_metrics::{init_metrics, print_metrics_report, send_and_record};
+pub use test_runner::{TestPool, TestRunner};

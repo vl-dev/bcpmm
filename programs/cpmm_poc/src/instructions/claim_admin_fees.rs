@@ -56,10 +56,9 @@ pub fn claim_admin_fees(ctx: Context<ClaimAdminFees>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use crate::test_utils::TestRunner;
-    use solana_program::program_pack::Pack;
+    use anchor_lang::solana_program::program_pack::Pack;
     use solana_sdk::signature::{Keypair, Signer};
     use solana_sdk::pubkey::Pubkey;
-    use test_case::test_case;
 
     fn setup_test() -> (TestRunner, Keypair, Pubkey, Pubkey, Pubkey) {
         // Parameters

@@ -91,7 +91,7 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> R
 #[cfg(test)]
 mod tests {
     use crate::state::BcpmmPool;
-    use crate::test_utils::{init_metrics, print_metrics_report, TestPool, TestRunner};
+    use crate::test_utils::{TestPool, TestRunner};
     use anchor_lang::prelude::*;
     use solana_sdk::signature::{Keypair, Signer};
 

@@ -223,7 +223,7 @@ impl TestRunner {
 
         let central_state = self.svm.get_account(&central_state_pda).unwrap();
 
-        let mut central_state_data =
+        let central_state_data =
             cpmm_state::CentralState::try_deserialize(&mut central_state.data.as_slice()).unwrap();
 
         self.put_account_on_chain(&central_state_pda, central_state_data);

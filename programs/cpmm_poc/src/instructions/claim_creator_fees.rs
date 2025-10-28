@@ -62,9 +62,9 @@ pub fn claim_creator_fees(ctx: Context<ClaimCreatorFees>, args: ClaimCreatorFees
 #[cfg(test)]
 mod tests {
     use crate::state::BcpmmPool;
-    use crate::test_utils::{TestRunner, TestPool};
+    use crate::test_utils::TestRunner;
     use anchor_lang::prelude::*;
-    use solana_program::program_pack::Pack;
+    use anchor_lang::solana_program::program_pack::Pack;
     use solana_sdk::signature::{Keypair, Signer};
     use solana_sdk::pubkey::Pubkey;
     use test_case::test_case;
