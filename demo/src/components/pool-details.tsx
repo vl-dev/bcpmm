@@ -2,11 +2,12 @@ import { type Address } from "@solana/kit";
 import { type BcpmmPool } from "@bcpmm/js-client";
 import { useBurnTokens } from "../hooks/use-burn-tokens";
 import { useWallet } from "../wallet-provider";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useBuyVirtualToken } from "../hooks/use-buy-virtual-token";
 import { useSellVirtualToken } from "../hooks/use-sell-virtual-token";
 import { useVirtualTokenBalance } from "../hooks/use-virtual-token-balance";
 import { useTokenBalance } from "../hooks/use-token-balance";
+import { calculateVirtualTokenPrice, calculateBuyOutput } from "../virtual-token-price";
 
 
 type PoolDetailsProps = {
@@ -63,6 +64,15 @@ export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, a
   const hasEnoughTokenA = BigInt(parsedBuyAmount) <= availableTokenA;
   const hasEnoughTokenB = BigInt(parsedSellAmount) <= availableTokenB;
 
+  const virtualTokenPrice = useMemo(() => {
+    return calculateVirtualTokenPrice(pool, pool.bMintDecimals);
+  }, [pool]);
+
+  const estimatedBuyOutput = useMemo(() => {
+    if (parsedBuyAmount <= 0) return 0;
+    return calculateBuyOutput(BigInt(parsedBuyAmount), pool, pool.bMintDecimals);
+  }, [parsedBuyAmount, pool]);
+
   return (
     <div style={{ 
       marginTop: '1.5rem',
@@ -103,6 +113,9 @@ export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, a
           </div>
           <div style={{ marginBottom: '0.5rem' }}>
             <strong>B Reserve:</strong> {formatBigintAmountWith6Decimals(pool.bReserve)}
+          </div>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <strong>Virtual Token Price:</strong> {virtualTokenPrice > 0 ? `${virtualTokenPrice.toFixed(6)} A per B` : 'N/A'}
           </div>
           <div style={{ marginBottom: '0.5rem' }}>
             <strong>A Virtual Reserve:</strong> {formatBigintAmountWith6Decimals(pool.aVirtualReserve)}
@@ -206,6 +219,17 @@ export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, a
                   {isBuying ? 'Buying...' : 'Buy'}
                 </button>
               </div>
+              {parsedBuyAmount > 0 && (
+                <div style={{
+                  fontSize: '0.75rem',
+                  color: '#666',
+                  fontFamily: 'monospace',
+                  textAlign: 'left',
+                  marginTop: '-0.25rem',
+                }}>
+                  ≈ {estimatedBuyOutput.toFixed(6)} token B
+                </div>
+              )}
               {virtualTokenBalance && (
                 <div style={{
                   fontSize: '0.85rem',
