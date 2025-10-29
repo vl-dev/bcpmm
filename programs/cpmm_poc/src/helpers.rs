@@ -16,9 +16,9 @@ impl Fees {
 
 pub fn calculate_fees(
     a_amount: u64,
-    platform_fee_basis_points: u16,
     creator_fee_basis_points: u16,
     buyback_fee_basis_points: u16,
+    platform_fee_basis_points: u16,
 ) -> Result<Fees> {
     if platform_fee_basis_points > 10000
         || creator_fee_basis_points > 10000
@@ -92,9 +92,19 @@ mod tests {
     #[test]
     fn test_calculate_fees() {
         let fees = calculate_fees(1_000_000_000, 1000, 2000, 3000).unwrap();
-        assert_eq!(fees.creator_fees_amount, 100_000_000);
-        assert_eq!(fees.buyback_fees_amount, 200_000_000);
-        assert_eq!(fees.platform_fees_amount, 300_000_000);
+        println!("fees: {:?}", fees);
+        assert_eq!(
+            fees.creator_fees_amount, 100_000_000,
+            "creator fees amount is not correct"
+        );
+        assert_eq!(
+            fees.buyback_fees_amount, 200_000_000,
+            "buyback fees amount is not correct"
+        );
+        assert_eq!(
+            fees.platform_fees_amount, 300_000_000,
+            "platform fees amount is not correct"
+        );
     }
 
     #[test]

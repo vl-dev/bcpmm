@@ -178,9 +178,10 @@ mod tests {
 
         let creator_fees = 100;
         let buyback_fees = 300;
-        let a_amount_after_fees = a_amount - creator_fees - buyback_fees;
+        let platform_fees = 100;
+        let a_amount_after_fees = a_amount - creator_fees - buyback_fees - platform_fees;
 
-        let calculated_b_amount_min = 9157;
+        let calculated_b_amount_min = 8959;
         let virtual_token_account =
             runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0, 0);
 
