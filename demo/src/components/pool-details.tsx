@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useBuyVirtualToken } from "../hooks/use-buy-virtual-token";
 import { useSellVirtualToken } from "../hooks/use-sell-virtual-token";
 import { useVirtualTokenBalance } from "../hooks/use-virtual-token-balance";
+import { useTokenBalance } from "../hooks/use-token-balance";
 
 
 type PoolDetailsProps = {
@@ -32,6 +33,7 @@ export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, a
   const [sellAmount, setSellAmount] = useState<string>("");
   const user = useWallet();
   const { data: virtualTokenBalance } = useVirtualTokenBalance(user?.address || null, poolAddress);
+  const { data: tokenBalance } = useTokenBalance(user?.address || null);
   const isOwner = user?.address?.toString() === pool.creator.toString();
 
   const parsedBuyAmount = (() => {
@@ -46,6 +48,20 @@ export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, a
     const factor = Math.pow(10, pool.bMintDecimals);
     return Math.floor(n * factor);
   })();
+
+  // Convert token balance string to base units (assuming 6 decimals for Token A)
+  const availableTokenA = (() => {
+    if (!tokenBalance) return 0n;
+    const num = parseFloat(tokenBalance);
+    if (!isFinite(num) || num <= 0) return 0n;
+    return BigInt(Math.floor(num * 1_000_000));
+  })();
+
+  // Get available virtual token B balance
+  const availableTokenB = virtualTokenBalance?.balance || 0n;
+
+  const hasEnoughTokenA = BigInt(parsedBuyAmount) <= availableTokenA;
+  const hasEnoughTokenB = BigInt(parsedSellAmount) <= availableTokenB;
 
   return (
     <div style={{ 
@@ -160,7 +176,7 @@ export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, a
                 />
                 <button
                   type="button"
-                  disabled={!user || isBuying || parsedBuyAmount <= 0}
+                  disabled={!user || isBuying || parsedBuyAmount <= 0 || !hasEnoughTokenA}
                   onClick={async () => {
                     if (!user) return;
                     const aAmount = BigInt(parsedBuyAmount);
@@ -179,10 +195,10 @@ export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, a
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    backgroundColor: (!user || isBuying || parsedBuyAmount <= 0) ? '#ccc' : '#8fd689',
+                    backgroundColor: (!user || isBuying || parsedBuyAmount <= 0 || !hasEnoughTokenA) ? '#ccc' : '#8fd689',
                     border: 'none',
                     borderRadius: '4px',
-                    cursor: (!user || isBuying || parsedBuyAmount <= 0) ? 'not-allowed' : 'pointer',
+                    cursor: (!user || isBuying || parsedBuyAmount <= 0 || !hasEnoughTokenA) ? 'not-allowed' : 'pointer',
                     fontFamily: 'monospace',
                     gap: '0.35rem',
                   }}
@@ -225,7 +241,7 @@ export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, a
                   />
                   <button
                     type="button"
-                    disabled={!user || isSelling || parsedSellAmount <= 0}
+                    disabled={!user || isSelling || parsedSellAmount <= 0 || !hasEnoughTokenB}
                     onClick={async () => {
                       if (!user) return;
                       const bAmount = BigInt(parsedSellAmount);
@@ -243,10 +259,10 @@ export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, a
                       display: 'flex',
                       justifyContent: 'center',
                       alignItems: 'center',
-                      backgroundColor: (!user || isSelling || parsedSellAmount <= 0) ? '#ccc' : '#89a9d6',
+                      backgroundColor: (!user || isSelling || parsedSellAmount <= 0 || !hasEnoughTokenB) ? '#ccc' : '#89a9d6',
                       border: 'none',
                       borderRadius: '4px',
-                      cursor: (!user || isSelling || parsedSellAmount <= 0) ? 'not-allowed' : 'pointer',
+                      cursor: (!user || isSelling || parsedSellAmount <= 0 || !hasEnoughTokenB) ? 'not-allowed' : 'pointer',
                       fontFamily: 'monospace',
                       gap: '0.35rem',
                     }}

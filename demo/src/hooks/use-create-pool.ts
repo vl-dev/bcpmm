@@ -84,6 +84,7 @@ export function useCreatePool() {
     onSuccess: () => {
       // Ensure user pool refetches
       queryClient.invalidateQueries({ queryKey: ['userPool'] });
+      queryClient.invalidateQueries({ queryKey: ['allPools'] });
     },
   });
 }
