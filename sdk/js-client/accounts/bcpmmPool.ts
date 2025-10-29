@@ -75,11 +75,13 @@ export type BcpmmPool = {
   /** Creator fees balance denominated in Mint A including decimals */
   creatorFeesBalance: bigint;
   /** Total buyback fees accumulated in Mint A including decimals */
-  buybackFeesAccumulated: bigint;
+  buybackFeesBalance: bigint;
   /** Creator fee basis points */
   creatorFeeBasisPoints: number;
   /** Buyback fee basis points */
   buybackFeeBasisPoints: number;
+  /** Platform fee basis points */
+  platformFeeBasisPoints: number;
   /** Burn allowance for the pool */
   burnsToday: number;
   lastBurnTimestamp: bigint;
@@ -106,11 +108,13 @@ export type BcpmmPoolArgs = {
   /** Creator fees balance denominated in Mint A including decimals */
   creatorFeesBalance: number | bigint;
   /** Total buyback fees accumulated in Mint A including decimals */
-  buybackFeesAccumulated: number | bigint;
+  buybackFeesBalance: number | bigint;
   /** Creator fee basis points */
   creatorFeeBasisPoints: number;
   /** Buyback fee basis points */
   buybackFeeBasisPoints: number;
+  /** Platform fee basis points */
+  platformFeeBasisPoints: number;
   /** Burn allowance for the pool */
   burnsToday: number;
   lastBurnTimestamp: number | bigint;
@@ -130,9 +134,10 @@ export function getBcpmmPoolEncoder(): FixedSizeEncoder<BcpmmPoolArgs> {
       ['bMintDecimals', getU8Encoder()],
       ['bReserve', getU64Encoder()],
       ['creatorFeesBalance', getU64Encoder()],
-      ['buybackFeesAccumulated', getU64Encoder()],
+      ['buybackFeesBalance', getU64Encoder()],
       ['creatorFeeBasisPoints', getU16Encoder()],
       ['buybackFeeBasisPoints', getU16Encoder()],
+      ['platformFeeBasisPoints', getU16Encoder()],
       ['burnsToday', getU16Encoder()],
       ['lastBurnTimestamp', getI64Encoder()],
     ]),
@@ -153,9 +158,10 @@ export function getBcpmmPoolDecoder(): FixedSizeDecoder<BcpmmPool> {
     ['bMintDecimals', getU8Decoder()],
     ['bReserve', getU64Decoder()],
     ['creatorFeesBalance', getU64Decoder()],
-    ['buybackFeesAccumulated', getU64Decoder()],
+    ['buybackFeesBalance', getU64Decoder()],
     ['creatorFeeBasisPoints', getU16Decoder()],
     ['buybackFeeBasisPoints', getU16Decoder()],
+    ['platformFeeBasisPoints', getU16Decoder()],
     ['burnsToday', getU16Decoder()],
     ['lastBurnTimestamp', getI64Decoder()],
   ]);
@@ -219,5 +225,5 @@ export async function fetchAllMaybeBcpmmPool(
 }
 
 export function getBcpmmPoolSize(): number {
-  return 140;
+  return 142;
 }

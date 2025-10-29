@@ -22,13 +22,16 @@ pub max_creator_daily_burn_count: u16,
 pub user_burn_bp_x100: u32,
 pub creator_burn_bp_x100: u32,
 pub burn_reset_time_of_day_seconds: u32,
+pub creator_fee_basis_points: u16,
+pub buyback_fee_basis_points: u16,
+pub platform_fee_basis_points: u16,
 }
 
 
 pub const CENTRAL_STATE_DISCRIMINATOR: [u8; 8] = [201, 49, 35, 231, 4, 164, 205, 91];
 
 impl CentralState {
-      pub const LEN: usize = 57;
+      pub const LEN: usize = 63;
   
   
   

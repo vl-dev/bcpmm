@@ -36,11 +36,13 @@ pub b_reserve: u64,
 /// Creator fees balance denominated in Mint A including decimals
 pub creator_fees_balance: u64,
 /// Total buyback fees accumulated in Mint A including decimals
-pub buyback_fees_accumulated: u64,
+pub buyback_fees_balance: u64,
 /// Creator fee basis points
 pub creator_fee_basis_points: u16,
 /// Buyback fee basis points
 pub buyback_fee_basis_points: u16,
+/// Platform fee basis points
+pub platform_fee_basis_points: u16,
 /// Burn allowance for the pool
 pub burns_today: u16,
 pub last_burn_timestamp: i64,
@@ -50,7 +52,7 @@ pub last_burn_timestamp: i64,
 pub const BCPMM_POOL_DISCRIMINATOR: [u8; 8] = [176, 79, 229, 1, 239, 41, 66, 21];
 
 impl BcpmmPool {
-      pub const LEN: usize = 140;
+      pub const LEN: usize = 142;
   
   
   

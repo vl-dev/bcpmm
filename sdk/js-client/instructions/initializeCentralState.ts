@@ -81,6 +81,9 @@ export type InitializeCentralStateInstructionData = {
   userBurnBpX100: number;
   creatorBurnBpX100: number;
   burnResetTimeOfDaySeconds: number;
+  creatorFeeBasisPoints: number;
+  buybackFeeBasisPoints: number;
+  platformFeeBasisPoints: number;
 };
 
 export type InitializeCentralStateInstructionDataArgs = {
@@ -89,6 +92,9 @@ export type InitializeCentralStateInstructionDataArgs = {
   userBurnBpX100: number;
   creatorBurnBpX100: number;
   burnResetTimeOfDaySeconds: number;
+  creatorFeeBasisPoints: number;
+  buybackFeeBasisPoints: number;
+  platformFeeBasisPoints: number;
 };
 
 export function getInitializeCentralStateInstructionDataEncoder(): FixedSizeEncoder<InitializeCentralStateInstructionDataArgs> {
@@ -100,6 +106,9 @@ export function getInitializeCentralStateInstructionDataEncoder(): FixedSizeEnco
       ['userBurnBpX100', getU32Encoder()],
       ['creatorBurnBpX100', getU32Encoder()],
       ['burnResetTimeOfDaySeconds', getU32Encoder()],
+      ['creatorFeeBasisPoints', getU16Encoder()],
+      ['buybackFeeBasisPoints', getU16Encoder()],
+      ['platformFeeBasisPoints', getU16Encoder()],
     ]),
     (value) => ({
       ...value,
@@ -116,6 +125,9 @@ export function getInitializeCentralStateInstructionDataDecoder(): FixedSizeDeco
     ['userBurnBpX100', getU32Decoder()],
     ['creatorBurnBpX100', getU32Decoder()],
     ['burnResetTimeOfDaySeconds', getU32Decoder()],
+    ['creatorFeeBasisPoints', getU16Decoder()],
+    ['buybackFeeBasisPoints', getU16Decoder()],
+    ['platformFeeBasisPoints', getU16Decoder()],
   ]);
 }
 
@@ -142,6 +154,9 @@ export type InitializeCentralStateAsyncInput<
   userBurnBpX100: InitializeCentralStateInstructionDataArgs['userBurnBpX100'];
   creatorBurnBpX100: InitializeCentralStateInstructionDataArgs['creatorBurnBpX100'];
   burnResetTimeOfDaySeconds: InitializeCentralStateInstructionDataArgs['burnResetTimeOfDaySeconds'];
+  creatorFeeBasisPoints: InitializeCentralStateInstructionDataArgs['creatorFeeBasisPoints'];
+  buybackFeeBasisPoints: InitializeCentralStateInstructionDataArgs['buybackFeeBasisPoints'];
+  platformFeeBasisPoints: InitializeCentralStateInstructionDataArgs['platformFeeBasisPoints'];
 };
 
 export async function getInitializeCentralStateInstructionAsync<
@@ -231,6 +246,9 @@ export type InitializeCentralStateInput<
   userBurnBpX100: InitializeCentralStateInstructionDataArgs['userBurnBpX100'];
   creatorBurnBpX100: InitializeCentralStateInstructionDataArgs['creatorBurnBpX100'];
   burnResetTimeOfDaySeconds: InitializeCentralStateInstructionDataArgs['burnResetTimeOfDaySeconds'];
+  creatorFeeBasisPoints: InitializeCentralStateInstructionDataArgs['creatorFeeBasisPoints'];
+  buybackFeeBasisPoints: InitializeCentralStateInstructionDataArgs['buybackFeeBasisPoints'];
+  platformFeeBasisPoints: InitializeCentralStateInstructionDataArgs['platformFeeBasisPoints'];
 };
 
 export function getInitializeCentralStateInstruction<

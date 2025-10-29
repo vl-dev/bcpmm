@@ -103,13 +103,13 @@ impl CreatePool {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
  pub struct CreatePoolInstructionData {
             discriminator: [u8; 8],
-                        }
+            }
 
 impl CreatePoolInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: [233, 146, 209, 142, 207, 104, 64, 188],
-                                                            }
+                                }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -127,8 +127,6 @@ impl Default for CreatePoolInstructionData {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
  pub struct CreatePoolInstructionArgs {
                   pub a_virtual_reserve: u64,
-                pub creator_fee_basis_points: u16,
-                pub buyback_fee_basis_points: u16,
       }
 
 impl CreatePoolInstructionArgs {
@@ -163,8 +161,6 @@ pub struct CreatePoolBuilder {
                 associated_token_program: Option<solana_pubkey::Pubkey>,
                 system_program: Option<solana_pubkey::Pubkey>,
                         a_virtual_reserve: Option<u64>,
-                creator_fee_basis_points: Option<u16>,
-                buyback_fee_basis_points: Option<u16>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -225,16 +221,6 @@ impl CreatePoolBuilder {
         self.a_virtual_reserve = Some(a_virtual_reserve);
         self
       }
-                #[inline(always)]
-      pub fn creator_fee_basis_points(&mut self, creator_fee_basis_points: u16) -> &mut Self {
-        self.creator_fee_basis_points = Some(creator_fee_basis_points);
-        self
-      }
-                #[inline(always)]
-      pub fn buyback_fee_basis_points(&mut self, buyback_fee_basis_points: u16) -> &mut Self {
-        self.buyback_fee_basis_points = Some(buyback_fee_basis_points);
-        self
-      }
         /// Add an additional account to the instruction.
   #[inline(always)]
   pub fn add_remaining_account(&mut self, account: solana_instruction::AccountMeta) -> &mut Self {
@@ -262,8 +248,6 @@ impl CreatePoolBuilder {
                       };
           let args = CreatePoolInstructionArgs {
                                                               a_virtual_reserve: self.a_virtual_reserve.clone().expect("a_virtual_reserve is not set"),
-                                                                  creator_fee_basis_points: self.creator_fee_basis_points.clone().expect("creator_fee_basis_points is not set"),
-                                                                  buyback_fee_basis_points: self.buyback_fee_basis_points.clone().expect("buyback_fee_basis_points is not set"),
                                     };
     
     accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -482,8 +466,6 @@ impl<'a, 'b> CreatePoolCpiBuilder<'a, 'b> {
               associated_token_program: None,
               system_program: None,
                                             a_virtual_reserve: None,
-                                creator_fee_basis_points: None,
-                                buyback_fee_basis_points: None,
                     __remaining_accounts: Vec::new(),
     });
     Self { instruction }
@@ -538,16 +520,6 @@ impl<'a, 'b> CreatePoolCpiBuilder<'a, 'b> {
         self.instruction.a_virtual_reserve = Some(a_virtual_reserve);
         self
       }
-                #[inline(always)]
-      pub fn creator_fee_basis_points(&mut self, creator_fee_basis_points: u16) -> &mut Self {
-        self.instruction.creator_fee_basis_points = Some(creator_fee_basis_points);
-        self
-      }
-                #[inline(always)]
-      pub fn buyback_fee_basis_points(&mut self, buyback_fee_basis_points: u16) -> &mut Self {
-        self.instruction.buyback_fee_basis_points = Some(buyback_fee_basis_points);
-        self
-      }
         /// Add an additional account to the instruction.
   #[inline(always)]
   pub fn add_remaining_account(&mut self, account: &'b solana_account_info::AccountInfo<'a>, is_writable: bool, is_signer: bool) -> &mut Self {
@@ -572,8 +544,6 @@ impl<'a, 'b> CreatePoolCpiBuilder<'a, 'b> {
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
           let args = CreatePoolInstructionArgs {
                                                               a_virtual_reserve: self.instruction.a_virtual_reserve.clone().expect("a_virtual_reserve is not set"),
-                                                                  creator_fee_basis_points: self.instruction.creator_fee_basis_points.clone().expect("creator_fee_basis_points is not set"),
-                                                                  buyback_fee_basis_points: self.instruction.buyback_fee_basis_points.clone().expect("buyback_fee_basis_points is not set"),
                                     };
         let instruction = CreatePoolCpi {
         __program: self.instruction.__program,
@@ -614,8 +584,6 @@ struct CreatePoolCpiBuilderInstruction<'a, 'b> {
                 associated_token_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                         a_virtual_reserve: Option<u64>,
-                creator_fee_basis_points: Option<u16>,
-                buyback_fee_basis_points: Option<u16>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

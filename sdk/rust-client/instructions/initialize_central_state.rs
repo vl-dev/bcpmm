@@ -61,13 +61,13 @@ impl InitializeCentralState {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
  pub struct InitializeCentralStateInstructionData {
             discriminator: [u8; 8],
-                                    }
+                                                      }
 
 impl InitializeCentralStateInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: [204, 64, 162, 125, 253, 90, 119, 4],
-                                                                                        }
+                                                                                                                                  }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -89,6 +89,9 @@ impl Default for InitializeCentralStateInstructionData {
                 pub user_burn_bp_x100: u32,
                 pub creator_burn_bp_x100: u32,
                 pub burn_reset_time_of_day_seconds: u32,
+                pub creator_fee_basis_points: u16,
+                pub buyback_fee_basis_points: u16,
+                pub platform_fee_basis_points: u16,
       }
 
 impl InitializeCentralStateInstructionArgs {
@@ -115,6 +118,9 @@ pub struct InitializeCentralStateBuilder {
                 user_burn_bp_x100: Option<u32>,
                 creator_burn_bp_x100: Option<u32>,
                 burn_reset_time_of_day_seconds: Option<u32>,
+                creator_fee_basis_points: Option<u16>,
+                buyback_fee_basis_points: Option<u16>,
+                platform_fee_basis_points: Option<u16>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -163,6 +169,21 @@ impl InitializeCentralStateBuilder {
         self.burn_reset_time_of_day_seconds = Some(burn_reset_time_of_day_seconds);
         self
       }
+                #[inline(always)]
+      pub fn creator_fee_basis_points(&mut self, creator_fee_basis_points: u16) -> &mut Self {
+        self.creator_fee_basis_points = Some(creator_fee_basis_points);
+        self
+      }
+                #[inline(always)]
+      pub fn buyback_fee_basis_points(&mut self, buyback_fee_basis_points: u16) -> &mut Self {
+        self.buyback_fee_basis_points = Some(buyback_fee_basis_points);
+        self
+      }
+                #[inline(always)]
+      pub fn platform_fee_basis_points(&mut self, platform_fee_basis_points: u16) -> &mut Self {
+        self.platform_fee_basis_points = Some(platform_fee_basis_points);
+        self
+      }
         /// Add an additional account to the instruction.
   #[inline(always)]
   pub fn add_remaining_account(&mut self, account: solana_instruction::AccountMeta) -> &mut Self {
@@ -188,6 +209,9 @@ impl InitializeCentralStateBuilder {
                                                                   user_burn_bp_x100: self.user_burn_bp_x100.clone().expect("user_burn_bp_x100 is not set"),
                                                                   creator_burn_bp_x100: self.creator_burn_bp_x100.clone().expect("creator_burn_bp_x100 is not set"),
                                                                   burn_reset_time_of_day_seconds: self.burn_reset_time_of_day_seconds.clone().expect("burn_reset_time_of_day_seconds is not set"),
+                                                                  creator_fee_basis_points: self.creator_fee_basis_points.clone().expect("creator_fee_basis_points is not set"),
+                                                                  buyback_fee_basis_points: self.buyback_fee_basis_points.clone().expect("buyback_fee_basis_points is not set"),
+                                                                  platform_fee_basis_points: self.platform_fee_basis_points.clone().expect("platform_fee_basis_points is not set"),
                                     };
     
     accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -326,6 +350,9 @@ impl<'a, 'b> InitializeCentralStateCpiBuilder<'a, 'b> {
                                 user_burn_bp_x100: None,
                                 creator_burn_bp_x100: None,
                                 burn_reset_time_of_day_seconds: None,
+                                creator_fee_basis_points: None,
+                                buyback_fee_basis_points: None,
+                                platform_fee_basis_points: None,
                     __remaining_accounts: Vec::new(),
     });
     Self { instruction }
@@ -370,6 +397,21 @@ impl<'a, 'b> InitializeCentralStateCpiBuilder<'a, 'b> {
         self.instruction.burn_reset_time_of_day_seconds = Some(burn_reset_time_of_day_seconds);
         self
       }
+                #[inline(always)]
+      pub fn creator_fee_basis_points(&mut self, creator_fee_basis_points: u16) -> &mut Self {
+        self.instruction.creator_fee_basis_points = Some(creator_fee_basis_points);
+        self
+      }
+                #[inline(always)]
+      pub fn buyback_fee_basis_points(&mut self, buyback_fee_basis_points: u16) -> &mut Self {
+        self.instruction.buyback_fee_basis_points = Some(buyback_fee_basis_points);
+        self
+      }
+                #[inline(always)]
+      pub fn platform_fee_basis_points(&mut self, platform_fee_basis_points: u16) -> &mut Self {
+        self.instruction.platform_fee_basis_points = Some(platform_fee_basis_points);
+        self
+      }
         /// Add an additional account to the instruction.
   #[inline(always)]
   pub fn add_remaining_account(&mut self, account: &'b solana_account_info::AccountInfo<'a>, is_writable: bool, is_signer: bool) -> &mut Self {
@@ -398,6 +440,9 @@ impl<'a, 'b> InitializeCentralStateCpiBuilder<'a, 'b> {
                                                                   user_burn_bp_x100: self.instruction.user_burn_bp_x100.clone().expect("user_burn_bp_x100 is not set"),
                                                                   creator_burn_bp_x100: self.instruction.creator_burn_bp_x100.clone().expect("creator_burn_bp_x100 is not set"),
                                                                   burn_reset_time_of_day_seconds: self.instruction.burn_reset_time_of_day_seconds.clone().expect("burn_reset_time_of_day_seconds is not set"),
+                                                                  creator_fee_basis_points: self.instruction.creator_fee_basis_points.clone().expect("creator_fee_basis_points is not set"),
+                                                                  buyback_fee_basis_points: self.instruction.buyback_fee_basis_points.clone().expect("buyback_fee_basis_points is not set"),
+                                                                  platform_fee_basis_points: self.instruction.platform_fee_basis_points.clone().expect("platform_fee_basis_points is not set"),
                                     };
         let instruction = InitializeCentralStateCpi {
         __program: self.instruction.__program,
@@ -424,6 +469,9 @@ struct InitializeCentralStateCpiBuilderInstruction<'a, 'b> {
                 user_burn_bp_x100: Option<u32>,
                 creator_burn_bp_x100: Option<u32>,
                 burn_reset_time_of_day_seconds: Option<u32>,
+                creator_fee_basis_points: Option<u16>,
+                buyback_fee_basis_points: Option<u16>,
+                platform_fee_basis_points: Option<u16>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }
