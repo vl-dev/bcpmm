@@ -49,7 +49,7 @@ pub fn claim_creator_fees(ctx: Context<ClaimCreatorFees>, args: ClaimCreatorFees
     let pool_account_info = pool.to_account_info();
     pool.transfer_out(
         args.amount,
-        pool_account_info,
+        &pool_account_info,
         &ctx.accounts.a_mint,
         &ctx.accounts.pool_ata,
         &ctx.accounts.owner_ata,
@@ -77,6 +77,7 @@ mod tests {
         let b_mint_decimals = 6;
         let creator_fee_basis_points = 200;
         let buyback_fee_basis_points = 600;
+        let platform_fee_basis_points = 200;
         let creator_fees_balance = 1000; // Start with some creator fees available
         let buyback_fees_balance = 0;
 
@@ -87,7 +88,16 @@ mod tests {
         let a_mint = runner.create_mint(&owner, 9);
         let owner_ata = runner.create_associated_token_account(&owner, a_mint, &owner.pubkey());
 
-        runner.create_central_state_mock(&owner, 5, 5, 2, 1, 10000);
+        runner.create_central_state_mock(&owner, 
+            5,
+             5,
+              2,
+              1,
+              10000,
+              creator_fee_basis_points,
+              buyback_fee_basis_points,
+              platform_fee_basis_points,
+            );
 
         let pool_created = runner.create_pool_mock(
             &owner,
@@ -98,6 +108,7 @@ mod tests {
             b_mint_decimals,
             creator_fee_basis_points,
             buyback_fee_basis_points,
+            platform_fee_basis_points,
             creator_fees_balance,
             buyback_fees_balance,
         );

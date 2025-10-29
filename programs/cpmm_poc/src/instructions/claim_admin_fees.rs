@@ -63,6 +63,9 @@ mod tests {
     fn setup_test() -> (TestRunner, Keypair, Pubkey, Pubkey, Pubkey) {
         // Parameters
         let admin_fees_balance = 500; // Start with some admin fees available
+        let creator_fee_basis_points = 200;
+        let buyback_fee_basis_points = 600;
+        let platform_fee_basis_points = 200;
 
         let mut runner = TestRunner::new();
         let admin = Keypair::new();
@@ -71,7 +74,16 @@ mod tests {
         let a_mint = runner.create_mint(&admin, 9);
         let admin_ata = runner.create_associated_token_account(&admin, a_mint, &admin.pubkey());
 
-        let central_state = runner.create_central_state_mock(&admin, 5, 5, 2, 1, 10000);
+        let central_state = runner.create_central_state_mock(&admin, 
+            5,
+             5,
+              2,
+              1,
+              10000,
+              creator_fee_basis_points,
+              buyback_fee_basis_points,
+              platform_fee_basis_points,
+            );
         // central state ata
         let central_state_ata = runner.create_associated_token_account(&admin, a_mint, &central_state);
         runner.mint_tokens(&admin, central_state, a_mint, admin_fees_balance);

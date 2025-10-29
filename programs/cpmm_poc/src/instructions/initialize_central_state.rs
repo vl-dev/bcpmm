@@ -8,6 +8,9 @@ pub struct InitializeCentralStateArgs {
     pub user_burn_bp_x100: u32,
     pub creator_burn_bp_x100: u32,
     pub burn_reset_time_of_day_seconds: u32, // Seconds from midnight
+    pub creator_fee_basis_points: u16,
+    pub buyback_fee_basis_points: u16,
+    pub platform_fee_basis_points: u16,
 }
 
 #[derive(Accounts)]
@@ -31,6 +34,9 @@ pub fn initialize_central_state(
         args.user_burn_bp_x100,
         args.creator_burn_bp_x100,
         args.burn_reset_time_of_day_seconds,
+        args.creator_fee_basis_points,
+        args.buyback_fee_basis_points,
+        args.platform_fee_basis_points,
     ));
     Ok(())
 }

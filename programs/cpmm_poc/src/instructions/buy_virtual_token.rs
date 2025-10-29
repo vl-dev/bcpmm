@@ -1,5 +1,4 @@
 use crate::errors::BcpmmError;
-use crate::helpers::{calculate_buy_output_amount, calculate_fees};
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
@@ -56,59 +55,27 @@ pub struct BuyVirtualToken<'info> {
 }
 
 pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArgs) -> Result<()> {
+    let pool = &mut ctx.accounts.pool;
     let virtual_token_account = &mut ctx.accounts.virtual_token_account;
 
-    let fees = calculate_fees(
-        args.a_amount,
-        ctx.accounts.pool.creator_fee_basis_points,
-        ctx.accounts.pool.buyback_fee_basis_points,
-    )?;
+    let fees = pool.calculate_fees(args.a_amount)?;
+    let real_swap_amount = args.a_amount - fees.total_fees_amount();
 
-    let swap_amount = args.a_amount - fees.creator_fees_amount - fees.buyback_fees_amount;
+    let output_amount = pool.calculate_buy_output_amount(real_swap_amount);
+    require_gt!(output_amount, 0, BcpmmError::AmountTooSmall);
+    require_gte!(output_amount, args.b_amount_min, BcpmmError::SlippageExceeded);
 
-    let output_amount = calculate_buy_output_amount(
-        swap_amount,
-        ctx.accounts.pool.a_reserve,
-        ctx.accounts.pool.b_reserve,
-        ctx.accounts.pool.a_virtual_reserve,
-    );
+    virtual_token_account.add(output_amount, &fees)?;
 
-    if output_amount == 0 {
-        return Err(BcpmmError::AmountTooSmall.into());
-    }
+    // Update the pool state
+    let real_topup_amount = pool.a_remaining_topup.min(fees.buyback_fees_amount);
+    pool.a_remaining_topup -= real_topup_amount;    
+    pool.buyback_fees_balance += fees.buyback_fees_amount - real_topup_amount;
+    pool.creator_fees_balance += fees.creator_fees_amount;
+    pool.a_reserve += real_swap_amount + real_topup_amount;
+    pool.b_reserve -= output_amount;
 
-    if output_amount < args.b_amount_min {
-        msg!(
-            "Expected output amount: {}, minimum required: {}",
-            output_amount,
-            args.b_amount_min
-        );
-        return Err(BcpmmError::SlippageExceeded.into());
-    }
-
-    virtual_token_account.balance += output_amount;
-    virtual_token_account.fees_paid += fees.creator_fees_amount + fees.buyback_fees_amount;
-    ctx.accounts.pool.a_reserve += swap_amount;
-    ctx.accounts.pool.b_reserve -= output_amount;
-    ctx.accounts.pool.creator_fees_balance += fees.creator_fees_amount;
-    let remaining_topup_amount = ctx.accounts.pool.a_remaining_topup;
-    let mut buyback_fees = 0;
-    if remaining_topup_amount > 0 {
-        let buyback_fees_amount = fees.buyback_fees_amount;
-        let real_topup_amount = if remaining_topup_amount > buyback_fees_amount {
-            buyback_fees_amount
-        } else {
-            remaining_topup_amount
-        };
-        ctx.accounts.pool.a_remaining_topup =
-            ctx.accounts.pool.a_remaining_topup - real_topup_amount;
-        ctx.accounts.pool.a_reserve += real_topup_amount;
-    } else {
-        ctx.accounts.pool.buyback_fees_accumulated += fees.buyback_fees_amount;
-        buyback_fees = fees.buyback_fees_amount;
-    }
-
-    // Transfer A tokens to pool ata, excluding buyback fees
+    // Transfer A tokens to pool ata, excluding platform fees
     let cpi_accounts = TransferChecked {
         mint: ctx.accounts.a_mint.to_account_info(),
         from: ctx.accounts.payer_ata.to_account_info(),
@@ -119,26 +86,24 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
     let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
     transfer_checked(
         cpi_context,
-         args.a_amount - buyback_fees,
+         args.a_amount - fees.platform_fees_amount,
          ctx.accounts.a_mint.decimals)?;
 
     
-    // Transfer buyback fees to central state ata
-    if buyback_fees > 0 {
-        let cpi_accounts = TransferChecked {
-            mint: ctx.accounts.a_mint.to_account_info(),
-            from: ctx.accounts.payer_ata.to_account_info(),
-            to: ctx.accounts.central_state_ata.to_account_info(),
-            authority: ctx.accounts.payer.to_account_info(),
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
-        transfer_checked(
-            cpi_context,
-            buyback_fees,
-            ctx.accounts.a_mint.decimals
-        )?;
-    }
+    // Transfer platform fees to central state ata
+    let cpi_accounts = TransferChecked {
+        mint: ctx.accounts.a_mint.to_account_info(),
+        from: ctx.accounts.payer_ata.to_account_info(),
+        to: ctx.accounts.central_state_ata.to_account_info(),
+        authority: ctx.accounts.payer.to_account_info(),
+    };
+    let cpi_program = ctx.accounts.token_program.to_account_info();
+    let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
+    transfer_checked(
+        cpi_context,
+        fees.platform_fees_amount,
+        ctx.accounts.a_mint.decimals
+    )?;
     Ok(())
 }
 
@@ -158,6 +123,7 @@ mod tests {
         let b_mint_decimals = 6;
         let creator_fee_basis_points = 200;
         let buyback_fee_basis_points = 600;
+        let platform_fee_basis_points = 200;
         let creator_fees_balance = 0;
         let buyback_fees_balance = 0;
 
@@ -171,7 +137,15 @@ mod tests {
         let payer_ata = runner.create_associated_token_account(&payer, a_mint, &payer.pubkey());
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
 
-        let central_state = runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
+        let central_state = runner.create_central_state_mock(&payer, 
+            5,
+             5,
+              2, 
+            1, 
+            10000, 
+            creator_fee_basis_points, 
+            buyback_fee_basis_points, 
+            platform_fee_basis_points);
         // central state ata
         runner.create_associated_token_account(&payer, a_mint, &central_state);
 
@@ -184,6 +158,7 @@ mod tests {
             b_mint_decimals,
             creator_fee_basis_points,
             buyback_fee_basis_points,
+            platform_fee_basis_points,
             creator_fees_balance,
             buyback_fees_balance,
         );
@@ -228,7 +203,7 @@ mod tests {
         assert_eq!(pool_data.a_reserve, a_amount_after_fees);
         assert_eq!(pool_data.b_reserve, b_reserve - calculated_b_amount_min);
         assert_eq!(pool_data.a_virtual_reserve, a_virtual_reserve); // Unchanged
-        assert_eq!(pool_data.buyback_fees_accumulated, buyback_fees);
+        assert_eq!(pool_data.buyback_fees_balance, buyback_fees);
         assert_eq!(pool_data.creator_fees_balance, creator_fees);
     }
 
