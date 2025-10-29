@@ -48,7 +48,7 @@ export function useCreatePool() {
         centralState: centralStateAddress,
         tokenProgram: TOKEN_PROGRAM_ADDRESS,
         systemProgram: SYSTEM_PROGRAM_ADDRESS,
-        aVirtualReserve: 1000000000000000000,
+        aVirtualReserve: 1000_000_000,
         creatorFeeBasisPoints: 1000,
         buybackFeeBasisPoints: 1000,
       });
