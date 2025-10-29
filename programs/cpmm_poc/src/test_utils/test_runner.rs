@@ -112,6 +112,9 @@ impl TestRunner {
         user_burn_bp_x100: u32,
         creator_burn_bp_x100: u32,
         burn_reset_time_of_day_seconds: u32,
+        creator_fee_basis_points: u16,
+        buyback_fee_basis_points: u16,
+        platform_fee_basis_points: u16,
     ) -> Pubkey {
         let (central_state_pda, central_state_bump) =
             Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
@@ -123,6 +126,9 @@ impl TestRunner {
             user_burn_bp_x100,
             creator_burn_bp_x100,
             burn_reset_time_of_day_seconds,
+            creator_fee_basis_points,
+            buyback_fee_basis_points,
+            platform_fee_basis_points,
         );
         self.put_account_on_chain(&central_state_pda, central_state)
     }
@@ -215,8 +221,9 @@ impl TestRunner {
         b_mint_decimals: u8,
         creator_fee_basis_points: u16,
         buyback_fee_basis_points: u16,
+        platform_fee_basis_points: u16,
         creator_fees_balance: u64,
-        buyback_fees_accumulated: u64,
+        buyback_fees_balance: u64,
     ) -> TestPool {
         let (central_state_pda, _central_state_bump) =
             Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
@@ -250,9 +257,10 @@ impl TestRunner {
             b_mint_decimals,
             b_reserve,
             creator_fees_balance,
-            buyback_fees_accumulated,
+            buyback_fees_balance,
             creator_fee_basis_points,
             buyback_fee_basis_points,
+            platform_fee_basis_points,
             burns_today: 0,
             last_burn_timestamp: 0,
         };

@@ -61,51 +61,34 @@ pub fn sell_virtual_token(
     require_gte!(pool.a_reserve, output_amount, BcpmmError::Underflow);
 
     let fees = pool.calculate_fees(output_amount)?;
+    virtual_token_account.sub(args.b_amount, &fees)?;
 
-    virtual_token_account.sub(args.b_amount, fees.creator_fees_amount, fees.buyback_fees_amount)?;
-
-    // Update the pool state
-    pool.a_reserve -= output_amount;
-    pool.b_reserve += args.b_amount;
+    // Update the pool state        
+    let real_topup_amount = pool.a_remaining_topup.min(fees.buyback_fees_amount);
+    pool.a_remaining_topup -= real_topup_amount;    
+    pool.buyback_fees_balance += fees.buyback_fees_amount - real_topup_amount;
     pool.creator_fees_balance += fees.creator_fees_amount;
-
-    let mut buyback_fees = 0;
-    if pool.a_remaining_topup > 0 {
-        let remaining_topup_amount = pool.a_remaining_topup;
-        let real_topup_amount = if remaining_topup_amount > fees.buyback_fees_amount {
-            fees.buyback_fees_amount
-        } else {
-            remaining_topup_amount
-        };
-        pool.a_remaining_topup = pool.a_remaining_topup - real_topup_amount;
-        pool.a_reserve += real_topup_amount;
-    } else {
-        pool.buyback_fees_accumulated += fees.buyback_fees_amount;
-        buyback_fees = fees.buyback_fees_amount;
-    }
-
-    let output_amount_after_fees =
-        output_amount - fees.creator_fees_amount - fees.buyback_fees_amount;
+    pool.a_reserve -= output_amount - real_topup_amount;
+    pool.b_reserve += args.b_amount;    
 
     let pool_account_info = pool.to_account_info();
     pool.transfer_out(
-        output_amount_after_fees,
-        pool_account_info.clone(),
+        output_amount - fees.total_fees_amount(),
+        &pool_account_info,
         &ctx.accounts.a_mint,
         &ctx.accounts.pool_ata,
         &ctx.accounts.payer_ata,
-        &ctx.accounts.token_program)?;
+        &ctx.accounts.token_program
+    )?;
 
-    if buyback_fees > 0 {
-        pool.transfer_out(
-            buyback_fees,
-            pool_account_info,
-            &ctx.accounts.a_mint,
-            &ctx.accounts.pool_ata,
-            &ctx.accounts.central_state_ata,
-            &ctx.accounts.token_program,
-        )?;
-    }
+    pool.transfer_out(
+        fees.platform_fees_amount,
+        &pool_account_info,
+        &ctx.accounts.a_mint,
+        &ctx.accounts.pool_ata,
+        &ctx.accounts.central_state_ata,
+        &ctx.accounts.token_program,
+    )?;
     Ok(())
 }
 
@@ -125,6 +108,7 @@ mod tests {
         let b_mint_decimals = 6;
         let creator_fee_basis_points = 200;
         let buyback_fee_basis_points = 600;
+        let platform_fee_basis_points = 200;
         let creator_fees_balance = 0;
         let buyback_fees_balance = 0;
 
@@ -137,7 +121,7 @@ mod tests {
         let a_mint = runner.create_mint(&payer, 9);
         let payer_ata = runner.create_associated_token_account(&payer, a_mint, &payer.pubkey());
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
-        let central_state = runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000);
+        let central_state = runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000, creator_fee_basis_points, buyback_fee_basis_points, platform_fee_basis_points);
 
         // central state ata
         runner.create_associated_token_account(&payer, a_mint, &central_state);
@@ -151,6 +135,7 @@ mod tests {
             b_mint_decimals,
             creator_fee_basis_points,
             buyback_fee_basis_points,
+            platform_fee_basis_points,
             creator_fees_balance,
             buyback_fees_balance,
         );

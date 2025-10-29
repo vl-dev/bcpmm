@@ -1,5 +1,7 @@
 use crate::errors::BcpmmError;
-use crate::helpers::{calculate_fees, calculate_sell_output_amount, Fees};
+use crate::helpers::{
+    calculate_buy_output_amount, calculate_fees, calculate_sell_output_amount, Fees,
+};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
     transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
@@ -24,6 +26,9 @@ pub struct CentralState {
     pub user_burn_bp_x100: u32,
     pub creator_burn_bp_x100: u32,
     pub burn_reset_time_of_day_seconds: u32, // Seconds from midnight
+    pub creator_fee_basis_points: u16,
+    pub buyback_fee_basis_points: u16,
+    pub platform_fee_basis_points: u16,
 }
 
 /// Check if given time is after today's burn reset timestamp (for testing with mock time).
@@ -46,6 +51,9 @@ impl CentralState {
         user_burn_bp_x100: u32,
         creator_burn_bp_x100: u32,
         burn_reset_time_of_day_seconds: u32,
+        creator_fee_basis_points: u16,
+        buyback_fee_basis_points: u16,
+        platform_fee_basis_points: u16,
     ) -> Self {
         Self {
             bump,
@@ -55,6 +63,9 @@ impl CentralState {
             user_burn_bp_x100,
             creator_burn_bp_x100,
             burn_reset_time_of_day_seconds,
+            creator_fee_basis_points,
+            buyback_fee_basis_points,
+            platform_fee_basis_points,
         }
     }
 
@@ -98,12 +109,14 @@ pub struct BcpmmPool {
     /// Creator fees balance denominated in Mint A including decimals
     pub creator_fees_balance: u64,
     /// Total buyback fees accumulated in Mint A including decimals
-    pub buyback_fees_accumulated: u64,
+    pub buyback_fees_balance: u64,
 
     /// Creator fee basis points
     pub creator_fee_basis_points: u16,
     /// Buyback fee basis points
     pub buyback_fee_basis_points: u16,
+    /// Platform fee basis points
+    pub platform_fee_basis_points: u16,
 
     /// Burn allowance for the pool
     pub burns_today: u16,
@@ -119,6 +132,7 @@ impl BcpmmPool {
         a_virtual_reserve: u64,
         creator_fee_basis_points: u16,
         buyback_fee_basis_points: u16,
+        platform_fee_basis_points: u16,
     ) -> Result<Self> {
         require!(a_virtual_reserve > 0, BcpmmError::InvalidVirtualReserve);
         require!(
@@ -137,9 +151,10 @@ impl BcpmmPool {
             b_mint_decimals: DEFAULT_B_MINT_DECIMALS,
             b_reserve: DEFAULT_B_MINT_RESERVE,
             creator_fees_balance: 0,
-            buyback_fees_accumulated: 0,
+            buyback_fees_balance: 0,
             creator_fee_basis_points,
             buyback_fee_basis_points,
+            platform_fee_basis_points,
             burns_today: 0,
             last_burn_timestamp: 0,
         })
@@ -150,6 +165,7 @@ impl BcpmmPool {
             a_amount,
             self.creator_fee_basis_points,
             self.buyback_fee_basis_points,
+            self.platform_fee_basis_points,
         )
     }
 
@@ -162,10 +178,19 @@ impl BcpmmPool {
         )
     }
 
+    pub fn calculate_buy_output_amount(&self, a_amount: u64) -> u64 {
+        calculate_buy_output_amount(
+            a_amount,
+            self.a_reserve,
+            self.b_reserve,
+            self.a_virtual_reserve,
+        )
+    }
+
     pub fn transfer_out<'info>(
         &mut self,
         amount: u64,
-        pool_account_info: AccountInfo<'info>,
+        pool_account_info: &AccountInfo<'info>,
         mint: &InterfaceAccount<'info, Mint>,
         pool_ata: &InterfaceAccount<'info, TokenAccount>,
         to: &InterfaceAccount<'info, TokenAccount>,
@@ -175,7 +200,7 @@ impl BcpmmPool {
             mint: mint.to_account_info(),
             from: pool_ata.to_account_info(),
             to: to.to_account_info(),
-            authority: pool_account_info,
+            authority: pool_account_info.clone(),
         };
         let bump_seed = self.bump;
         let pool_index = &self.pool_index;
@@ -220,19 +245,20 @@ impl VirtualTokenAccount {
         }
     }
 
-    pub fn sub(
-        &mut self,
-        b_amount: u64,
-        creator_fees_amount: u64,
-        buyback_fees_amount: u64,
-    ) -> Result<()> {
+    pub fn sub(&mut self, b_amount: u64, fees: &Fees) -> Result<()> {
         require_gte!(
             self.balance,
             b_amount,
             BcpmmError::InsufficientVirtualTokenBalance
         );
         self.balance -= b_amount;
-        self.fees_paid += creator_fees_amount + buyback_fees_amount;
+        self.fees_paid += fees.total_fees_amount();
+        Ok(())
+    }
+
+    pub fn add(&mut self, b_amount: u64, fees: &Fees) -> Result<()> {
+        self.balance += b_amount;
+        self.fees_paid += fees.total_fees_amount();
         Ok(())
     }
 }
@@ -269,7 +295,11 @@ mod tests {
         let midnight = 1761177600;
         let current_time = midnight + 1;
         let time_before_reset = 1761177660; // Just after midnight
-        assert!(!is_after_burn_reset_with_time(time_before_reset, current_time, 43200));
+        assert!(!is_after_burn_reset_with_time(
+            time_before_reset,
+            current_time,
+            43200
+        ));
     }
 
     #[test]
@@ -277,7 +307,11 @@ mod tests {
         let midnight = 1761177600;
         let current_time = midnight + 1;
         let yesterday_night = 1761166800;
-        assert!(!is_after_burn_reset_with_time(yesterday_night, current_time, 43200));
+        assert!(!is_after_burn_reset_with_time(
+            yesterday_night,
+            current_time,
+            43200
+        ));
     }
 
     #[test]
@@ -285,7 +319,11 @@ mod tests {
         let midnight = 1761177600;
         let current_time = midnight + 1;
         let time_after_reset_same_day = 1761224400;
-        assert!(is_after_burn_reset_with_time(time_after_reset_same_day, current_time, 43200));
+        assert!(is_after_burn_reset_with_time(
+            time_after_reset_same_day,
+            current_time,
+            43200
+        ));
     }
 
     #[test]

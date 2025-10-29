@@ -9,5 +9,5 @@ use solana_pubkey::{pubkey, Pubkey};
 
 
   /// `cpmm_poc` program ID.
-  pub const CPMM_POC_ID: Pubkey = pubkey!("J2rzAsBbYpMVEA3dtuudvzizpbwJXLJgR3yEToKzq1jB");
+  pub const CPMM_POC_ID: Pubkey = pubkey!("2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz");
 

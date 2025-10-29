@@ -16,8 +16,6 @@ import {
   getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
-  getU16Decoder,
-  getU16Encoder,
   getU64Decoder,
   getU64Encoder,
   transformEncoder,
@@ -109,19 +107,11 @@ export type CreatePoolInstructionData = {
   discriminator: ReadonlyUint8Array;
   /** a_virtual_reserve is the virtual reserve of the A mint including decimals */
   aVirtualReserve: bigint;
-  /** creator_fee_basis_points is the fee basis points for the creator. */
-  creatorFeeBasisPoints: number;
-  /** buyback_fee_basis_points is the fee basis points for the buyback. */
-  buybackFeeBasisPoints: number;
 };
 
 export type CreatePoolInstructionDataArgs = {
   /** a_virtual_reserve is the virtual reserve of the A mint including decimals */
   aVirtualReserve: number | bigint;
-  /** creator_fee_basis_points is the fee basis points for the creator. */
-  creatorFeeBasisPoints: number;
-  /** buyback_fee_basis_points is the fee basis points for the buyback. */
-  buybackFeeBasisPoints: number;
 };
 
 export function getCreatePoolInstructionDataEncoder(): FixedSizeEncoder<CreatePoolInstructionDataArgs> {
@@ -129,8 +119,6 @@ export function getCreatePoolInstructionDataEncoder(): FixedSizeEncoder<CreatePo
     getStructEncoder([
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
       ['aVirtualReserve', getU64Encoder()],
-      ['creatorFeeBasisPoints', getU16Encoder()],
-      ['buybackFeeBasisPoints', getU16Encoder()],
     ]),
     (value) => ({ ...value, discriminator: CREATE_POOL_DISCRIMINATOR })
   );
@@ -140,8 +128,6 @@ export function getCreatePoolInstructionDataDecoder(): FixedSizeDecoder<CreatePo
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
     ['aVirtualReserve', getU64Decoder()],
-    ['creatorFeeBasisPoints', getU16Decoder()],
-    ['buybackFeeBasisPoints', getU16Decoder()],
   ]);
 }
 
@@ -176,8 +162,6 @@ export type CreatePoolAsyncInput<
   associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
   aVirtualReserve: CreatePoolInstructionDataArgs['aVirtualReserve'];
-  creatorFeeBasisPoints: CreatePoolInstructionDataArgs['creatorFeeBasisPoints'];
-  buybackFeeBasisPoints: CreatePoolInstructionDataArgs['buybackFeeBasisPoints'];
 };
 
 export async function getCreatePoolInstructionAsync<
@@ -344,8 +328,6 @@ export type CreatePoolInput<
   associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
   aVirtualReserve: CreatePoolInstructionDataArgs['aVirtualReserve'];
-  creatorFeeBasisPoints: CreatePoolInstructionDataArgs['creatorFeeBasisPoints'];
-  buybackFeeBasisPoints: CreatePoolInstructionDataArgs['buybackFeeBasisPoints'];
 };
 
 export function getCreatePoolInstruction<

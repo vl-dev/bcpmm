@@ -8,12 +8,6 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 pub struct CreatePoolArgs {
     /// a_virtual_reserve is the virtual reserve of the A mint including decimals
     pub a_virtual_reserve: u64,
-
-    /// creator_fee_basis_points is the fee basis points for the creator.
-    pub creator_fee_basis_points: u16,
-
-    /// buyback_fee_basis_points is the fee basis points for the buyback.
-    pub buyback_fee_basis_points: u16,
 }
 #[derive(Accounts)]
 pub struct CreatePool<'info> {
@@ -56,14 +50,16 @@ pub struct CreatePool<'info> {
 }
 
 pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {    
+    let central_state = &ctx.accounts.central_state;
     ctx.accounts.pool.set_inner(BcpmmPool::try_new(
         ctx.bumps.pool,
         ctx.accounts.payer.key(),
         BCPMM_POOL_INDEX_SEED,
         ctx.accounts.a_mint.key(),
         args.a_virtual_reserve,
-        args.creator_fee_basis_points,
-        args.buyback_fee_basis_points,
+        central_state.creator_fee_basis_points,
+        central_state.buyback_fee_basis_points,
+        central_state.platform_fee_basis_points,
     )?);
     Ok(())
 }

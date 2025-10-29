@@ -47,8 +47,6 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> R
             .is_after_burn_reset(ctx.accounts.user_burn_allowance.last_burn_timestamp)?
     {
         ctx.accounts.user_burn_allowance.burns_today = 0;
-
-    // If not resetting, check we have enough burn allowance.
     } else if ctx.accounts.user_burn_allowance.burns_today >= max_daily_burns {
         return Err(BcpmmError::InsufficientBurnAllowance.into());
     }
@@ -78,9 +76,11 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> R
         burn_amount,
     );
 
-    // Update the pool state
-    ctx.accounts.pool.a_remaining_topup +=
-        ctx.accounts.pool.a_virtual_reserve - new_virtual_reserve;
+    let needed_topup_amount = ctx.accounts.pool.a_virtual_reserve - new_virtual_reserve;
+    let real_topup_amount = needed_topup_amount.min(ctx.accounts.pool.buyback_fees_balance);
+    ctx.accounts.pool.a_remaining_topup += needed_topup_amount - real_topup_amount;
+    ctx.accounts.pool.a_reserve += real_topup_amount;
+    ctx.accounts.pool.buyback_fees_balance -= real_topup_amount;
     ctx.accounts.pool.a_virtual_reserve = new_virtual_reserve;
     ctx.accounts.pool.b_reserve -= burn_amount;
     Ok(())
@@ -101,6 +101,7 @@ mod tests {
         let b_mint_decimals = 6;
         let creator_fee_basis_points = 200;
         let buyback_fee_basis_points = 600;
+        let platform_fee_basis_points = 200;
         let creator_fees_balance = 0;
         let buyback_fees_balance = 0;
 
@@ -108,7 +109,15 @@ mod tests {
         let payer = Keypair::new();
 
         runner.create_central_state_mock(
-            &payer, 5, 5, 10, 20, 36_000, // 10AM
+            &payer,
+            5,
+            5,
+            10,
+            20,
+            36_000, // 10AM
+            creator_fee_basis_points,
+            buyback_fee_basis_points,
+            platform_fee_basis_points,
         );
         runner.airdrop(&payer.pubkey(), 10_000_000_000);
         let a_mint = runner.create_mint(&payer, 9);
@@ -121,6 +130,7 @@ mod tests {
             b_mint_decimals,
             creator_fee_basis_points,
             buyback_fee_basis_points,
+            platform_fee_basis_points,
             creator_fees_balance,
             buyback_fees_balance,
         );

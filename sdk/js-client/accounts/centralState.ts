@@ -60,6 +60,9 @@ export type CentralState = {
   userBurnBpX100: number;
   creatorBurnBpX100: number;
   burnResetTimeOfDaySeconds: number;
+  creatorFeeBasisPoints: number;
+  buybackFeeBasisPoints: number;
+  platformFeeBasisPoints: number;
 };
 
 export type CentralStateArgs = {
@@ -70,6 +73,9 @@ export type CentralStateArgs = {
   userBurnBpX100: number;
   creatorBurnBpX100: number;
   burnResetTimeOfDaySeconds: number;
+  creatorFeeBasisPoints: number;
+  buybackFeeBasisPoints: number;
+  platformFeeBasisPoints: number;
 };
 
 export function getCentralStateEncoder(): FixedSizeEncoder<CentralStateArgs> {
@@ -83,6 +89,9 @@ export function getCentralStateEncoder(): FixedSizeEncoder<CentralStateArgs> {
       ['userBurnBpX100', getU32Encoder()],
       ['creatorBurnBpX100', getU32Encoder()],
       ['burnResetTimeOfDaySeconds', getU32Encoder()],
+      ['creatorFeeBasisPoints', getU16Encoder()],
+      ['buybackFeeBasisPoints', getU16Encoder()],
+      ['platformFeeBasisPoints', getU16Encoder()],
     ]),
     (value) => ({ ...value, discriminator: CENTRAL_STATE_DISCRIMINATOR })
   );
@@ -98,6 +107,9 @@ export function getCentralStateDecoder(): FixedSizeDecoder<CentralState> {
     ['userBurnBpX100', getU32Decoder()],
     ['creatorBurnBpX100', getU32Decoder()],
     ['burnResetTimeOfDaySeconds', getU32Decoder()],
+    ['creatorFeeBasisPoints', getU16Decoder()],
+    ['buybackFeeBasisPoints', getU16Decoder()],
+    ['platformFeeBasisPoints', getU16Decoder()],
   ]);
 }
 
@@ -162,5 +174,5 @@ export async function fetchAllMaybeCentralState(
 }
 
 export function getCentralStateSize(): number {
-  return 57;
+  return 63;
 }
