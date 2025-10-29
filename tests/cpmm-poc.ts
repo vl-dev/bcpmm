@@ -39,6 +39,9 @@ describe("cpmm-poc", () => {
         userBurnBpX100: 1000, // 10%
         creatorBurnBpX100: 500, // 5%
         burnResetTimeOfDaySeconds: Date.now() / 1000 + 86400, // 24 hours from now
+        creatorFeeBasisPoints: 100,
+        buybackFeeBasisPoints: 200,
+        platformFeeBasisPoints: 300,
       };
       const initializeCentralStateAccounts = {
         admin: provider.wallet.publicKey,
@@ -125,8 +128,6 @@ describe("cpmm-poc", () => {
     };
     const createPoolArgs = {
       aVirtualReserve: new BN("2000000000000000000"),
-      creatorFeeBasisPoints: 500,
-      buybackFeeBasisPoints: 100,
     };
 
     const createPoolSx = await program.methods
