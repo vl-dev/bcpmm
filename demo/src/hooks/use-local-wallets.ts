@@ -7,7 +7,6 @@ type LocalStorageKeypairs = {
 }
 
 export async function getLocalWallets(): Promise<KeyPairSigner[]> {
-  const adminSigner = await getAdminKeypair();
   const localStorageWallets = localStorage.getItem("localStorageWallets");
   const localStorageWalletsObject = localStorageWallets ? JSON.parse(localStorageWallets) as LocalStorageKeypairs : { wallets: [] };
   const createdWallets = await Promise.all(localStorageWalletsObject.wallets.map(async (keyPair) => {
@@ -15,7 +14,7 @@ export async function getLocalWallets(): Promise<KeyPairSigner[]> {
     return keyPairSigner;
   }));
 
-  return [adminSigner, ...createdWallets];
+  return createdWallets;
 }
 
 export function useLocalWallets() {

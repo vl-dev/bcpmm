@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { createSolanaRpc, type Address } from '@solana/kit';
-
+const RPC_URL = import.meta.env.VITE_RPC_URL as string | undefined;
 export function useSolBalance(address: Address | null) {
-  const rpc = createSolanaRpc('http://127.0.0.1:8899');
+  if (!RPC_URL) throw new Error('VITE_RPC_URL is not set');
+  const rpc = createSolanaRpc(RPC_URL);
 
   return useQuery({
     queryKey: ['solBalance', address?.toString()],

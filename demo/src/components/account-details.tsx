@@ -6,7 +6,7 @@ import { useUserPool } from "../hooks/use-user-pool";
 import { useState } from "react";
 import { useUserBurnAllowance } from "../hooks/use-user-burn-allowance";
 import { useCreatePool } from "../hooks/use-create-pool";
-import { useVirtualTokenBalance } from "../hooks/use-virtual-token-balance";
+import { useDeleteWallet } from "../wallet-provider";
 
 export default function AccountDetails({ selectedWallet }: { selectedWallet: KeyPairSigner }) {
   const walletAddress = selectedWallet?.address;
@@ -15,8 +15,11 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
   const { data: userPool, isLoading: isLoadingPool } = useUserPool(walletAddress);
   const { mutateAsync: mintTokens, isPending: isMinting } = useMintToAccount();
   const [mintAmount, setMintAmount] = useState('100000');
+  const [virtualReserve, setVirtualReserve] = useState('1000');
   const { mutateAsync: createPool, isPending: isCreatingPool } = useCreatePool();
   const { data: burnAllowances } = useUserBurnAllowance(walletAddress);
+  const deleteWallet = useDeleteWallet();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const formatTimestamp = (v?: bigint) => {
     if (!v) return '—';
@@ -33,7 +36,23 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
       padding: '1.5rem',
       borderRadius: '8px',
     }}>
-      <h2 style={{ marginTop: 0 }}>Selected Wallet</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+        <h2 style={{ marginTop: 0, marginBottom: 0 }}>Selected Wallet</h2>
+        <button
+          onClick={() => setShowDeleteDialog(true)}
+          style={{
+            backgroundColor: '#dc3545',
+            color: 'white',
+            border: 'none',
+            padding: '0.25rem 0.5rem',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '0.875rem',
+          }}
+        >
+          Delete
+        </button>
+      </div>
       
       <div style={{ marginBottom: '1rem' }}>
         <strong>Address:</strong>
@@ -181,7 +200,7 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
       </div>
 
       {!isLoadingPool && !userPool && (
-        <div style={{ 
+        <div style={{
           marginTop: '1.5rem',
           padding: '1rem',
           backgroundColor: '#fff3cd',
@@ -190,13 +209,35 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
         }}>
           <strong>Pool Info:</strong> No pool found for this wallet
           <div style={{ marginTop: '0.75rem' }}>
+            <div style={{ marginBottom: '0.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.25rem' }}>
+                Virtual Reserve
+              </label>
+              <input
+                type="number"
+                value={virtualReserve}
+                onChange={(e) => setVirtualReserve(e.target.value)}
+                min="1"
+                style={{
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ddd',
+                  fontFamily: 'monospace',
+                  width: '150px',
+                }}
+              />
+            </div>
             <button
               onClick={async () => {
                 try {
                   const mintAddress = localStorage.getItem('mint_address');
                   if (!mintAddress) throw new Error('mint_address missing');
                   if (!selectedWallet) throw new Error('selected wallet not ready');
-                  await createPool({ user: selectedWallet, mint: address(mintAddress) });
+                  await createPool({
+                    user: selectedWallet,
+                    mint: address(mintAddress),
+                    aVirtualReserve: parseInt(virtualReserve)
+                  });
                 } catch (e) {
                   console.error('create pool failed', e);
                   alert('Failed to create pool');
@@ -215,6 +256,64 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
             >
               {isCreatingPool ? 'Creating...' : 'Create Pool'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {showDeleteDialog && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '8px',
+            maxWidth: '400px',
+            width: '90%',
+            textAlign: 'center',
+          }}>
+            <h3 style={{ marginTop: 0, color: '#dc3545' }}>Delete Wallet</h3>
+            <p>Are you sure you want to delete this wallet? This action cannot be undone.</p>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '1rem' }}>
+              <button
+                onClick={() => setShowDeleteDialog(false)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await deleteWallet(selectedWallet);
+                  setShowDeleteDialog(false);
+                }}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                }}
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

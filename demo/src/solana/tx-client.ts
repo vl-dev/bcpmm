@@ -18,14 +18,10 @@ export async function getTxClient(): Promise<TxClient> {
       throw new Error('VITE_RPC_URL or VITE_WS_URL is not set');
     }
     if (!client) {
-        // ...
- 
-        // Create a function to send and confirm transactions.
         const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
             rpc: createSolanaRpc(RPC_URL),
             rpcSubscriptions: createSolanaRpcSubscriptions(WS_URL),
         });
- 
         client = {
             sendAndConfirmTransaction,
             rpc: createSolanaRpc(RPC_URL),

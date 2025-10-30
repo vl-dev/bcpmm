@@ -53,6 +53,9 @@ export async function ensureCentralState(
       burnResetTimeOfDaySeconds: 0, // Midnight
       maxUserDailyBurnCount: 65535, // Max uint16
       maxCreatorDailyBurnCount: 65535, // Max uint16
+      creatorFeeBasisPoints: 1000,
+      buybackFeeBasisPoints: 1000,
+      platformFeeBasisPoints: 1000,
     });
 
     // Build and send transaction
