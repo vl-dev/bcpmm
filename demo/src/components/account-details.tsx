@@ -1,12 +1,12 @@
-import { KeyPairSigner, type Address } from "@solana/kit";
+import { address, KeyPairSigner } from "@solana/kit";
 import { useSolBalance } from "../hooks/use-sol-balance";
 import { useTokenBalance } from "../hooks/use-token-balance";
 import { useMintToAccount } from "../hooks/use-mint-to-account";
 import { useUserPool } from "../hooks/use-user-pool";
 import { useState } from "react";
+import { useUserBurnAllowance } from "../hooks/use-user-burn-allowance";
 import { useCreatePool } from "../hooks/use-create-pool";
-import { address } from "@solana/kit";
-import PoolDetails from "./pool-details";
+import { useVirtualTokenBalance } from "../hooks/use-virtual-token-balance";
 
 export default function AccountDetails({ selectedWallet }: { selectedWallet: KeyPairSigner }) {
   const walletAddress = selectedWallet?.address;
@@ -16,6 +16,15 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
   const { mutateAsync: mintTokens, isPending: isMinting } = useMintToAccount();
   const [mintAmount, setMintAmount] = useState('100000');
   const { mutateAsync: createPool, isPending: isCreatingPool } = useCreatePool();
+  const { data: burnAllowances } = useUserBurnAllowance(walletAddress);
+
+  const formatTimestamp = (v?: bigint) => {
+    if (!v) return '—';
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) return '—';
+    const ms = n < 1_000_000_000_000 ? n * 1000 : n;
+    return new Date(ms).toLocaleString();
+  };
 
   return (
     <div style={{
@@ -37,6 +46,20 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
           wordBreak: 'break-all',
         }}>
           {walletAddress?.toString()}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '1rem' }}>
+        <strong>Pool Address:</strong>
+        <div style={{
+          fontFamily: 'monospace',
+          backgroundColor: '#f5f5f5',
+          padding: '0.5rem',
+          borderRadius: '4px',
+          marginTop: '0.25rem',
+          wordBreak: 'break-all',
+        }}>
+          {isLoadingPool ? 'Loading...' : userPool ? userPool.poolAddress.toString() : 'No pool found'}
         </div>
       </div>
 
@@ -63,6 +86,47 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
           marginTop: '0.25rem',
         }}>
           {isLoadingToken ? 'Loading...' : tokenBalance ? `${tokenBalance}` : '0'}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '1rem' }}>
+        <strong>Burn Allowances:</strong>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '0.5rem',
+          marginTop: '0.5rem',
+        }}>
+          <div style={{ backgroundColor: '#f5f5f5', padding: '0.5rem', borderRadius: '4px' }}>
+            <div style={{ fontWeight: 600 }}>For own pool</div>
+            <div style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+              {burnAllowances ? burnAllowances.owner.address.toString() : '...'}
+            </div>
+            <div style={{ color: '#666', fontSize: '0.85rem' }}>
+              {burnAllowances ? (burnAllowances.owner.exists ? 'Initialized' : 'Not initialized') : ''}
+            </div>
+          {burnAllowances?.owner.exists && burnAllowances.owner.account && (
+            <div style={{ marginTop: '0.25rem', fontSize: '0.9rem' }}>
+              <div>Burns today: <span style={{ fontFamily: 'monospace' }}>{burnAllowances.owner.account?.burnsToday}</span></div>
+              <div>Last burn: <span style={{ fontFamily: 'monospace' }}>{formatTimestamp(burnAllowances.owner.account?.lastBurnTimestamp)}</span></div>
+            </div>
+          )}
+          </div>
+          <div style={{ backgroundColor: '#f5f5f5', padding: '0.5rem', borderRadius: '4px' }}>
+            <div style={{ fontWeight: 600 }}>For other pools</div>
+            <div style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+              {burnAllowances ? burnAllowances.nonOwner.address.toString() : '...'}
+            </div>
+            <div style={{ color: '#666', fontSize: '0.85rem' }}>
+              {burnAllowances ? (burnAllowances.nonOwner.exists ? 'Initialized' : 'Not initialized') : ''}
+            </div>
+          {burnAllowances?.nonOwner.exists && burnAllowances.nonOwner.account && (
+            <div style={{ marginTop: '0.25rem', fontSize: '0.9rem' }}>
+              <div>Burns today: <span style={{ fontFamily: 'monospace' }}>{burnAllowances.nonOwner.account?.burnsToday}</span></div>
+              <div>Last burn: <span style={{ fontFamily: 'monospace' }}>{formatTimestamp(burnAllowances.nonOwner.account?.lastBurnTimestamp)}</span></div>
+            </div>
+          )}
+          </div>
         </div>
       </div>
 
@@ -116,13 +180,7 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
         </div>
       </div>
 
-      {isLoadingPool ? (
-        <div style={{ marginBottom: '1rem' }}>
-          <strong>Pool Info:</strong> Loading...
-        </div>
-      ) : userPool ? (
-        <PoolDetails poolAddress={userPool.poolAddress} pool={userPool.pool} />
-      ) : (
+      {!isLoadingPool && !userPool && (
         <div style={{ 
           marginTop: '1.5rem',
           padding: '1rem',

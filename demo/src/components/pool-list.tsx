@@ -27,7 +27,14 @@ export default function PoolList() {
       ) : allPools && allPools.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {allPools.map((p) => (
-            <PoolDetails key={p.poolAddress.toString()} poolAddress={p.poolAddress} pool={p.pool} showOwner />
+            <PoolDetails
+              key={p.poolAddress.toString()}
+              poolAddress={p.poolAddress}
+              pool={p.pool}
+              showOwner
+              allowBurn
+              allowBuy
+            />
           ))}
         </div>
       ) : (

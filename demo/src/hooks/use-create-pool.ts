@@ -14,6 +14,7 @@ interface CreatePoolParams {
 export function useCreatePool() {
   const queryClient = useQueryClient();
 
+  // ALLOW CHOOSING VIRT RESERVE AMOUNT
   return useMutation({
     mutationFn: async ({ user, mint }: CreatePoolParams) => {
       const { rpc, sendAndConfirmTransaction } = await getTxClient();
@@ -48,7 +49,7 @@ export function useCreatePool() {
         centralState: centralStateAddress,
         tokenProgram: TOKEN_PROGRAM_ADDRESS,
         systemProgram: SYSTEM_PROGRAM_ADDRESS,
-        aVirtualReserve: 1000000000000000000,
+        aVirtualReserve: 1000_000_000,
         creatorFeeBasisPoints: 1000,
         buybackFeeBasisPoints: 1000,
       });
@@ -84,6 +85,7 @@ export function useCreatePool() {
     onSuccess: () => {
       // Ensure user pool refetches
       queryClient.invalidateQueries({ queryKey: ['userPool'] });
+      queryClient.invalidateQueries({ queryKey: ['allPools'] });
     },
   });
 }
