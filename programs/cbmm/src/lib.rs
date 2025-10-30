@@ -11,7 +11,7 @@ mod test_utils;
 
 use instructions::*;
 
-declare_id!("2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz");
+declare_id!("CBMMZBcQnhSAJRpLfD5quaGsDem6WrNDGTr5zSDLCo63");
 
 #[program]
 pub mod cbmm {

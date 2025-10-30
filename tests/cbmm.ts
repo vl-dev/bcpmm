@@ -42,11 +42,22 @@ describe("cbmm", () => {
         creatorFeeBasisPoints: 100,
         buybackFeeBasisPoints: 200,
         platformFeeBasisPoints: 300,
-      };
-      const initializeCentralStateAccounts = {
         admin: provider.wallet.publicKey,
+      };
+      const BPF_LOADER_UPGRADEABLE_PROGRAM_ID = new PublicKey(
+        'BPFLoaderUpgradeab1e11111111111111111111111'
+      );
+
+      const [programDataAddress] = PublicKey.findProgramAddressSync(
+        [program.programId.toBuffer()],
+        BPF_LOADER_UPGRADEABLE_PROGRAM_ID
+      );
+
+      const initializeCentralStateAccounts = {
+        authority: provider.wallet.publicKey,
         centralState: centralStatePDA,
         systemProgram: SystemProgram.programId,
+        programData: programDataAddress,
       };
       await program.methods
         .initializeCentralState(initializeCentralStateArgs)

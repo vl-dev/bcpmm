@@ -43,7 +43,7 @@ export async function ensureCentralState(
 
   if (!maybeCentralState.exists) {
     console.log('Central state does not exist, creating...');
-    
+
     // Get the instruction
     const instruction = await getInitializeCentralStateInstructionAsync({
       admin: adminSigner,
@@ -60,11 +60,11 @@ export async function ensureCentralState(
 
     // Build and send transaction
     const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-    
+
     const transactionMessage = pipe(
       createTransactionMessage({ version: 0 }),
       (tx) => setTransactionMessageFeePayerSigner(adminSigner, tx),
-      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx), 
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
       (tx) => appendTransactionMessageInstruction(instruction, tx),
     )
 

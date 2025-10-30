@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializeCentralStateArgs {
+    pub admin: Pubkey,
     pub max_user_daily_burn_count: u16,
     pub max_creator_daily_burn_count: u16,
     pub user_burn_bp_x100: u32,
@@ -16,10 +17,12 @@ pub struct InitializeCentralStateArgs {
 #[derive(Accounts)]
 pub struct InitializeCentralState<'info> {
     #[account(mut)]
-    pub admin: Signer<'info>,
-    #[account(init, payer = admin, space = CentralState::INIT_SPACE + 8, seeds = [CENTRAL_STATE_SEED], bump)]
+    pub authority: Signer<'info>,
+    #[account(init, payer = authority, space = CentralState::INIT_SPACE + 8, seeds = [CENTRAL_STATE_SEED], bump)]
     pub central_state: Account<'info, CentralState>,
     pub system_program: Program<'info, System>,
+    #[account(constraint = program_data.upgrade_authority_address == Some(authority.key()))]
+    pub program_data: Account<'info, ProgramData>,
 }
 
 pub fn initialize_central_state(
@@ -28,7 +31,7 @@ pub fn initialize_central_state(
 ) -> Result<()> {
     ctx.accounts.central_state.set_inner(CentralState::new(
         ctx.bumps.central_state,
-        ctx.accounts.admin.key(),
+        args.admin,
         args.max_user_daily_burn_count,
         args.max_creator_daily_burn_count,
         args.user_burn_bp_x100,
