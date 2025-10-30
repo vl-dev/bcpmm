@@ -1,6 +1,6 @@
-# BCPMM Demo
+# CBMM Demo
 
-Simple React app demonstrating the BCPMM Solana program client.
+Simple React app demonstrating the CBMM Solana program client.
 
 ## Setup
 
