@@ -36,7 +36,7 @@ function AppContent({ wallets, initializingAccounts, adminAddress }: {
         maxWidth: '1200px',
         margin: '0 auto'
       }}>
-        <h1 style={{ marginBottom: '1.5rem' }}>BCPMM Demo</h1>
+        <h1 style={{ marginBottom: '1.5rem' }}>CBMM Demo</h1>
         
         {/* Wallet details section */}
         {selectedWallet && <AccountDetails selectedWallet={selectedWallet} />}
