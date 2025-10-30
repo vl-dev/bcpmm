@@ -224,6 +224,7 @@ impl TestRunner {
         platform_fee_basis_points: u16,
         creator_fees_balance: u64,
         buyback_fees_balance: u64,
+        a_outstanding_topup: u64,
     ) -> TestPool {
         let (central_state_pda, _central_state_bump) =
             Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
@@ -253,7 +254,7 @@ impl TestRunner {
             a_mint: anchor_lang::prelude::Pubkey::from(a_mint.to_bytes()),
             a_reserve,
             a_virtual_reserve,
-            a_remaining_topup: 0,
+            a_outstanding_topup,
             b_mint_decimals,
             b_reserve,
             creator_fees_balance,

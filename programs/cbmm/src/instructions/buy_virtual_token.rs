@@ -68,8 +68,8 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
     virtual_token_account.add(output_amount, &fees)?;
 
     // Update the pool state
-    let real_topup_amount = pool.a_remaining_topup.min(fees.buyback_fees_amount);
-    pool.a_remaining_topup -= real_topup_amount;    
+    let real_topup_amount = pool.a_outstanding_topup.min(fees.buyback_fees_amount);
+    pool.a_outstanding_topup -= real_topup_amount;    
     pool.buyback_fees_balance += fees.buyback_fees_amount - real_topup_amount;
     pool.creator_fees_balance += fees.creator_fees_amount;
     pool.a_reserve += real_swap_amount + real_topup_amount;
@@ -126,6 +126,7 @@ mod tests {
         let platform_fee_basis_points = 200;
         let creator_fees_balance = 0;
         let buyback_fees_balance = 0;
+        let a_outstanding_topup = 100;
 
         let mut runner = TestRunner::new();
         let payer = Keypair::new();
@@ -161,6 +162,7 @@ mod tests {
             platform_fee_basis_points,
             creator_fees_balance,
             buyback_fees_balance,
+            a_outstanding_topup,
         );
         // pool ata
         runner.create_associated_token_account(&payer, a_mint, &test_pool.pool);
@@ -176,10 +178,12 @@ mod tests {
         let a_virtual_reserve = 1_000_000;
         let b_reserve = 2_000_000;
 
+        let a_outstanding_topup = 100;
         let creator_fees = 100;
         let buyback_fees = 300;
+        let buyback_fees_after_topup = buyback_fees - a_outstanding_topup;
         let platform_fees = 100;
-        let a_amount_after_fees = a_amount - creator_fees - buyback_fees - platform_fees;
+        let a_amount_after_fees = a_amount - creator_fees - buyback_fees_after_topup - platform_fees;
 
         let calculated_b_amount_min = 8959;
         let virtual_token_account =
@@ -204,8 +208,9 @@ mod tests {
         assert_eq!(pool_data.a_reserve, a_amount_after_fees);
         assert_eq!(pool_data.b_reserve, b_reserve - calculated_b_amount_min);
         assert_eq!(pool_data.a_virtual_reserve, a_virtual_reserve); // Unchanged
-        assert_eq!(pool_data.buyback_fees_balance, buyback_fees);
+        assert_eq!(pool_data.buyback_fees_balance, buyback_fees_after_topup);
         assert_eq!(pool_data.creator_fees_balance, creator_fees);
+        assert_eq!(pool_data.a_outstanding_topup, 0);
     }
 
     #[test]
