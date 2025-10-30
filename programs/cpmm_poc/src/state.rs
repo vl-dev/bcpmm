@@ -99,7 +99,7 @@ pub struct BcpmmPool {
     /// A virtual reserve including decimals
     pub a_virtual_reserve: u64,
     // A remaining topup to compensate for the virtual reserve reduction happening on burn
-    pub a_remaining_topup: u64,
+    pub a_outstanding_topup: u64,
 
     /// B mint decimals
     pub b_mint_decimals: u8,
@@ -149,7 +149,7 @@ impl BcpmmPool {
             a_mint,
             a_reserve: 0,
             a_virtual_reserve,
-            a_remaining_topup: 0,
+            a_outstanding_topup: 0,
             b_mint_decimals: DEFAULT_B_MINT_DECIMALS,
             b_reserve: DEFAULT_B_MINT_RESERVE,
             creator_fees_balance: 0,

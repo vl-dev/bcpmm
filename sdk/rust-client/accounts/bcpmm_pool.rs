@@ -28,7 +28,7 @@ pub a_mint: Pubkey,
 pub a_reserve: u64,
 /// A virtual reserve including decimals
 pub a_virtual_reserve: u64,
-pub a_remaining_topup: u64,
+pub a_outstanding_topup: u64,
 /// B mint decimals
 pub b_mint_decimals: u8,
 /// B reserve including decimals

@@ -80,6 +80,7 @@ mod tests {
         let platform_fee_basis_points = 200;
         let creator_fees_balance = 1000; // Start with some creator fees available
         let buyback_fees_balance = 0;
+        let a_outstanding_topup = 0;
 
         let mut runner = TestRunner::new();
         let owner = Keypair::new();
@@ -111,6 +112,7 @@ mod tests {
             platform_fee_basis_points,
             creator_fees_balance,
             buyback_fees_balance,
+            a_outstanding_topup,
         );
 
         // pool ata

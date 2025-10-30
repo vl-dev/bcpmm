@@ -64,8 +64,8 @@ pub fn sell_virtual_token(
     virtual_token_account.sub(args.b_amount, &fees)?;
 
     // Update the pool state        
-    let real_topup_amount = pool.a_remaining_topup.min(fees.buyback_fees_amount);
-    pool.a_remaining_topup -= real_topup_amount;    
+    let real_topup_amount = pool.a_outstanding_topup.min(fees.buyback_fees_amount);
+    pool.a_outstanding_topup -= real_topup_amount;    
     pool.buyback_fees_balance += fees.buyback_fees_amount - real_topup_amount;
     pool.creator_fees_balance += fees.creator_fees_amount;
     pool.a_reserve -= output_amount - real_topup_amount;
@@ -111,6 +111,7 @@ mod tests {
         let platform_fee_basis_points = 200;
         let creator_fees_balance = 0;
         let buyback_fees_balance = 0;
+        let a_outstanding_topup = 0;
 
         let mut runner = TestRunner::new();
         let payer = Keypair::new();
@@ -138,6 +139,7 @@ mod tests {
             platform_fee_basis_points,
             creator_fees_balance,
             buyback_fees_balance,
+            a_outstanding_topup,
         );
 
         // pool ata

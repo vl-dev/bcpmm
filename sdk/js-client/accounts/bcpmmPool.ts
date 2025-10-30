@@ -67,7 +67,7 @@ export type BcpmmPool = {
   aReserve: bigint;
   /** A virtual reserve including decimals */
   aVirtualReserve: bigint;
-  aRemainingTopup: bigint;
+  aOutstandingTopup: bigint;
   /** B mint decimals */
   bMintDecimals: number;
   /** B reserve including decimals */
@@ -100,7 +100,7 @@ export type BcpmmPoolArgs = {
   aReserve: number | bigint;
   /** A virtual reserve including decimals */
   aVirtualReserve: number | bigint;
-  aRemainingTopup: number | bigint;
+  aOutstandingTopup: number | bigint;
   /** B mint decimals */
   bMintDecimals: number;
   /** B reserve including decimals */
@@ -130,7 +130,7 @@ export function getBcpmmPoolEncoder(): FixedSizeEncoder<BcpmmPoolArgs> {
       ['aMint', getAddressEncoder()],
       ['aReserve', getU64Encoder()],
       ['aVirtualReserve', getU64Encoder()],
-      ['aRemainingTopup', getU64Encoder()],
+      ['aOutstandingTopup', getU64Encoder()],
       ['bMintDecimals', getU8Encoder()],
       ['bReserve', getU64Encoder()],
       ['creatorFeesBalance', getU64Encoder()],
@@ -154,7 +154,7 @@ export function getBcpmmPoolDecoder(): FixedSizeDecoder<BcpmmPool> {
     ['aMint', getAddressDecoder()],
     ['aReserve', getU64Decoder()],
     ['aVirtualReserve', getU64Decoder()],
-    ['aRemainingTopup', getU64Decoder()],
+    ['aOutstandingTopup', getU64Decoder()],
     ['bMintDecimals', getU8Decoder()],
     ['bReserve', getU64Decoder()],
     ['creatorFeesBalance', getU64Decoder()],

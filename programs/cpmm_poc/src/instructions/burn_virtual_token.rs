@@ -78,7 +78,7 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> R
 
     let needed_topup_amount = ctx.accounts.pool.a_virtual_reserve - new_virtual_reserve;
     let real_topup_amount = needed_topup_amount.min(ctx.accounts.pool.buyback_fees_balance);
-    ctx.accounts.pool.a_remaining_topup += needed_topup_amount - real_topup_amount;
+    ctx.accounts.pool.a_outstanding_topup += needed_topup_amount - real_topup_amount;
     ctx.accounts.pool.a_reserve += real_topup_amount;
     ctx.accounts.pool.buyback_fees_balance -= real_topup_amount;
     ctx.accounts.pool.a_virtual_reserve = new_virtual_reserve;
@@ -104,6 +104,7 @@ mod tests {
         let platform_fee_basis_points = 200;
         let creator_fees_balance = 0;
         let buyback_fees_balance = 0;
+        let a_outstanding_topup = 0;
 
         let mut runner = TestRunner::new();
         let payer = Keypair::new();
@@ -112,8 +113,8 @@ mod tests {
             &payer,
             5,
             5,
-            10,
-            20,
+            10_000, // 1%
+            20_000, // 2%
             36_000, // 10AM
             creator_fee_basis_points,
             buyback_fee_basis_points,
@@ -133,6 +134,7 @@ mod tests {
             platform_fee_basis_points,
             creator_fees_balance,
             buyback_fees_balance,
+            a_outstanding_topup,
         );
 
         let user = Keypair::new();
@@ -164,7 +166,7 @@ mod tests {
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
         let pool_data: BcpmmPool =
             BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        assert_eq!(pool_data.b_reserve, 999980);
+        assert_eq!(pool_data.b_reserve, 980000);
         let owner_burn_allowance_data = runner
             .get_user_burn_allowance(&owner_burn_allowance)
             .unwrap();
@@ -176,6 +178,10 @@ mod tests {
             .get_user_burn_allowance(&user_burn_allowance.unwrap())
             .unwrap();
         assert_eq!(user_burn_allowance_data.burns_today, 0);
+
+        // 2 percent of virtual reserve is burned and required as topup
+        assert_eq!(pool_data.a_virtual_reserve, 490000);
+        assert_eq!(pool_data.a_outstanding_topup, 10000);
     }
 
     #[test]
@@ -195,12 +201,16 @@ mod tests {
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
         let pool_data: BcpmmPool =
             BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        assert_eq!(pool_data.b_reserve, 999990);
+        assert_eq!(pool_data.b_reserve, 990000);
         let user_burn_allowance_data = runner
             .get_user_burn_allowance(&user_burn_allowance)
             .unwrap();
         assert_eq!(user_burn_allowance_data.burns_today, 1);
         assert_eq!(user_burn_allowance_data.last_burn_timestamp, 1682899200);
+
+        // 1 percent of virtual reserve is burned and required as topup
+        assert_eq!(pool_data.a_virtual_reserve, 495000);
+        assert_eq!(pool_data.a_outstanding_topup, 5000);
     }
 
     #[test]
@@ -226,7 +236,7 @@ mod tests {
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
         let pool_data: BcpmmPool =
             BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        assert_eq!(pool_data.b_reserve, 999990);
+        assert_eq!(pool_data.b_reserve, 990000);
 
         // Check that user burn allowance shows 2 burns for today
         let user_burn_allowance_data = runner
@@ -259,7 +269,7 @@ mod tests {
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
         let pool_data: BcpmmPool =
             BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        assert_eq!(pool_data.b_reserve, 999990);
+        assert_eq!(pool_data.b_reserve, 990000);
 
         // Check that user burn allowance was reset
         let user_burn_allowance_data = runner
@@ -312,7 +322,7 @@ mod tests {
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
         let pool_data: BcpmmPool =
             BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        assert_eq!(pool_data.b_reserve, 999990);
+        assert_eq!(pool_data.b_reserve, 990000);
 
         // Check that user burn allowance was reset
         let user_burn_allowance_data = runner
