@@ -9,6 +9,7 @@ import { createTransactionMessage } from "@solana/kit";
 interface CreatePoolParams {
   user: KeyPairSigner;
   mint: Address;
+  aVirtualReserve: number;
 }
 
 export function useCreatePool() {
@@ -16,7 +17,7 @@ export function useCreatePool() {
 
   // ALLOW CHOOSING VIRT RESERVE AMOUNT
   return useMutation({
-    mutationFn: async ({ user, mint }: CreatePoolParams) => {
+    mutationFn: async ({ user, mint, aVirtualReserve }: CreatePoolParams) => {
       const { rpc, sendAndConfirmTransaction } = await getTxClient();
       const userSigner = await createSignerFromKeyPair(user.keyPair);
 
@@ -49,7 +50,7 @@ export function useCreatePool() {
         centralState: centralStateAddress,
         tokenProgram: TOKEN_PROGRAM_ADDRESS,
         systemProgram: SYSTEM_PROGRAM_ADDRESS,
-        aVirtualReserve: 1000_000_000,
+        aVirtualReserve: aVirtualReserve,
       });
 
       const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();

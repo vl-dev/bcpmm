@@ -15,6 +15,7 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
   const { data: userPool, isLoading: isLoadingPool } = useUserPool(walletAddress);
   const { mutateAsync: mintTokens, isPending: isMinting } = useMintToAccount();
   const [mintAmount, setMintAmount] = useState('100000');
+  const [virtualReserve, setVirtualReserve] = useState('1000');
   const { mutateAsync: createPool, isPending: isCreatingPool } = useCreatePool();
   const { data: burnAllowances } = useUserBurnAllowance(walletAddress);
   const deleteWallet = useDeleteWallet();
@@ -199,7 +200,7 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
       </div>
 
       {!isLoadingPool && !userPool && (
-        <div style={{ 
+        <div style={{
           marginTop: '1.5rem',
           padding: '1rem',
           backgroundColor: '#fff3cd',
@@ -208,13 +209,35 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
         }}>
           <strong>Pool Info:</strong> No pool found for this wallet
           <div style={{ marginTop: '0.75rem' }}>
+            <div style={{ marginBottom: '0.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.25rem' }}>
+                Virtual Reserve
+              </label>
+              <input
+                type="number"
+                value={virtualReserve}
+                onChange={(e) => setVirtualReserve(e.target.value)}
+                min="1"
+                style={{
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ddd',
+                  fontFamily: 'monospace',
+                  width: '150px',
+                }}
+              />
+            </div>
             <button
               onClick={async () => {
                 try {
                   const mintAddress = localStorage.getItem('mint_address');
                   if (!mintAddress) throw new Error('mint_address missing');
                   if (!selectedWallet) throw new Error('selected wallet not ready');
-                  await createPool({ user: selectedWallet, mint: address(mintAddress) });
+                  await createPool({
+                    user: selectedWallet,
+                    mint: address(mintAddress),
+                    aVirtualReserve: parseInt(virtualReserve)
+                  });
                 } catch (e) {
                   console.error('create pool failed', e);
                   alert('Failed to create pool');
