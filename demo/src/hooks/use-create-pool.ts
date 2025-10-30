@@ -14,6 +14,7 @@ interface CreatePoolParams {
 export function useCreatePool() {
   const queryClient = useQueryClient();
 
+  // ALLOW CHOOSING VIRT RESERVE AMOUNT
   return useMutation({
     mutationFn: async ({ user, mint }: CreatePoolParams) => {
       const { rpc, sendAndConfirmTransaction } = await getTxClient();

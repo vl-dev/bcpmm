@@ -98,7 +98,7 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
           marginTop: '0.5rem',
         }}>
           <div style={{ backgroundColor: '#f5f5f5', padding: '0.5rem', borderRadius: '4px' }}>
-            <div style={{ fontWeight: 600 }}>As Owner</div>
+            <div style={{ fontWeight: 600 }}>For own pool</div>
             <div style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
               {burnAllowances ? burnAllowances.owner.address.toString() : '...'}
             </div>
@@ -113,7 +113,7 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
           )}
           </div>
           <div style={{ backgroundColor: '#f5f5f5', padding: '0.5rem', borderRadius: '4px' }}>
-            <div style={{ fontWeight: 600 }}>As Non-Owner</div>
+            <div style={{ fontWeight: 600 }}>For other pools</div>
             <div style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
               {burnAllowances ? burnAllowances.nonOwner.address.toString() : '...'}
             </div>

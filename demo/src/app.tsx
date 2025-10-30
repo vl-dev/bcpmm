@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
-  airdropFactory,
-  createSolanaRpc,
-  createSolanaRpcSubscriptions,
   KeyPairSigner,
-  lamports,
 } from '@solana/kit';
-import { getLocalWallets } from './wallet-storage';
 import { useAdminKeypair } from './hooks/use-admin-keypair';
 import { ensureCentralState } from './ensure-central-state';
 import { getAdminKeypair } from './admin-keypair';
@@ -16,9 +11,7 @@ import AccountDetails from './components/account-details';
 import PoolList from './components/pool-list';
 import { WalletProvider, useWallet } from './wallet-provider';
 import WalletTopBar from './components/wallet-top-bar';
-
-const RPC_URL = import.meta.env.VITE_RPC_URL as string;
-const WS_URL = import.meta.env.VITE_WS_URL as string;
+import { useLocalWallets } from './hooks/use-local-wallets';
 
 function AppContent({ wallets, initializingAccounts, adminAddress }: {
   wallets: KeyPairSigner[];
@@ -67,39 +60,13 @@ function AppContent({ wallets, initializingAccounts, adminAddress }: {
 }
 
 function App() {
-  const [wallets, setWallets] = useState<KeyPairSigner[]>([]);
   const [initializingAccounts, setInitializingAccounts] = useState(true);
   const { data: adminKeypair } = useAdminKeypair();
+  const { data: localWallets } = useLocalWallets();
   useEffect(() => {
     async function initializeWallets() {
       setInitializingAccounts(true);
       
-      // Create RPC and airdrop factory
-      const rpc = createSolanaRpc(RPC_URL);
-      const rpcSubscriptions = createSolanaRpcSubscriptions(WS_URL);
-      const airdrop = airdropFactory({ rpc, rpcSubscriptions });
-
-      // Get or create wallet addresses (persists across reloads)
-      const wallets = await getLocalWallets();
-      setWallets(wallets);
-
-      // Check balances and airdrop only if below 0.5 SOL
-      const minBalanceLamports = lamports(500_000_000n); // 0.5 SOL
-      
-      for (const address of wallets.map(wallet => wallet.address)) {
-        const balanceResponse = await rpc.getBalance(address).send();
-        const balance = balanceResponse.value;
-
-        if (balance < minBalanceLamports) {
-          console.log(`Airdropping to ${address.toString()} (balance: ${Number(balance) / 1_000_000_000} SOL)`);
-          await airdrop({
-            recipientAddress: address,
-            lamports: lamports(1_000_000_000n),
-            commitment: 'confirmed',
-          });
-        }
-      }
-
       const adminKp = await getAdminKeypair()
       await ensureCentralState(adminKp);
       await ensureMint(adminKp);
@@ -109,12 +76,12 @@ function App() {
     }
 
     initializeWallets();
-  }, []);
+  }, [localWallets]);
 
   return (
     <WalletProvider>
       <AppContent 
-        wallets={wallets}
+        wallets={localWallets ?? []}
         initializingAccounts={initializingAccounts}
         adminAddress={adminKeypair?.address.toString()}
       />

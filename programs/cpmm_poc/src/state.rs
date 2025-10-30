@@ -108,6 +108,8 @@ pub struct BcpmmPool {
     /// Burn allowance for the pool
     pub burns_today: u16,
     pub last_burn_timestamp: i64,
+
+    // TODO: burn amounts here?
 }
 
 impl BcpmmPool {

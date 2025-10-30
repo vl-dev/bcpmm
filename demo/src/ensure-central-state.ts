@@ -48,8 +48,8 @@ export async function ensureCentralState(
     const instruction = await getInitializeCentralStateInstructionAsync({
       admin: adminSigner,
       centralState: centralStateAddress,
-      userBurnBpX100: 20,
-      creatorBurnBpX100: 50,
+      userBurnBpX100: 100_000,
+      creatorBurnBpX100: 100_000,
       burnResetTimeOfDaySeconds: 0, // Midnight
       maxUserDailyBurnCount: 65535, // Max uint16
       maxCreatorDailyBurnCount: 65535, // Max uint16
