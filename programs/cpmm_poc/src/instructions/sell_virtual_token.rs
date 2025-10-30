@@ -111,7 +111,7 @@ mod tests {
         let platform_fee_basis_points = 200;
         let creator_fees_balance = 0;
         let buyback_fees_balance = 0;
-        let a_outstanding_topup = 0;
+        let a_outstanding_topup = 150;
 
         let mut runner = TestRunner::new();
         let payer = Keypair::new();
@@ -157,6 +157,8 @@ mod tests {
         let a_reserve = 5000;
         let a_virtual_reserve = 1_000_000;
         let b_reserve = 2_000_000;
+        let buyback_fee_basis_points = 600;
+        let a_outstanding_topup = 150;
 
         // Create virtual token account with some balance to sell
         let virtual_token_account = runner.create_virtual_token_account_mock(
@@ -183,9 +185,15 @@ mod tests {
             BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
 
         let expected_output_amount = 251;
-        assert_eq!(pool_data.a_reserve, a_reserve - expected_output_amount);
+
+        // account for topup repayment from buyback fees on sell (ceil division like in helpers)
+        let buyback_fees = ((expected_output_amount as u128 * buyback_fee_basis_points as u128 + 9999) / 10_000) as u64;
+        let real_topup = buyback_fees.min(a_outstanding_topup);
+        let expected_a_reserve_after = a_reserve - expected_output_amount + real_topup;
+        assert_eq!(pool_data.a_reserve, expected_a_reserve_after);
         assert_eq!(pool_data.b_reserve, b_reserve + b_sell_amount);
-        assert_eq!(pool_data.a_virtual_reserve, a_virtual_reserve); // Unchanged
+        assert_eq!(pool_data.a_virtual_reserve, a_virtual_reserve);
+        assert_eq!(pool_data.a_outstanding_topup, a_outstanding_topup - buyback_fees);
     }
 
     #[test]
