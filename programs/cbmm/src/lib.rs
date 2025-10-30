@@ -14,7 +14,7 @@ use instructions::*;
 declare_id!("2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz");
 
 #[program]
-pub mod cpmm_poc {
+pub mod cbmm {
     use super::*;
 
     pub fn initialize_central_state(

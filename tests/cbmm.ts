@@ -1,6 +1,6 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { CpmmPoc } from "../target/types/cpmm_poc";
+import { Cbmm } from "../target/types/cbmm";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
 import { createMint, createAssociatedTokenAccount, mintTo } from "@solana/spl-token";
 import { BN } from "bn.js";
@@ -8,11 +8,11 @@ import { assert } from "chai";
 import { getAssociatedTokenAddress } from "@solana/spl-token";
 import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
-describe("cpmm-poc", () => {
+describe("cbmm", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
 
-  const program = anchor.workspace.cpmmPoc as Program<CpmmPoc>;
+  const program = anchor.workspace.cbmm as Program<Cbmm>;
 
   // Helper function to check if an account exists
   async function accountExists(pubkey: PublicKey): Promise<boolean> {

@@ -48,7 +48,7 @@ impl TestRunner {
 
         // Deploy your program to the test environment
         let program_id = Pubkey::from(crate::ID.to_bytes());
-        let program_bytes = include_bytes!("../../../../target/deploy/cpmm_poc.so");
+        let program_bytes = include_bytes!("../../../../target/deploy/cbmm.so");
         svm.add_program(program_id, program_bytes).unwrap();
 
         Self { svm, program_id }
