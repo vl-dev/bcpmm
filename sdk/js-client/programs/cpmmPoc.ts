@@ -28,7 +28,7 @@ import {
 } from '../instructions';
 
 export const CPMM_POC_PROGRAM_ADDRESS =
-  '2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz' as Address<'2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz'>;
+  'J2rzAsBbYpMVEA3dtuudvzizpbwJXLJgR3yEToKzq1jB' as Address<'J2rzAsBbYpMVEA3dtuudvzizpbwJXLJgR3yEToKzq1jB'>;
 
 export enum CpmmPocAccount {
   BcpmmPool,
@@ -235,7 +235,7 @@ export function identifyCpmmPocInstruction(
 }
 
 export type ParsedCpmmPocInstruction<
-  TProgram extends string = '2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz',
+  TProgram extends string = 'J2rzAsBbYpMVEA3dtuudvzizpbwJXLJgR3yEToKzq1jB',
 > =
   | ({
       instructionType: CpmmPocInstruction.BurnVirtualToken;

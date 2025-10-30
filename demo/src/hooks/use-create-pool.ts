@@ -50,8 +50,6 @@ export function useCreatePool() {
         tokenProgram: TOKEN_PROGRAM_ADDRESS,
         systemProgram: SYSTEM_PROGRAM_ADDRESS,
         aVirtualReserve: 1000_000_000,
-        creatorFeeBasisPoints: 1000,
-        buybackFeeBasisPoints: 1000,
       });
 
       const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
