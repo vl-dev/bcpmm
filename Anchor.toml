@@ -6,16 +6,16 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-cbmm = "CBMMZBcQnhSAJRpLfD5quaGsDem6WrNDGTr5zSDLCo63"
+cbmm = "CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj"
 
 [programs.devnet]
-cbmm = "CBMMZBcQnhSAJRpLfD5quaGsDem6WrNDGTr5zSDLCo63"
+cbmm = "CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "./.keypairs/authority.json"
 
 [scripts]
