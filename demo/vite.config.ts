@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@bcpmm/js-client': path.resolve(__dirname, '../sdk/js-client')
+      '@cbmm/js-client': path.resolve(__dirname, '../sdk/js-client')
     }
   }
 })

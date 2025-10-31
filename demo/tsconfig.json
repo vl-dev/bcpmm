@@ -23,7 +23,7 @@
     /* Path Mapping */
     "baseUrl": ".",
     "paths": {
-      "@bcpmm/js-client": ["../sdk/js-client"]
+      "@cbmm/js-client": ["../sdk/js-client"]
     }
   },
   "include": ["src"],

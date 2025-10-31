@@ -20,13 +20,13 @@ Then open http://localhost:5173
 
 - TypeScript support
 - React 18
-- Local js-client dependency integration (`@bcpmm/js-client`)
+- Local js-client dependency integration (`@cbmm/js-client`)
 - Vite for fast development and building
 - Solana Kit support
 
 ## Local Dependency
 
-The js-client from `../sdk/js-client` is imported as `@bcpmm/js-client` using:
+The js-client from `../sdk/js-client` is imported as `@cbmm/js-client` using:
 - Vite alias configuration (`vite.config.ts`)
 - TypeScript path mapping (`tsconfig.json`)
 

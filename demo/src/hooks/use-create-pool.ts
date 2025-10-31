@@ -1,4 +1,4 @@
-import { CPMM_POC_PROGRAM_ADDRESS, getCreatePoolInstructionAsync, fetchCentralState } from "@bcpmm/js-client";
+import { CBMM_PROGRAM_ADDRESS, getCreatePoolInstructionAsync, fetchCentralState } from "@cbmm/js-client";
 import { Address, createSignerFromKeyPair, getBytesEncoder, getProgramDerivedAddress, KeyPairSigner, appendTransactionMessageInstruction, setTransactionMessageLifetimeUsingBlockhash, setTransactionMessageFeePayerSigner, signTransactionMessageWithSigners, assertIsSendableTransaction, getBase64EncodedWireTransaction, pipe, getBase64Encoder, getAddressEncoder } from "@solana/kit";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getTxClient } from "../solana/tx-client";
@@ -23,7 +23,7 @@ export function useCreatePool() {
 
       // Get central state address
       const [centralStateAddress] = await getProgramDerivedAddress({
-        programAddress: CPMM_POC_PROGRAM_ADDRESS,
+        programAddress: CBMM_PROGRAM_ADDRESS,
         seeds: [
           getBytesEncoder().encode(
             new Uint8Array([
@@ -36,7 +36,7 @@ export function useCreatePool() {
 
       const userAddress = getAddressEncoder().encode(userSigner.address);
       const [poolAddress] = await getProgramDerivedAddress({
-        programAddress: CPMM_POC_PROGRAM_ADDRESS,
+        programAddress: CBMM_PROGRAM_ADDRESS,
         seeds: [
           getBytesEncoder().encode(new Uint8Array([98, 99, 112, 109, 109, 95, 112, 111, 111, 108])), // "bcpmm_pool"
           getBytesEncoder().encode(new Uint8Array([0, 0, 0, 0])),

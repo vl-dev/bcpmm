@@ -1,4 +1,4 @@
-import { type BcpmmPool } from "@bcpmm/js-client";
+import { type BcpmmPool } from "@cbmm/js-client";
 
 /**
  * Calculate fees for a given A amount

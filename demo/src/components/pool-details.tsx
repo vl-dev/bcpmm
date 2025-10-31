@@ -1,5 +1,5 @@
 import { type Address } from "@solana/kit";
-import { type BcpmmPool } from "@bcpmm/js-client";
+import { type BcpmmPool } from "@cbmm/js-client";
 import { useBurnTokens } from "../hooks/use-burn-tokens";
 import { useWallet } from "../wallet-provider";
 import { useState, useMemo } from "react";
@@ -121,13 +121,13 @@ export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, a
             <strong>A Virtual Reserve:</strong> {formatBigintAmountWith6Decimals(pool.aVirtualReserve)}
           </div>
           <div style={{ marginBottom: '0.5rem' }}>
-            <strong>A Remaining Topup:</strong> {formatBigintAmountWith6Decimals(pool.aRemainingTopup)}
+            <strong>A Topup Outstanding:</strong> {formatBigintAmountWith6Decimals(pool.aOutstandingTopup)}
           </div>
           <div style={{ marginBottom: '0.5rem' }}>
             <strong>Creator Fees Balance:</strong> {formatBigintAmountWith6Decimals(pool.creatorFeesBalance)}
           </div>
           <div style={{ marginBottom: '0.5rem' }}>
-            <strong>Buyback Fees Accumulated:</strong> {formatBigintAmountWith6Decimals(pool.buybackFeesAccumulated)}
+            <strong>Buyback Fees Balance:</strong> {formatBigintAmountWith6Decimals(pool.buybackFeesBalance)}
           </div>
           <div style={{ marginBottom: '0.5rem' }}>
             <strong>Creator Fee (bp):</strong> {nf.format(pool.creatorFeeBasisPoints)}

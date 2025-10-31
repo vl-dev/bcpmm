@@ -1,5 +1,5 @@
-import { getBurnVirtualTokenInstructionAsync, CPMM_POC_PROGRAM_ADDRESS } from "@bcpmm/js-client";
-import { getInitializeUserBurnAllowanceInstructionAsync } from "@bcpmm/js-client";
+import { getBurnVirtualTokenInstructionAsync, CBMM_PROGRAM_ADDRESS } from "@cbmm/js-client";
+import { getInitializeUserBurnAllowanceInstructionAsync } from "@cbmm/js-client";
 import { Address, createSignerFromKeyPair, getBytesEncoder, getProgramDerivedAddress, KeyPairSigner, appendTransactionMessageInstruction, setTransactionMessageLifetimeUsingBlockhash, setTransactionMessageFeePayerSigner, signTransactionMessageWithSigners, assertIsSendableTransaction, getBase64EncodedWireTransaction, pipe, createTransactionMessage, getAddressEncoder } from "@solana/kit";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getTxClient } from "../solana/tx-client";
@@ -19,7 +19,7 @@ export function useBurnTokens() {
 
       // Get central state address
       const [centralStateAddress] = await getProgramDerivedAddress({
-        programAddress: CPMM_POC_PROGRAM_ADDRESS,
+        programAddress: CBMM_PROGRAM_ADDRESS,
         seeds: [
           getBytesEncoder().encode(
             new Uint8Array([
@@ -33,7 +33,7 @@ export function useBurnTokens() {
       const userAddressBytes = getAddressEncoder().encode(userSigner.address);
       const poolOwnerByte = poolOwner ? 1 : 0;
       const [userBurnAllowanceAddress] = await getProgramDerivedAddress({
-        programAddress: CPMM_POC_PROGRAM_ADDRESS,
+        programAddress: CBMM_PROGRAM_ADDRESS,
         seeds: [
           getBytesEncoder().encode(
             new Uint8Array([

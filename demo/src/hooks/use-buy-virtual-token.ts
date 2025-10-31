@@ -16,8 +16,8 @@ import {
 	type KeyPairSigner,
 } from "@solana/kit";
 import { getTxClient } from "../solana/tx-client";
-import { getBuyVirtualTokenInstructionAsync, CPMM_POC_PROGRAM_ADDRESS } from "@bcpmm/js-client";
-import { getInitializeVirtualTokenAccountInstructionAsync } from "@bcpmm/js-client";
+import { getBuyVirtualTokenInstructionAsync, CBMM_PROGRAM_ADDRESS } from "@cbmm/js-client";
+import { getInitializeVirtualTokenAccountInstructionAsync } from "@cbmm/js-client";
 
 interface BuyVirtualTokenParams {
 	user: KeyPairSigner;
@@ -36,7 +36,7 @@ export function useBuyVirtualToken() {
 
 			// Get virtual token account address
 			const [virtualTokenAccountAddress] = await getProgramDerivedAddress({
-				programAddress: CPMM_POC_PROGRAM_ADDRESS,
+				programAddress: CBMM_PROGRAM_ADDRESS,
 				seeds: [
 					getBytesEncoder().encode(
 						new Uint8Array([

@@ -14,7 +14,7 @@ import {
   getBase64EncodedWireTransaction,
   address,
 } from '@solana/kit';
-import { CPMM_POC_PROGRAM_ADDRESS } from '@bcpmm/js-client';
+import { CBMM_PROGRAM_ADDRESS } from '@cbmm/js-client';
 import { getTxClient } from './solana/tx-client';
 import {
   getCreateAssociatedTokenIdempotentInstructionAsync,
@@ -41,7 +41,7 @@ export async function ensureCentralStateAta(
 
   // Derive central state PDA
   const [centralStateAddress] = await getProgramDerivedAddress({
-    programAddress: CPMM_POC_PROGRAM_ADDRESS,
+    programAddress: CBMM_PROGRAM_ADDRESS,
     seeds: [
       getBytesEncoder().encode(
         new Uint8Array([
