@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Base64EncodedBytes, getBase64Encoder, type Address } from '@solana/kit';
 import { getTxClient } from '../solana/tx-client';
-import { CPMM_POC_PROGRAM_ADDRESS } from '@bcpmm/js-client';
-import { getBcpmmPoolDecoder, BCPMM_POOL_DISCRIMINATOR, type BcpmmPool } from '@bcpmm/js-client';
+import { CBMM_PROGRAM_ADDRESS } from '@cbmm/js-client';
+import { getBcpmmPoolDecoder, BCPMM_POOL_DISCRIMINATOR, type BcpmmPool } from '@cbmm/js-client';
 import { Buffer } from 'buffer';
 
 export function useAllPools() {
@@ -13,7 +13,7 @@ export function useAllPools() {
       const { rpc } = await getTxClient();
       const discriminatorBase64 = Buffer.from(BCPMM_POOL_DISCRIMINATOR).toString('base64');
       const accounts = await rpc.getProgramAccounts(
-        CPMM_POC_PROGRAM_ADDRESS,
+        CBMM_PROGRAM_ADDRESS,
         {
           commitment: 'confirmed',
           encoding: 'base64',

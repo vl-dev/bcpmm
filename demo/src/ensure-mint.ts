@@ -18,7 +18,7 @@ import {
 import { generateKeyPair } from '@solana/keys';
 import { getMintSize, getInitializeMintInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { getCreateAccountInstruction } from '@solana-program/system';
-import { CPMM_POC_PROGRAM_ADDRESS } from '@bcpmm/js-client';
+import { CBMM_PROGRAM_ADDRESS } from '@cbmm/js-client';
 import { getTxClient } from './solana/tx-client';
 
 const MINT_STORAGE_KEY = 'mint_address';

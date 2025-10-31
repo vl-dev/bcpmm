@@ -1,5 +1,5 @@
 import { type Address } from "@solana/kit";
-import { type BcpmmPool } from "@bcpmm/js-client";
+import { type BcpmmPool } from "@cbmm/js-client";
 import { useBurnTokens } from "../hooks/use-burn-tokens";
 import { useWallet } from "../wallet-provider";
 import { useState, useMemo } from "react";

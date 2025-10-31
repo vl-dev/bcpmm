@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { type Address, getAddressEncoder, getBytesEncoder } from '@solana/kit';
 import { getTxClient } from '../solana/tx-client';
-import { CPMM_POC_PROGRAM_ADDRESS, type BcpmmPool, getBcpmmPoolDecoder } from '@bcpmm/js-client';
+import { CBMM_PROGRAM_ADDRESS, type BcpmmPool, getBcpmmPoolDecoder } from '@cbmm/js-client';
 import { getProgramDerivedAddress } from '@solana/kit';
 import { Buffer } from 'buffer';
 
@@ -15,7 +15,7 @@ export function useUserPool(user: Address | null) {
       const { rpc } = await getTxClient();
 
       const [poolAddress] = await getProgramDerivedAddress({
-        programAddress: CPMM_POC_PROGRAM_ADDRESS,
+        programAddress: CBMM_PROGRAM_ADDRESS,
         seeds: [
           getBytesEncoder().encode(new Uint8Array([98, 99, 112, 109, 109, 95, 112, 111, 111, 108])), // "bcpmm_pool"
           getBytesEncoder().encode(new Uint8Array([0, 0, 0, 0])),

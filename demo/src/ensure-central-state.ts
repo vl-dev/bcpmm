@@ -16,8 +16,8 @@ import {
 import {
   getInitializeCentralStateInstructionAsync,
   fetchMaybeCentralState,
-} from '@bcpmm/js-client';
-import { CPMM_POC_PROGRAM_ADDRESS } from '@bcpmm/js-client';
+} from '@cbmm/js-client';
+import { CBMM_PROGRAM_ADDRESS } from '@cbmm/js-client';
 import { getTxClient } from './solana/tx-client';
 
 export async function ensureCentralState(
@@ -28,7 +28,7 @@ export async function ensureCentralState(
 
   // Derive central state PDA
   const [centralStateAddress] = await getProgramDerivedAddress({
-    programAddress: CPMM_POC_PROGRAM_ADDRESS,
+    programAddress: CBMM_PROGRAM_ADDRESS,
     seeds: [
       getBytesEncoder().encode(
         new Uint8Array([

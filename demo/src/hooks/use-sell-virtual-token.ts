@@ -13,7 +13,7 @@ import {
 	type KeyPairSigner,
 } from "@solana/kit";
 import { getTxClient } from "../solana/tx-client";
-import { getSellVirtualTokenInstructionAsync } from "@bcpmm/js-client";
+import { getSellVirtualTokenInstructionAsync } from "@cbmm/js-client";
 
 interface SellVirtualTokenParams {
 	user: KeyPairSigner;

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { type Address, getAddressEncoder, getBytesEncoder, getProgramDerivedAddress } from '@solana/kit';
-import { CPMM_POC_PROGRAM_ADDRESS } from '@bcpmm/js-client';
-import { getUserBurnAllowanceDecoder } from '@bcpmm/js-client';
+import { CBMM_PROGRAM_ADDRESS } from '@cbmm/js-client';
+import { getUserBurnAllowanceDecoder } from '@cbmm/js-client';
 import { Buffer } from 'buffer';
 import { getTxClient } from '../solana/tx-client';
 
@@ -25,11 +25,11 @@ export function useUserBurnAllowance(user: Address | null) {
       const userBytes = getAddressEncoder().encode(user);
 
       const [ownerAddr] = await getProgramDerivedAddress({
-        programAddress: CPMM_POC_PROGRAM_ADDRESS,
+        programAddress: CBMM_PROGRAM_ADDRESS,
         seeds: [seedTag, userBytes, ownerSeed],
       });
       const [nonOwnerAddr] = await getProgramDerivedAddress({
-        programAddress: CPMM_POC_PROGRAM_ADDRESS,
+        programAddress: CBMM_PROGRAM_ADDRESS,
         seeds: [seedTag, userBytes, nonOwnerSeed],
       });
 

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { type Address, getAddressEncoder, getBytesEncoder } from '@solana/kit';
 import { getTxClient } from '../solana/tx-client';
-import { CPMM_POC_PROGRAM_ADDRESS, fetchMaybeVirtualTokenAccount } from '@bcpmm/js-client';
+import { CBMM_PROGRAM_ADDRESS, fetchMaybeVirtualTokenAccount } from '@cbmm/js-client';
 import { getProgramDerivedAddress } from '@solana/kit';
 
 export function useVirtualTokenBalance(user: Address | null, poolAddress: Address | null) {
@@ -13,7 +13,7 @@ export function useVirtualTokenBalance(user: Address | null, poolAddress: Addres
 
       // Derive virtual token account address
       const [virtualTokenAccountAddress] = await getProgramDerivedAddress({
-        programAddress: CPMM_POC_PROGRAM_ADDRESS,
+        programAddress: CBMM_PROGRAM_ADDRESS,
         seeds: [
           getBytesEncoder().encode(
             new Uint8Array([
