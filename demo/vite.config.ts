@@ -9,6 +9,9 @@ export default defineConfig({
     alias: {
       '@cbmm/js-client': path.resolve(__dirname, '../sdk/js-client')
     }
+  },
+  server: {
+    allowedHosts: true
   }
 })
 
