@@ -35,7 +35,7 @@ function formatNumber(value: number, maxDecimals: number = 6): string {
   
   // Use scientific notation for very small or very large numbers
   // Limit to 4 decimal places in scientific notation
-  if (absValue < 0.0001 || absValue >= 1000000) {
+  if (absValue < 0.0001 || absValue >= 100_000) {
     return value.toExponential(4);
   }
   
