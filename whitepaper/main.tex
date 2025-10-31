@@ -157,96 +157,104 @@ This whitepaper describes the CBMM (Constant Burn Market Maker) pool, an improve
 \section{Mathematical Model}
 \label{sec:math}
 
-Let's first define a bunch of terms that we will use in the mathematical model.
+We first define the key terms used throughout this section.
 
 \begin{definition}
-    The \textbf{Virtual Reserve} $V$ is the reserve of the pool that is not backed by any actual assets. It is used to set the starting price for the token.
+    The \textbf{Virtual Token Reserve} $V$ is the portion of the token reserve that is not backed by actual assets. 
 \end{definition}
 
 \begin{definition}
-    The \textbf{real reserve} $A$ is the reserve of the token in the pool that is backed by actual assets.
+    The \textbf{Real Token Reserve} $A$ is the token reserve in the pool that is backed by actual assets.
 \end{definition}
 
 \begin{definition}
-    \textbf{Insolvency} is the state of the pool where the reserve of the pool is not enough to cover the sale of all the tokens.
+    \textbf{Insolvency} is the state of the pool where its reserves are insufficient to accommodate the sale of all outstanding beans.
 \end{definition}
 
-We will assume that the initial reserve of the token is 0 as the CBMM is designed as a token rollout mechanism and therefore we do not need any initial token reserve to account for any existing token supply. Moreover, we can use the virtual reserve to set the starting price for the token.
+We assume the initial Real Token Reserve reserve is zero. CBMM is designed as a token rollout mechanism, so we do not need to account for any existing supply outside the pool. The virtual reserve sets the initial price of the token.
 
 \subsection{Trading}
 
-The concepts of buys and sells in CBMM pool are the same as in the standard CPMM pool with a virtual reserve and are included for completeness. Let's denote the values before the trade (buy or sell) as follows:
+Buys and sells in CBMM follow the mechanics of the standard CPMM with a virtual reserve; we include them here for completeness. Denote the pre-trade (buy or sell) values as:
 
 \begin{align*}
-    A_0 = A, \\
-    B_0 = B, \\
-    V_0 = V, \\
-    k_0 = k = (A+V)B
+    A_0 &= A, \\
+    B_0 &= B, \\
+    V_0 &= V, \\
+    k_0 &= k = (A+V)B
 \end{align*}
 
-It is important to note that during trading the pseudoconstant $k$ and virtual reserve $V$ do not change and, therefore, we can derive the amount of beans $\Delta_B$ received when spending $\Delta_A$ tokens by solving the equation $k = (A+\Delta_A+V)(B+\Delta_B)$ for $\Delta_B$:
+During trading, the invariant $k$ and the virtual reserve $V$ do not change. The amount of beans $b$ received by the user when spending $\Delta A$ tokens (which increases the pool reserve to $A+\Delta A$) follows from
+\begin{equation}
+    k = (A+\Delta A+V)(B-b),
+\end{equation}
+which gives:
 
 \begin{equation}
-    \Delta_B = \frac{k}{A+\Delta_A+V} - B
+    b = B - \frac{k}{A+\Delta A+V}.
 \end{equation}
 
-and the amount of tokens $\Delta_A$ received when spending $\Delta_B$ beans by solving the equation for $\Delta_A$:
+Similarly, the amount of tokens $a$ received by the user when spending $\Delta B$ beans (which increases the pool reserve to $B+\Delta B$) follows from
+\begin{equation}
+    k = (A-a+V)(B+\Delta B),
+\end{equation}
+which gives:
 
 \begin{equation}
-    \Delta_A = \frac{k}{B+\Delta_B+V} - A
+    a = A+V - \frac{k}{B+\Delta B}.
 \end{equation}
 
-The current price of the beans is given by:
+The current price of beans is:
 
 \begin{equation}
-    P = \frac{A+V}{B}
-\end{equation}.
-
-\subsubsection{Beans Supply Burning}
-
-Let the initial state of the pool be as follows:
-
-\begin{align*}
-    A_0 = 0, \\
-    B_0 = B, \\
-    V_0 = V, \\
-    k_0 = (0+V)B = VB
-\end{align*}
-
-Let's assume without loss of generality that there is some trading happening before the burn which lowers the balance of beans reserve by $x \geq 0$. Then the values after the trading will be:
-
-\begin{align*}
-    A_1 = \frac{Vx}{B-x}, \\
-    B_1 = B - x, \\
-    V_1 = V, \\
-    k_1 = k_0
-\end{align*}
-
-Now if we burn $y$ such that $0 \leq y < m - x$ from the supply of beans, the values after the burn will be:
-
-\begin{align*}
-    A_2 = \frac{Vx}{B-x}, \\
-    B_2 = B - x - y, \\    
-    V_2 to be determined, \\
-    k_2 = (A_2+V_2)B_2
-\end{align*}
-
-And finally to ensure that the pool is not insolvent we to ensure that if everyone sells their beans back to the pool we have enough tokens to facilitate this. Therefore, we need to ensure that the state after the sale is as follows:
-
-\begin{align*}
-    A_3 \geq 0, \\
-    B_3 = B - y, \\
-    V_3 = V_2, \\
-    k_3 = (A_3+V_3)B_3
-\end{align*}
-
-From the equations $k_2 = k_3$ and $k_3 \geq V_3B_3$ we can derive the following inequality for the value of $V_2$ for the pool to not be insolvent:
-
-\begin{equation}
-    V_2 \leq \frac{V(B-x-y)}{B-x}
+    P = \frac{A+V}{B}.
 \end{equation}
 
-This concludes that after every burn the virtual reserve must adjusted downwards to ensure that the pool is not insolvent. It is reasonable to minimize the adjustment by setting $V_2$ to the maximum value that satisfies the inequality as this will result in the smallest possible price impact.
+\subsection{Beans Supply Burning}
+
+Let the initial state of the pool be:
+
+\begin{align*}
+    A_0 &= 0, \\
+    B_0 &= B, \\
+    V_0 &= V, \\
+    k_0 &= (0+V)B = VB
+\end{align*}
+
+Assume, without loss of generality, that trading occurs before the burn, lowering the beans reserve by $x \geq 0$. The post-trade values are then:
+
+\begin{align*}
+    A_1 &= \frac{Vx}{B-x}, \\
+    B_1 &= B - x, \\
+    V_1 &= V, \\
+    k_1 &= k_0
+\end{align*}
+
+Now, if we burn $y$ beans with $0 \leq y < B - x$, the post-burn state is:
+
+\begin{align*}
+    A_2 &= \frac{Vx}{B-x}, \\
+    B_2 &= B - x - y, \\
+    V_2 &\text{ to be determined}, \\
+    k_2 &= (A_2+V_2)B_2
+\end{align*}
+
+To ensure the pool is not insolvent, if everyone sells their beans back to the pool, there must be sufficient tokens to satisfy the sale. The post-sale state must satisfy:
+
+\begin{align*}
+    A_3 &\geq 0, \\
+    B_3 &= B - y, \\
+    V_3 &= V_2, \\
+    k_3 &= (A_3+V_3)B_3
+\end{align*}
+
+From $k_2 = k_3$ and $k_3 \geq V_3 B_3$, we obtain a bound on $V_2$ that ensures the pool is not insolvent:
+
+\begin{equation}
+    V_2 \leq \frac{V(B-x-y)}{B-x}.
+\end{equation}
+
+Thus, after every burn, the virtual reserve must be adjusted downward to avoid insolvency. A natural choice is to set $V_2$ to the maximum value satisfying the bound, which minimizes price impact.
 
 
 \section{Implementation}
