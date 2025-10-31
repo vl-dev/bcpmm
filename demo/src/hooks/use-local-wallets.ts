@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { createKeyPairSignerFromPrivateKeyBytes, type KeyPairSigner, } from '@solana/kit';
-import { getAdminKeypair } from '../admin-keypair';
 
 type LocalStorageKeypairs = {
   wallets: number[][]

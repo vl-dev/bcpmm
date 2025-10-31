@@ -1,30 +1,16 @@
 import {
   getProgramDerivedAddress,
   getBytesEncoder,
-  createTransactionMessage,
-  appendTransactionMessageInstruction,
-  setTransactionMessageLifetimeUsingBlockhash,
-  createSignerFromKeyPair,
   type Address,
-  type KeyPairSigner,
-  pipe,
-  setTransactionMessageFeePayerSigner,
-  signTransactionMessageWithSigners,
-  assertIsSendableTransaction,
-  getBase64EncodedWireTransaction,
 } from '@solana/kit';
 import {
-  getInitializeCentralStateInstructionAsync,
   fetchMaybeCentralState,
 } from '@cbmm/js-client';
 import { CBMM_PROGRAM_ADDRESS } from '@cbmm/js-client';
 import { getTxClient } from './solana/tx-client';
 
-export async function ensureCentralState(
-  adminKeypair: KeyPairSigner
-): Promise<Address> {
-  const { rpc, sendAndConfirmTransaction } = await getTxClient();
-  const adminSigner = await createSignerFromKeyPair(adminKeypair.keyPair);
+export async function ensureCentralState(): Promise<Address> {
+  const { rpc } = await getTxClient();
 
   // Derive central state PDA
   const [centralStateAddress] = await getProgramDerivedAddress({

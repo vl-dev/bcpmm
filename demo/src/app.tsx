@@ -68,7 +68,7 @@ function App() {
       setInitializingAccounts(true);
       
       const adminKp = await getAdminKeypair()
-      await ensureCentralState(adminKp);
+      await ensureCentralState();
       await ensureMint(adminKp);
       await ensureCentralStateAta(adminKp);
 
