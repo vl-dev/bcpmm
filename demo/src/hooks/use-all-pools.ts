@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Base64EncodedBytes, getBase64Encoder, type Address } from '@solana/kit';
+import { Base64EncodedBytes, type Address } from '@solana/kit';
 import { getTxClient } from '../solana/tx-client';
 import { CBMM_PROGRAM_ADDRESS } from '@cbmm/js-client';
 import { getBcpmmPoolDecoder, BCPMM_POOL_DISCRIMINATOR, type BcpmmPool } from '@cbmm/js-client';

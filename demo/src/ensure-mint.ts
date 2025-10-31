@@ -1,6 +1,5 @@
 import {
   createTransactionMessage,
-  appendTransactionMessageInstruction,
   appendTransactionMessageInstructions,
   setTransactionMessageLifetimeUsingBlockhash,
   createSignerFromKeyPair,
@@ -11,14 +10,11 @@ import {
   signTransactionMessageWithSigners,
   assertIsSendableTransaction,
   getBase64EncodedWireTransaction,
-  getBytesEncoder,
-  getProgramDerivedAddress,
-  getAddressEncoder,
+
 } from '@solana/kit';
 import { generateKeyPair } from '@solana/keys';
 import { getMintSize, getInitializeMintInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { getCreateAccountInstruction } from '@solana-program/system';
-import { CBMM_PROGRAM_ADDRESS } from '@cbmm/js-client';
 import { getTxClient } from './solana/tx-client';
 
 const MINT_STORAGE_KEY = 'mint_address';

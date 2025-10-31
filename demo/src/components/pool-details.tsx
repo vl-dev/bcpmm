@@ -26,6 +26,25 @@ function formatBigintAmountWith6Decimals(value: bigint) {
   return nf.format(Number(whole));
 }
 
+function formatNumber(value: number, maxDecimals: number = 6): string {
+  if (!isFinite(value) || value === 0) {
+    return value.toString();
+  }
+  
+  const absValue = Math.abs(value);
+  
+  // Use scientific notation for very small or very large numbers
+  // Limit to 4 decimal places in scientific notation
+  if (absValue < 0.0001 || absValue >= 1000000) {
+    return value.toExponential(4);
+  }
+  
+  // For normal-sized numbers, use regular decimal notation
+  // Remove trailing zeros
+  const formatted = value.toFixed(maxDecimals);
+  return formatted.replace(/\.?0+$/, '');
+}
+
 export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, allowBuy: allowBuy }: PoolDetailsProps) {
   const { mutateAsync: burnTokens, isPending: isBurning } = useBurnTokens();
   const { mutateAsync: buyVirtualToken, isPending: isBuying } = useBuyVirtualToken();
@@ -115,7 +134,7 @@ export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, a
             <strong>B Reserve:</strong> {formatBigintAmountWith6Decimals(pool.bReserve)}
           </div>
           <div style={{ marginBottom: '0.5rem' }}>
-            <strong>Virtual Token Price:</strong> {virtualTokenPrice > 0 ? `${virtualTokenPrice.toFixed(6)} A per B` : 'N/A'}
+            <strong>Virtual Token Price:</strong> {virtualTokenPrice > 0 ? `${formatNumber(virtualTokenPrice, 12)} A per B` : 'N/A'}
           </div>
           <div style={{ marginBottom: '0.5rem' }}>
             <strong>A Virtual Reserve:</strong> {formatBigintAmountWith6Decimals(pool.aVirtualReserve)}
@@ -227,7 +246,7 @@ export default function PoolDetails({ poolAddress, pool, showOwner, allowBurn, a
                   textAlign: 'left',
                   marginTop: '-0.25rem',
                 }}>
-                  ≈ {estimatedBuyOutput.toFixed(6)} token B
+                  ≈ {formatNumber(estimatedBuyOutput, 6)} token B
                 </div>
               )}
               {virtualTokenBalance && (
