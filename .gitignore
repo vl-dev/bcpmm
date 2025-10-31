@@ -6,3 +6,14 @@ node_modules
 test-ledger
 .yarn
 .keypairs
+whitepaper/main.aux
+whitepaper/main.bbl
+whitepaper/main.blg
+whitepaper/main.fls
+whitepaper/main.fdb_latexmk
+whitepaper/main.log
+whitepaper/main.out
+whitepaper/main.synctex.gz
+whitepaper/main.toc
+whitepaper/main.bcf
+whitepaper/main.run.xml

@@ -1,0 +1,290 @@
+\documentclass[11pt,a4paper]{article}
+
+% =====================================================
+% PACKAGES
+% =====================================================
+
+% Page layout
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+
+% Typography
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% Math and algorithms
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% Graphics and figures
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% Tables
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+
+% References and citations
+\usepackage[hidelinks]{hyperref}
+\usepackage[capitalize,noabbrev]{cleveref}
+\usepackage[backend=biber,style=numeric,sorting=none]{biblatex}
+\addbibresource{references.bib}
+
+% Code listings (useful for smart contracts)
+\usepackage{listings}
+\usepackage{xcolor}
+
+% Define colors for code
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% Code listing style
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+% Other useful packages
+\usepackage{enumitem}
+\usepackage{csquotes}
+
+% =====================================================
+% THEOREM ENVIRONMENTS
+% =====================================================
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem{proposition}{Proposition}[section]
+\newtheorem{corollary}{Corollary}[theorem]
+\newtheorem{example}{Example}[section]
+\newtheorem{remark}{Remark}[section]
+
+% =====================================================
+% CUSTOM COMMANDS
+% =====================================================
+% Add your custom commands here
+% Example: \newcommand{\R}{\mathbb{R}}
+
+% =====================================================
+% DOCUMENT METADATA
+% =====================================================
+\title{CBMM Pool: A Constant Burn Market Maker}
+\author{Your Name\\
+        Your Affiliation\\
+        \texttt{your.email@example.com}}
+\date{\today}
+
+% =====================================================
+% DOCUMENT
+% =====================================================
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This whitepaper describes the CBMM (Constant Burn Market Maker) pool, an improved version of the standard constant product market maker (CPMM) that automates token burns and buybacks resulting in a positive impact on the token's price and more continuous demand.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% =====================================================
+% MAIN CONTENT
+% =====================================================
+
+\section{Introduction}
+
+- CPMM, CLMM
+- originally pioneered by Uniswap?
+- mention Pump.fun
+- virtual reserve
+- define insolvency
+- price impact of burn
+- burn structure (in instructions)
+- price impact of the automated buybacks
+
+% Your introduction content here
+
+\section{Background}
+
+- The goal is to design a mechanism that allows us to reward off-chain behavior by creating a direct on-chain impact on the beans price by burning the beans' supply.
+- By burning the supply we are lowering liquidity, creating scarcity.
+- We need to make sure that even after burn the pool is able to withstand sale of all the tokens even if that means that some users might be selling for a price that is worse than the starting one.
+- We have two mechanisms that help us with the positive price action on-chain - burning and continuous conditional buybacks. These mechanisms are very closely intertwined and complement each other.
+- The goal is to create a mechanism that rewards off-chain actions long term and by inducing the positive price action it motivates people to on-chain actions and speculation.
+- There is no free lunch, if we burn tokens "someone" has to pay for it.
+- two possible approaches - burn of a percentage of the pool supply/ burn of the total supply percentage
+- motivation for the virtual reserve is that otherwise it would be very cheap to snipe a big portion of the reserve. The virtual reserve helps to mitigate this by effectively setting a starting price for the token. If no burning is involved, the token price in this pool can never drop under this price. However, if burning is involved, the needed virtual price drop lowers the minimal price that the token can drop to and thereby keeps the pool healthy.
+- A slow transition from a purely virtual scaling system into a progressively collateralized one.
+- THis is a token rollout mechanism, it is not designed for tokens that are already in the market.
+
+\subsection{Conventional Market Making Strategies}
+
+- Description of standard CPMM pool, note about CLMM pools, DAMM pools
+- Short description of bonding curves
+- Neither of these has any mechanisms for off-chain action motivation except for a manual buyback and burn. We are replacing this with an automated solution
+
+\section{Mathematical Model}
+\label{sec:math}
+
+Let's first define a bunch of terms that we will use in the mathematical model.
+
+\begin{definition}
+    The \textbf{Virtual Reserve} $V$ is the reserve of the pool that is not backed by any actual assets. It is used to set the starting price for the token.
+\end{definition}
+
+\begin{definition}
+    The \textbf{real reserve} $A$ is the reserve of the token in the pool that is backed by actual assets.
+\end{definition}
+
+\begin{definition}
+    \textbf{Insolvency} is the state of the pool where the reserve of the pool is not enough to cover the sale of all the tokens.
+\end{definition}
+
+We will assume that the initial reserve of the token is 0 as the CBMM is designed as a token rollout mechanism and therefore we do not need any initial token reserve to account for any existing token supply. Moreover, we can use the virtual reserve to set the starting price for the token.
+
+\subsection{Trading}
+
+The concepts of buys and sells in CBMM pool are the same as in the standard CPMM pool with a virtual reserve and are included for completeness. Let's denote the values before the trade (buy or sell) as follows:
+
+\begin{align*}
+    A_0 = A, \\
+    B_0 = B, \\
+    V_0 = V, \\
+    k_0 = k = (A+V)B
+\end{align*}
+
+It is important to note that during trading the pseudoconstant $k$ and virtual reserve $V$ do not change and, therefore, we can derive the amount of beans $\Delta_B$ received when spending $\Delta_A$ tokens by solving the equation $k = (A+\Delta_A+V)(B+\Delta_B)$ for $\Delta_B$:
+
+\begin{equation}
+    \Delta_B = \frac{k}{A+\Delta_A+V} - B
+\end{equation}
+
+and the amount of tokens $\Delta_A$ received when spending $\Delta_B$ beans by solving the equation for $\Delta_A$:
+
+\begin{equation}
+    \Delta_A = \frac{k}{B+\Delta_B+V} - A
+\end{equation}
+
+The current price of the beans is given by:
+
+\begin{equation}
+    P = \frac{A+V}{B}
+\end{equation}.
+
+\subsubsection{Beans Supply Burning}
+
+Let the initial state of the pool be as follows:
+
+\begin{align*}
+    A_0 = 0, \\
+    B_0 = B, \\
+    V_0 = V, \\
+    k_0 = (0+V)B = VB
+\end{align*}
+
+Let's assume without loss of generality that there is some trading happening before the burn which lowers the balance of beans reserve by $x \geq 0$. Then the values after the trading will be:
+
+\begin{align*}
+    A_1 = \frac{Vx}{B-x}, \\
+    B_1 = B - x, \\
+    V_1 = V, \\
+    k_1 = k_0
+\end{align*}
+
+Now if we burn $y$ such that $0 \leq y < m - x$ from the supply of beans, the values after the burn will be:
+
+\begin{align*}
+    A_2 = \frac{Vx}{B-x}, \\
+    B_2 = B - x - y, \\    
+    V_2 to be determined, \\
+    k_2 = (A_2+V_2)B_2
+\end{align*}
+
+And finally to ensure that the pool is not insolvent we to ensure that if everyone sells their beans back to the pool we have enough tokens to facilitate this. Therefore, we need to ensure that the state after the sale is as follows:
+
+\begin{align*}
+    A_3 \geq 0, \\
+    B_3 = B - y, \\
+    V_3 = V_2, \\
+    k_3 = (A_3+V_3)B_3
+\end{align*}
+
+From the equations $k_2 = k_3$ and $k_3 \geq V_3B_3$ we can derive the following inequality for the value of $V_2$ for the pool to not be insolvent:
+
+\begin{equation}
+    V_2 \leq \frac{V(B-x-y)}{B-x}
+\end{equation}
+
+This concludes that after every burn the virtual reserve must adjusted downwards to ensure that the pool is not insolvent. It is reasonable to minimize the adjustment by setting $V_2$ to the maximum value that satisfies the inequality as this will result in the smallest possible price impact.
+
+
+\section{Implementation}
+\label{sec:implementation}
+
+- We set A = 0
+% Implementation details
+
+\section{Analysis}
+\label{sec:analysis}
+
+- burns themselves don't pump the price (by much?)
+- volume itself doesn't pump the price
+- these two mechanisms complement each other and motivate users to do one or another.
+- real initial reserve is useless as it is immediately used 
+
+% Analysis and evaluation
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+- We are rolling this out as a closed system with beans, but the concept is applicable to any asset pair
+- Could be generalized, $V$ could go under 0 to be able to keep the pool solvent if starting token reserve is greater than zero and we want to retain it after all the beans return to the pool.
+
+% Your conclusions
+
+% =====================================================
+% BIBLIOGRAPHY
+% =====================================================
+\newpage
+\printbibliography
+
+% =====================================================
+% APPENDICES (OPTIONAL)
+% =====================================================
+% \newpage
+% \appendix
+% \section{Additional Proofs}
+% \label{app:proofs}
+
+\end{document}
