@@ -28,7 +28,7 @@ import {
 } from '../instructions';
 
 export const CBMM_PROGRAM_ADDRESS =
-  '2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz' as Address<'2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz'>;
+  'CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj' as Address<'CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj'>;
 
 export enum CbmmAccount {
   BcpmmPool,
@@ -235,7 +235,7 @@ export function identifyCbmmInstruction(
 }
 
 export type ParsedCbmmInstruction<
-  TProgram extends string = '2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz',
+  TProgram extends string = 'CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj',
 > =
   | ({
       instructionType: CbmmInstruction.BurnVirtualToken;

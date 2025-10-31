@@ -6,15 +6,17 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-cbmm = "2rpy7rFzUMqPEbMP8pQGVS1tZfGeLsrsNcnzQcdAk2fz"
+cbmm = "CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj"
 
+[programs.devnet]
+cbmm = "CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+cluster = "devnet"
+wallet = "./.keypairs/authority.json"
 
 [scripts]
 test = "cargo test -p cbmm -- --nocapture && yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

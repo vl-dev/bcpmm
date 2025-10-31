@@ -5,6 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use solana_pubkey::Pubkey;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
@@ -15,13 +16,16 @@ pub const INITIALIZE_CENTRAL_STATE_DISCRIMINATOR: [u8; 8] = [204, 64, 162, 125, 
 pub struct InitializeCentralState {
       
               
-          pub admin: solana_pubkey::Pubkey,
+          pub authority: solana_pubkey::Pubkey,
           
               
           pub central_state: solana_pubkey::Pubkey,
           
               
           pub system_program: solana_pubkey::Pubkey,
+          
+              
+          pub program_data: solana_pubkey::Pubkey,
       }
 
 impl InitializeCentralState {
@@ -31,9 +35,9 @@ impl InitializeCentralState {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: InitializeCentralStateInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(3+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
-            self.admin,
+            self.authority,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
@@ -42,6 +46,10 @@ impl InitializeCentralState {
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.system_program,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.program_data,
             false
           ));
                       accounts.extend_from_slice(remaining_accounts);
@@ -61,13 +69,13 @@ impl InitializeCentralState {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
  pub struct InitializeCentralStateInstructionData {
             discriminator: [u8; 8],
-                                                      }
+                                                            }
 
 impl InitializeCentralStateInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: [204, 64, 162, 125, 253, 90, 119, 4],
-                                                                                                                                  }
+                                                                                                                                                }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -84,7 +92,8 @@ impl Default for InitializeCentralStateInstructionData {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
  pub struct InitializeCentralStateInstructionArgs {
-                  pub max_user_daily_burn_count: u16,
+                  pub admin: Pubkey,
+                pub max_user_daily_burn_count: u16,
                 pub max_creator_daily_burn_count: u16,
                 pub user_burn_bp_x100: u32,
                 pub creator_burn_bp_x100: u32,
@@ -105,15 +114,18 @@ impl InitializeCentralStateInstructionArgs {
 ///
 /// ### Accounts:
 ///
-                      ///   0. `[writable, signer]` admin
+                      ///   0. `[writable, signer]` authority
                 ///   1. `[writable]` central_state
                 ///   2. `[optional]` system_program (default to `11111111111111111111111111111111`)
+          ///   3. `[]` program_data
 #[derive(Clone, Debug, Default)]
 pub struct InitializeCentralStateBuilder {
-            admin: Option<solana_pubkey::Pubkey>,
+            authority: Option<solana_pubkey::Pubkey>,
                 central_state: Option<solana_pubkey::Pubkey>,
                 system_program: Option<solana_pubkey::Pubkey>,
-                        max_user_daily_burn_count: Option<u16>,
+                program_data: Option<solana_pubkey::Pubkey>,
+                        admin: Option<Pubkey>,
+                max_user_daily_burn_count: Option<u16>,
                 max_creator_daily_burn_count: Option<u16>,
                 user_burn_bp_x100: Option<u32>,
                 creator_burn_bp_x100: Option<u32>,
@@ -129,8 +141,8 @@ impl InitializeCentralStateBuilder {
     Self::default()
   }
             #[inline(always)]
-    pub fn admin(&mut self, admin: solana_pubkey::Pubkey) -> &mut Self {
-                        self.admin = Some(admin);
+    pub fn authority(&mut self, authority: solana_pubkey::Pubkey) -> &mut Self {
+                        self.authority = Some(authority);
                     self
     }
             #[inline(always)]
@@ -144,7 +156,17 @@ impl InitializeCentralStateBuilder {
                         self.system_program = Some(system_program);
                     self
     }
+            #[inline(always)]
+    pub fn program_data(&mut self, program_data: solana_pubkey::Pubkey) -> &mut Self {
+                        self.program_data = Some(program_data);
+                    self
+    }
                     #[inline(always)]
+      pub fn admin(&mut self, admin: Pubkey) -> &mut Self {
+        self.admin = Some(admin);
+        self
+      }
+                #[inline(always)]
       pub fn max_user_daily_burn_count(&mut self, max_user_daily_burn_count: u16) -> &mut Self {
         self.max_user_daily_burn_count = Some(max_user_daily_burn_count);
         self
@@ -199,12 +221,14 @@ impl InitializeCentralStateBuilder {
   #[allow(clippy::clone_on_copy)]
   pub fn instruction(&self) -> solana_instruction::Instruction {
     let accounts = InitializeCentralState {
-                              admin: self.admin.expect("admin is not set"),
+                              authority: self.authority.expect("authority is not set"),
                                         central_state: self.central_state.expect("central_state is not set"),
                                         system_program: self.system_program.unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
+                                        program_data: self.program_data.expect("program_data is not set"),
                       };
           let args = InitializeCentralStateInstructionArgs {
-                                                              max_user_daily_burn_count: self.max_user_daily_burn_count.clone().expect("max_user_daily_burn_count is not set"),
+                                                              admin: self.admin.clone().expect("admin is not set"),
+                                                                  max_user_daily_burn_count: self.max_user_daily_burn_count.clone().expect("max_user_daily_burn_count is not set"),
                                                                   max_creator_daily_burn_count: self.max_creator_daily_burn_count.clone().expect("max_creator_daily_burn_count is not set"),
                                                                   user_burn_bp_x100: self.user_burn_bp_x100.clone().expect("user_burn_bp_x100 is not set"),
                                                                   creator_burn_bp_x100: self.creator_burn_bp_x100.clone().expect("creator_burn_bp_x100 is not set"),
@@ -222,13 +246,16 @@ impl InitializeCentralStateBuilder {
   pub struct InitializeCentralStateCpiAccounts<'a, 'b> {
           
                     
-              pub admin: &'b solana_account_info::AccountInfo<'a>,
+              pub authority: &'b solana_account_info::AccountInfo<'a>,
                 
                     
               pub central_state: &'b solana_account_info::AccountInfo<'a>,
                 
                     
               pub system_program: &'b solana_account_info::AccountInfo<'a>,
+                
+                    
+              pub program_data: &'b solana_account_info::AccountInfo<'a>,
             }
 
 /// `initialize_central_state` CPI instruction.
@@ -237,13 +264,16 @@ pub struct InitializeCentralStateCpi<'a, 'b> {
   pub __program: &'b solana_account_info::AccountInfo<'a>,
       
               
-          pub admin: &'b solana_account_info::AccountInfo<'a>,
+          pub authority: &'b solana_account_info::AccountInfo<'a>,
           
               
           pub central_state: &'b solana_account_info::AccountInfo<'a>,
           
               
           pub system_program: &'b solana_account_info::AccountInfo<'a>,
+          
+              
+          pub program_data: &'b solana_account_info::AccountInfo<'a>,
             /// The arguments for the instruction.
     pub __args: InitializeCentralStateInstructionArgs,
   }
@@ -256,9 +286,10 @@ impl<'a, 'b> InitializeCentralStateCpi<'a, 'b> {
       ) -> Self {
     Self {
       __program: program,
-              admin: accounts.admin,
+              authority: accounts.authority,
               central_state: accounts.central_state,
               system_program: accounts.system_program,
+              program_data: accounts.program_data,
                     __args: args,
           }
   }
@@ -282,9 +313,9 @@ impl<'a, 'b> InitializeCentralStateCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(3+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
-            *self.admin.key,
+            *self.authority.key,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
@@ -293,6 +324,10 @@ impl<'a, 'b> InitializeCentralStateCpi<'a, 'b> {
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.system_program.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.program_data.key,
             false
           ));
                       remaining_accounts.iter().for_each(|remaining_account| {
@@ -311,11 +346,12 @@ impl<'a, 'b> InitializeCentralStateCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(4 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(5 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
-                  account_infos.push(self.admin.clone());
+                  account_infos.push(self.authority.clone());
                         account_infos.push(self.central_state.clone());
                         account_infos.push(self.system_program.clone());
+                        account_infos.push(self.program_data.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
     if signers_seeds.is_empty() {
@@ -330,9 +366,10 @@ impl<'a, 'b> InitializeCentralStateCpi<'a, 'b> {
 ///
 /// ### Accounts:
 ///
-                      ///   0. `[writable, signer]` admin
+                      ///   0. `[writable, signer]` authority
                 ///   1. `[writable]` central_state
           ///   2. `[]` system_program
+          ///   3. `[]` program_data
 #[derive(Clone, Debug)]
 pub struct InitializeCentralStateCpiBuilder<'a, 'b> {
   instruction: Box<InitializeCentralStateCpiBuilderInstruction<'a, 'b>>,
@@ -342,10 +379,12 @@ impl<'a, 'b> InitializeCentralStateCpiBuilder<'a, 'b> {
   pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
     let instruction = Box::new(InitializeCentralStateCpiBuilderInstruction {
       __program: program,
-              admin: None,
+              authority: None,
               central_state: None,
               system_program: None,
-                                            max_user_daily_burn_count: None,
+              program_data: None,
+                                            admin: None,
+                                max_user_daily_burn_count: None,
                                 max_creator_daily_burn_count: None,
                                 user_burn_bp_x100: None,
                                 creator_burn_bp_x100: None,
@@ -358,8 +397,8 @@ impl<'a, 'b> InitializeCentralStateCpiBuilder<'a, 'b> {
     Self { instruction }
   }
       #[inline(always)]
-    pub fn admin(&mut self, admin: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.admin = Some(admin);
+    pub fn authority(&mut self, authority: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.authority = Some(authority);
                     self
     }
       #[inline(always)]
@@ -372,7 +411,17 @@ impl<'a, 'b> InitializeCentralStateCpiBuilder<'a, 'b> {
                         self.instruction.system_program = Some(system_program);
                     self
     }
+      #[inline(always)]
+    pub fn program_data(&mut self, program_data: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.program_data = Some(program_data);
+                    self
+    }
                     #[inline(always)]
+      pub fn admin(&mut self, admin: Pubkey) -> &mut Self {
+        self.instruction.admin = Some(admin);
+        self
+      }
+                #[inline(always)]
       pub fn max_user_daily_burn_count(&mut self, max_user_daily_burn_count: u16) -> &mut Self {
         self.instruction.max_user_daily_burn_count = Some(max_user_daily_burn_count);
         self
@@ -435,7 +484,8 @@ impl<'a, 'b> InitializeCentralStateCpiBuilder<'a, 'b> {
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
           let args = InitializeCentralStateInstructionArgs {
-                                                              max_user_daily_burn_count: self.instruction.max_user_daily_burn_count.clone().expect("max_user_daily_burn_count is not set"),
+                                                              admin: self.instruction.admin.clone().expect("admin is not set"),
+                                                                  max_user_daily_burn_count: self.instruction.max_user_daily_burn_count.clone().expect("max_user_daily_burn_count is not set"),
                                                                   max_creator_daily_burn_count: self.instruction.max_creator_daily_burn_count.clone().expect("max_creator_daily_burn_count is not set"),
                                                                   user_burn_bp_x100: self.instruction.user_burn_bp_x100.clone().expect("user_burn_bp_x100 is not set"),
                                                                   creator_burn_bp_x100: self.instruction.creator_burn_bp_x100.clone().expect("creator_burn_bp_x100 is not set"),
@@ -447,11 +497,13 @@ impl<'a, 'b> InitializeCentralStateCpiBuilder<'a, 'b> {
         let instruction = InitializeCentralStateCpi {
         __program: self.instruction.__program,
                   
-          admin: self.instruction.admin.expect("admin is not set"),
+          authority: self.instruction.authority.expect("authority is not set"),
                   
           central_state: self.instruction.central_state.expect("central_state is not set"),
                   
           system_program: self.instruction.system_program.expect("system_program is not set"),
+                  
+          program_data: self.instruction.program_data.expect("program_data is not set"),
                           __args: args,
             };
     instruction.invoke_signed_with_remaining_accounts(signers_seeds, &self.instruction.__remaining_accounts)
@@ -461,10 +513,12 @@ impl<'a, 'b> InitializeCentralStateCpiBuilder<'a, 'b> {
 #[derive(Clone, Debug)]
 struct InitializeCentralStateCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
-            admin: Option<&'b solana_account_info::AccountInfo<'a>>,
+            authority: Option<&'b solana_account_info::AccountInfo<'a>>,
                 central_state: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        max_user_daily_burn_count: Option<u16>,
+                program_data: Option<&'b solana_account_info::AccountInfo<'a>>,
+                        admin: Option<Pubkey>,
+                max_user_daily_burn_count: Option<u16>,
                 max_creator_daily_burn_count: Option<u16>,
                 user_burn_bp_x100: Option<u32>,
                 creator_burn_bp_x100: Option<u32>,

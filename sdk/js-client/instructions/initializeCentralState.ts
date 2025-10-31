@@ -10,6 +10,8 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
+  getAddressDecoder,
+  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
   getProgramDerivedAddress,
@@ -50,32 +52,37 @@ export function getInitializeCentralStateDiscriminatorBytes() {
 
 export type InitializeCentralStateInstruction<
   TProgram extends string = typeof CBMM_PROGRAM_ADDRESS,
-  TAccountAdmin extends string | AccountMeta<string> = string,
+  TAccountAuthority extends string | AccountMeta<string> = string,
   TAccountCentralState extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends
     | string
     | AccountMeta<string> = '11111111111111111111111111111111',
+  TAccountProgramData extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountAdmin extends string
-        ? WritableSignerAccount<TAccountAdmin> &
-            AccountSignerMeta<TAccountAdmin>
-        : TAccountAdmin,
+      TAccountAuthority extends string
+        ? WritableSignerAccount<TAccountAuthority> &
+            AccountSignerMeta<TAccountAuthority>
+        : TAccountAuthority,
       TAccountCentralState extends string
         ? WritableAccount<TAccountCentralState>
         : TAccountCentralState,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
+      TAccountProgramData extends string
+        ? ReadonlyAccount<TAccountProgramData>
+        : TAccountProgramData,
       ...TRemainingAccounts,
     ]
   >;
 
 export type InitializeCentralStateInstructionData = {
   discriminator: ReadonlyUint8Array;
+  admin: Address;
   maxUserDailyBurnCount: number;
   maxCreatorDailyBurnCount: number;
   userBurnBpX100: number;
@@ -87,6 +94,7 @@ export type InitializeCentralStateInstructionData = {
 };
 
 export type InitializeCentralStateInstructionDataArgs = {
+  admin: Address;
   maxUserDailyBurnCount: number;
   maxCreatorDailyBurnCount: number;
   userBurnBpX100: number;
@@ -101,6 +109,7 @@ export function getInitializeCentralStateInstructionDataEncoder(): FixedSizeEnco
   return transformEncoder(
     getStructEncoder([
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
+      ['admin', getAddressEncoder()],
       ['maxUserDailyBurnCount', getU16Encoder()],
       ['maxCreatorDailyBurnCount', getU16Encoder()],
       ['userBurnBpX100', getU32Encoder()],
@@ -120,6 +129,7 @@ export function getInitializeCentralStateInstructionDataEncoder(): FixedSizeEnco
 export function getInitializeCentralStateInstructionDataDecoder(): FixedSizeDecoder<InitializeCentralStateInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
+    ['admin', getAddressDecoder()],
     ['maxUserDailyBurnCount', getU16Decoder()],
     ['maxCreatorDailyBurnCount', getU16Decoder()],
     ['userBurnBpX100', getU32Decoder()],
@@ -142,13 +152,16 @@ export function getInitializeCentralStateInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type InitializeCentralStateAsyncInput<
-  TAccountAdmin extends string = string,
+  TAccountAuthority extends string = string,
   TAccountCentralState extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountProgramData extends string = string,
 > = {
-  admin: TransactionSigner<TAccountAdmin>;
+  authority: TransactionSigner<TAccountAuthority>;
   centralState?: Address<TAccountCentralState>;
   systemProgram?: Address<TAccountSystemProgram>;
+  programData: Address<TAccountProgramData>;
+  admin: InitializeCentralStateInstructionDataArgs['admin'];
   maxUserDailyBurnCount: InitializeCentralStateInstructionDataArgs['maxUserDailyBurnCount'];
   maxCreatorDailyBurnCount: InitializeCentralStateInstructionDataArgs['maxCreatorDailyBurnCount'];
   userBurnBpX100: InitializeCentralStateInstructionDataArgs['userBurnBpX100'];
@@ -160,23 +173,26 @@ export type InitializeCentralStateAsyncInput<
 };
 
 export async function getInitializeCentralStateInstructionAsync<
-  TAccountAdmin extends string,
+  TAccountAuthority extends string,
   TAccountCentralState extends string,
   TAccountSystemProgram extends string,
+  TAccountProgramData extends string,
   TProgramAddress extends Address = typeof CBMM_PROGRAM_ADDRESS,
 >(
   input: InitializeCentralStateAsyncInput<
-    TAccountAdmin,
+    TAccountAuthority,
     TAccountCentralState,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountProgramData
   >,
   config?: { programAddress?: TProgramAddress }
 ): Promise<
   InitializeCentralStateInstruction<
     TProgramAddress,
-    TAccountAdmin,
+    TAccountAuthority,
     TAccountCentralState,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountProgramData
   >
 > {
   // Program address.
@@ -184,9 +200,10 @@ export async function getInitializeCentralStateInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    admin: { value: input.admin ?? null, isWritable: true },
+    authority: { value: input.authority ?? null, isWritable: true },
     centralState: { value: input.centralState ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    programData: { value: input.programData ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -217,9 +234,10 @@ export async function getInitializeCentralStateInstructionAsync<
   const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.admin),
+      getAccountMeta(accounts.authority),
       getAccountMeta(accounts.centralState),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.programData),
     ],
     data: getInitializeCentralStateInstructionDataEncoder().encode(
       args as InitializeCentralStateInstructionDataArgs
@@ -227,20 +245,24 @@ export async function getInitializeCentralStateInstructionAsync<
     programAddress,
   } as InitializeCentralStateInstruction<
     TProgramAddress,
-    TAccountAdmin,
+    TAccountAuthority,
     TAccountCentralState,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountProgramData
   >);
 }
 
 export type InitializeCentralStateInput<
-  TAccountAdmin extends string = string,
+  TAccountAuthority extends string = string,
   TAccountCentralState extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountProgramData extends string = string,
 > = {
-  admin: TransactionSigner<TAccountAdmin>;
+  authority: TransactionSigner<TAccountAuthority>;
   centralState: Address<TAccountCentralState>;
   systemProgram?: Address<TAccountSystemProgram>;
+  programData: Address<TAccountProgramData>;
+  admin: InitializeCentralStateInstructionDataArgs['admin'];
   maxUserDailyBurnCount: InitializeCentralStateInstructionDataArgs['maxUserDailyBurnCount'];
   maxCreatorDailyBurnCount: InitializeCentralStateInstructionDataArgs['maxCreatorDailyBurnCount'];
   userBurnBpX100: InitializeCentralStateInstructionDataArgs['userBurnBpX100'];
@@ -252,31 +274,35 @@ export type InitializeCentralStateInput<
 };
 
 export function getInitializeCentralStateInstruction<
-  TAccountAdmin extends string,
+  TAccountAuthority extends string,
   TAccountCentralState extends string,
   TAccountSystemProgram extends string,
+  TAccountProgramData extends string,
   TProgramAddress extends Address = typeof CBMM_PROGRAM_ADDRESS,
 >(
   input: InitializeCentralStateInput<
-    TAccountAdmin,
+    TAccountAuthority,
     TAccountCentralState,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountProgramData
   >,
   config?: { programAddress?: TProgramAddress }
 ): InitializeCentralStateInstruction<
   TProgramAddress,
-  TAccountAdmin,
+  TAccountAuthority,
   TAccountCentralState,
-  TAccountSystemProgram
+  TAccountSystemProgram,
+  TAccountProgramData
 > {
   // Program address.
   const programAddress = config?.programAddress ?? CBMM_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
-    admin: { value: input.admin ?? null, isWritable: true },
+    authority: { value: input.authority ?? null, isWritable: true },
     centralState: { value: input.centralState ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    programData: { value: input.programData ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -295,9 +321,10 @@ export function getInitializeCentralStateInstruction<
   const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.admin),
+      getAccountMeta(accounts.authority),
       getAccountMeta(accounts.centralState),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.programData),
     ],
     data: getInitializeCentralStateInstructionDataEncoder().encode(
       args as InitializeCentralStateInstructionDataArgs
@@ -305,9 +332,10 @@ export function getInitializeCentralStateInstruction<
     programAddress,
   } as InitializeCentralStateInstruction<
     TProgramAddress,
-    TAccountAdmin,
+    TAccountAuthority,
     TAccountCentralState,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountProgramData
   >);
 }
 
@@ -317,9 +345,10 @@ export type ParsedInitializeCentralStateInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    admin: TAccountMetas[0];
+    authority: TAccountMetas[0];
     centralState: TAccountMetas[1];
     systemProgram: TAccountMetas[2];
+    programData: TAccountMetas[3];
   };
   data: InitializeCentralStateInstructionData;
 };
@@ -332,7 +361,7 @@ export function parseInitializeCentralStateInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>
 ): ParsedInitializeCentralStateInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 3) {
+  if (instruction.accounts.length < 4) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
   }
@@ -345,9 +374,10 @@ export function parseInitializeCentralStateInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      admin: getNextAccount(),
+      authority: getNextAccount(),
       centralState: getNextAccount(),
       systemProgram: getNextAccount(),
+      programData: getNextAccount(),
     },
     data: getInitializeCentralStateInstructionDataDecoder().decode(
       instruction.data

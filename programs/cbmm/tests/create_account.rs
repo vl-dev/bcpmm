@@ -2,6 +2,8 @@ use litesvm::LiteSVM;
 use solana_address::Address;
 use solana_sdk::signature::{Keypair, Signer};
 
+// todo this is just a mock - doesn't test any program functionality
+// delete or enhance
 #[test]
 fn create_account() {
     let mut svm = LiteSVM::new();
