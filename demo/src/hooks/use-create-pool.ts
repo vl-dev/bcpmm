@@ -1,5 +1,5 @@
-import { CBMM_PROGRAM_ADDRESS, getCreatePoolInstructionAsync, fetchCentralState } from "@cbmm/js-client";
-import { Address, createSignerFromKeyPair, getBytesEncoder, getProgramDerivedAddress, KeyPairSigner, appendTransactionMessageInstruction, setTransactionMessageLifetimeUsingBlockhash, setTransactionMessageFeePayerSigner, signTransactionMessageWithSigners, assertIsSendableTransaction, getBase64EncodedWireTransaction, pipe, getBase64Encoder, getAddressEncoder } from "@solana/kit";
+import { CBMM_PROGRAM_ADDRESS, getCreatePoolInstructionAsync } from "@cbmm/js-client";
+import { Address, createSignerFromKeyPair, getBytesEncoder, getProgramDerivedAddress, KeyPairSigner, appendTransactionMessageInstruction, setTransactionMessageLifetimeUsingBlockhash, setTransactionMessageFeePayerSigner, signTransactionMessageWithSigners, assertIsSendableTransaction, getBase64EncodedWireTransaction, pipe, getAddressEncoder } from "@solana/kit";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getTxClient } from "../solana/tx-client";
 import { SYSTEM_PROGRAM_ADDRESS } from "@solana-program/system";
@@ -50,7 +50,7 @@ export function useCreatePool() {
         centralState: centralStateAddress,
         tokenProgram: TOKEN_PROGRAM_ADDRESS,
         systemProgram: SYSTEM_PROGRAM_ADDRESS,
-        aVirtualReserve: aVirtualReserve,
+        aVirtualReserve: BigInt(aVirtualReserve) * 10n ** 6n,
       });
 
       const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();

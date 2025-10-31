@@ -1,30 +1,16 @@
 import {
   getProgramDerivedAddress,
   getBytesEncoder,
-  createTransactionMessage,
-  appendTransactionMessageInstruction,
-  setTransactionMessageLifetimeUsingBlockhash,
-  createSignerFromKeyPair,
   type Address,
-  type KeyPairSigner,
-  pipe,
-  setTransactionMessageFeePayerSigner,
-  signTransactionMessageWithSigners,
-  assertIsSendableTransaction,
-  getBase64EncodedWireTransaction,
 } from '@solana/kit';
 import {
-  getInitializeCentralStateInstructionAsync,
   fetchMaybeCentralState,
 } from '@cbmm/js-client';
 import { CBMM_PROGRAM_ADDRESS } from '@cbmm/js-client';
 import { getTxClient } from './solana/tx-client';
 
-export async function ensureCentralState(
-  adminKeypair: KeyPairSigner
-): Promise<Address> {
-  const { rpc, sendAndConfirmTransaction } = await getTxClient();
-  const adminSigner = await createSignerFromKeyPair(adminKeypair.keyPair);
+export async function ensureCentralState(): Promise<Address> {
+  const { rpc } = await getTxClient();
 
   // Derive central state PDA
   const [centralStateAddress] = await getProgramDerivedAddress({
@@ -42,52 +28,8 @@ export async function ensureCentralState(
   const maybeCentralState = await fetchMaybeCentralState(rpc, centralStateAddress);
 
   if (!maybeCentralState.exists) {
-    console.log('Central state does not exist, creating...');
-
-    // Get the instruction
-    const instruction = await getInitializeCentralStateInstructionAsync({
-      admin: adminSigner,
-      centralState: centralStateAddress,
-      userBurnBpX100: 100_000,
-      creatorBurnBpX100: 100_000,
-      burnResetTimeOfDaySeconds: 0, // Midnight
-      maxUserDailyBurnCount: 65535, // Max uint16
-      maxCreatorDailyBurnCount: 65535, // Max uint16
-      creatorFeeBasisPoints: 1000,
-      buybackFeeBasisPoints: 1000,
-      platformFeeBasisPoints: 1000,
-    });
-
-    // Build and send transaction
-    const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
-
-    const transactionMessage = pipe(
-      createTransactionMessage({ version: 0 }),
-      (tx) => setTransactionMessageFeePayerSigner(adminSigner, tx),
-      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
-      (tx) => appendTransactionMessageInstruction(instruction, tx),
-    )
-
-    const singedTx = await signTransactionMessageWithSigners(transactionMessage);
-    assertIsSendableTransaction(singedTx);
-    console.log('Sending transaction');
-    try {
-      const txBase64 = getBase64EncodedWireTransaction(singedTx);
-      let simulateResult = await rpc
-        .simulateTransaction(txBase64, { encoding: 'base64', sigVerify: true, commitment: 'confirmed' })
-        .send();
-
-      console.log('Txbase64', txBase64);
-      console.log(simulateResult);
-
-      await sendAndConfirmTransaction(singedTx as any, { commitment: 'confirmed' });
-      const signature = singedTx.signatures[adminSigner.address];
-      console.log('Central state created', signature?.toString());
-    } catch (error) {
-      console.error('Error sending transaction', error);
-    }
-  } else {
-    console.log('Central state already exists');
+    alert('Central state does not cexist. Create it first before running the demo!');
+    throw new Error('Central state does not exist');
   }
 
   return centralStateAddress;

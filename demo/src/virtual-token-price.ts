@@ -34,7 +34,7 @@ export function calculateVirtualTokenPrice(
   const oneBToken = BigInt(10 ** bTokenDecimals);
   
   // Handle edge cases
-  if (pool.bReserve === 0n || pool.aReserve + pool.aVirtualReserve === 0n || pool.bReserve <= oneBToken) {
+  if (pool.bReserve === 0n || pool.aReserve + pool.aVirtualReserve === 0n) {
     return 0;
   }
   
@@ -48,7 +48,27 @@ export function calculateVirtualTokenPrice(
     return 0;
   }
   
-  const swapAmount = numerator / denominator;
+  let swapAmount: bigint;
+  
+  // Check if numerator is too small (would round to 0 with integer division)
+  if (numerator < denominator) {
+    // When numerator < denominator, integer division would give 0
+    // Use floating point calculation to preserve precision for very small prices
+    const swapAmountFloat = Number(numerator) / Number(denominator);
+    if (swapAmountFloat === 0) {
+      return 0;
+    }
+    // Calculate price using floating point math to avoid precision loss
+    const totalFeeRate = (pool.creatorFeeBasisPoints + pool.buybackFeeBasisPoints) / 10000;
+    const aAmountFloat = swapAmountFloat / (1 - totalFeeRate);
+    return aAmountFloat / 1_000_000;
+  }
+  
+  swapAmount = numerator / denominator;
+  
+  if (swapAmount === 0n) {
+    return 0;
+  }
   
   // Step 2: Calculate a_amount needed (accounting for fees)
   // swap_amount = a_amount - creator_fees - buyback_fees
