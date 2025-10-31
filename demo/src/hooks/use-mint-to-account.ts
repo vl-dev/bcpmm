@@ -21,6 +21,7 @@ import {
   TOKEN_PROGRAM_ADDRESS,
 } from '@solana-program/token';
 import { Buffer } from 'buffer';
+import { QUOTE_MINT_ADDRESS } from '../constants';
 
 const DECIMALS = 6; // Same as mint
 
@@ -40,14 +41,9 @@ export function useMintToAccount() {
       const { rpc, sendAndConfirmTransaction } = await getTxClient();
       const adminSigner = await createSignerFromKeyPair(adminKeypair.keyPair);
       
-      // Get mint address from localStorage
-      const mintAddress = localStorage.getItem('mint_address');
-      if (!mintAddress) throw new Error('Mint address not found');
-      const mint = address(mintAddress);
-
       // Find associated token address
       const [associatedTokenAddress] = await findAssociatedTokenPda({
-        mint,
+        mint: address(QUOTE_MINT_ADDRESS),
         owner: user,
         tokenProgram: TOKEN_PROGRAM_ADDRESS,
       });
@@ -62,7 +58,7 @@ export function useMintToAccount() {
       // Add create ATA instruction if it doesn't exist
       if (!accountExists) {
         const createAtaInstruction = await getCreateAssociatedTokenIdempotentInstructionAsync({
-          mint,
+          mint: address(QUOTE_MINT_ADDRESS),
           payer: adminSigner,
           owner: user,
         });
@@ -72,7 +68,7 @@ export function useMintToAccount() {
       // Add mint instruction
       const mintAmount = BigInt(amount * 10 ** DECIMALS);
       const mintInstruction = getMintToInstruction({
-        mint,
+        mint: address(QUOTE_MINT_ADDRESS),
         token: associatedTokenAddress,
         amount: mintAmount,
         mintAuthority: adminSigner,

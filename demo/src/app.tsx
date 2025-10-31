@@ -5,7 +5,6 @@ import {
 import { useAdminKeypair } from './hooks/use-admin-keypair';
 import { ensureCentralState } from './ensure-central-state';
 import { getAdminKeypair } from './admin-keypair';
-import { ensureMint } from './ensure-mint';
 import { ensureCentralStateAta } from './ensure-central-state-ata';
 import AccountDetails from './components/account-details';
 import PoolList from './components/pool-list';
@@ -69,7 +68,6 @@ function App() {
       
       const adminKp = await getAdminKeypair()
       await ensureCentralState();
-      await ensureMint(adminKp);
       await ensureCentralStateAta(adminKp);
 
       setInitializingAccounts(false);

@@ -4,9 +4,10 @@ import { getTxClient } from '../solana/tx-client';
 import { CBMM_PROGRAM_ADDRESS, type BcpmmPool, getBcpmmPoolDecoder } from '@cbmm/js-client';
 import { getProgramDerivedAddress } from '@solana/kit';
 import { Buffer } from 'buffer';
+import { QUOTE_MINT_ADDRESS } from '../constants';
 
 export function useUserPool(user: Address | null) {
-  const mintAddress = localStorage.getItem('mint_address');
+  const mintAddress = QUOTE_MINT_ADDRESS;
 
   return useQuery({
     queryKey: ['userPool', user?.toString(), mintAddress],

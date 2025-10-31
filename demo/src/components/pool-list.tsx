@@ -4,6 +4,8 @@ import PoolDetails from './pool-details';
 export default function PoolList() {
   const { data: allPools, isLoading: isLoadingAllPools } = useAllPools();
 
+  console.log('allPools', allPools);
+
   return (
     <div style={{
       backgroundColor: '#fff',

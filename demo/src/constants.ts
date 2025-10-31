@@ -1,0 +1,3 @@
+export const QUOTE_MINT_ADDRESS="9Z7NBpXqcoLPC25p16b3cLgqGHeK46jN4c4amxHYWQfk"
+
+export const QUOTE_MINT_DECIMALS = 6; // Adjust decimals as needed

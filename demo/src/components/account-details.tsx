@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useUserBurnAllowance } from "../hooks/use-user-burn-allowance";
 import { useCreatePool } from "../hooks/use-create-pool";
 import { useDeleteWallet } from "../wallet-provider";
+import { QUOTE_MINT_ADDRESS } from "../constants";
 
 export default function AccountDetails({ selectedWallet }: { selectedWallet: KeyPairSigner }) {
   const walletAddress = selectedWallet?.address;
@@ -230,12 +231,11 @@ export default function AccountDetails({ selectedWallet }: { selectedWallet: Key
             <button
               onClick={async () => {
                 try {
-                  const mintAddress = localStorage.getItem('mint_address');
-                  if (!mintAddress) throw new Error('mint_address missing');
+
                   if (!selectedWallet) throw new Error('selected wallet not ready');
                   await createPool({
                     user: selectedWallet,
-                    mint: address(mintAddress),
+                    mint: address(QUOTE_MINT_ADDRESS),
                     aVirtualReserve: parseInt(virtualReserve)
                   });
                 } catch (e) {
