@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { type Address, address } from '@solana/kit';
 import { getTxClient } from '../solana/tx-client';
 import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
+import { QUOTE_MINT_ADDRESS } from '../constants';
 
 export function useTokenBalance(user: Address | null) {
-  const mintAddress = localStorage.getItem('mint_address');
 
+  const mintAddress = QUOTE_MINT_ADDRESS;
   return useQuery({
     queryKey: ['tokenBalance', user?.toString(), mintAddress],
     queryFn: async () => {

@@ -4,6 +4,7 @@ import { getTxClient } from '../solana/tx-client';
 import { CBMM_PROGRAM_ADDRESS } from '@cbmm/js-client';
 import { getBcpmmPoolDecoder, BCPMM_POOL_DISCRIMINATOR, type BcpmmPool } from '@cbmm/js-client';
 import { Buffer } from 'buffer';
+import { QUOTE_MINT_ADDRESS } from '../constants';
 
 export function useAllPools() {
   return useQuery({
@@ -30,10 +31,11 @@ export function useAllPools() {
       ).send();
 
       const decoder = getBcpmmPoolDecoder();
-      return accounts.map((acc) => ({
+      const pools = accounts.map((acc) => ({
         poolAddress: acc.pubkey,
         pool: decoder.decode(Buffer.from(acc.account.data[0], 'base64')),
       }));
+      return pools.filter((pool) => pool.pool.aMint === QUOTE_MINT_ADDRESS);
     } catch (error) {
       console.error('Error fetching all pools:', error);
       return [];

@@ -21,6 +21,7 @@ import {
   findAssociatedTokenPda,
   TOKEN_PROGRAM_ADDRESS,
 } from '@solana-program/token';
+import { QUOTE_MINT_ADDRESS } from './constants';
 
 export async function ensureCentralStateAta(
   adminKeypair: KeyPairSigner
@@ -29,14 +30,12 @@ export async function ensureCentralStateAta(
   const adminSigner = await createSignerFromKeyPair(adminKeypair.keyPair);
 
   // Get mint address from localStorage
-  const mintAddress = localStorage.getItem('mint_address');
-  if (!mintAddress) throw new Error('Mint address not found');
-  const mint = address(mintAddress);
+  const mint = address(QUOTE_MINT_ADDRESS);
 
   // Verify the mint actually exists on-chain
   const mintAccount = await rpc.getAccountInfo(mint, { commitment: 'confirmed' }).send();
   if (!mintAccount.value) {
-    throw new Error(`Mint account ${mintAddress} does not exist on-chain`);
+    throw new Error(`Mint account ${QUOTE_MINT_ADDRESS} does not exist on-chain`);
   }
 
   // Derive central state PDA
