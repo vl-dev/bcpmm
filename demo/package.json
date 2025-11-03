@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "type-check": "tsc --noEmit",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --import tsx --test src/utils/parse-logs.test.ts"
   },
   "dependencies": {
     "@noble/ed25519": "^3.0.0",
@@ -25,6 +26,7 @@
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
+    "tsx": "^4.7.0",
     "typescript": "^5.7.3"
   }
 }
