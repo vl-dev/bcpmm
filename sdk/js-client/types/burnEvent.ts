@@ -8,10 +8,13 @@
 
 import {
   combineCodec,
+  getAddressDecoder,
+  getAddressEncoder,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
+  type Address,
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
@@ -25,6 +28,8 @@ export type BurnEvent = {
   newOutstandingTopup: bigint;
   newVirtualReserve: bigint;
   newBuybackFeesBalance: bigint;
+  burner: Address;
+  pool: Address;
 };
 
 export type BurnEventArgs = {
@@ -35,6 +40,8 @@ export type BurnEventArgs = {
   newOutstandingTopup: number | bigint;
   newVirtualReserve: number | bigint;
   newBuybackFeesBalance: number | bigint;
+  burner: Address;
+  pool: Address;
 };
 
 export function getBurnEventEncoder(): FixedSizeEncoder<BurnEventArgs> {
@@ -46,6 +53,8 @@ export function getBurnEventEncoder(): FixedSizeEncoder<BurnEventArgs> {
     ['newOutstandingTopup', getU64Encoder()],
     ['newVirtualReserve', getU64Encoder()],
     ['newBuybackFeesBalance', getU64Encoder()],
+    ['burner', getAddressEncoder()],
+    ['pool', getAddressEncoder()],
   ]);
 }
 
@@ -58,6 +67,8 @@ export function getBurnEventDecoder(): FixedSizeDecoder<BurnEvent> {
     ['newOutstandingTopup', getU64Decoder()],
     ['newVirtualReserve', getU64Decoder()],
     ['newBuybackFeesBalance', getU64Decoder()],
+    ['burner', getAddressDecoder()],
+    ['pool', getAddressDecoder()],
   ]);
 }
 

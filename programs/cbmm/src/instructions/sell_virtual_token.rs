@@ -21,6 +21,9 @@ pub struct SellEvent {
     pub new_outstanding_topup: u64,
     pub new_creator_fees_balance: u64,
     pub new_buyback_fees_balance: u64,
+
+    pub seller: Pubkey,
+    pub pool: Pubkey,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -119,6 +122,8 @@ pub fn sell_virtual_token(
         new_outstanding_topup: pool.a_outstanding_topup,
         new_creator_fees_balance: pool.creator_fees_balance,
         new_buyback_fees_balance: pool.buyback_fees_balance,
+        seller: ctx.accounts.payer.key(),
+        pool: ctx.accounts.pool.key(),
     }); 
     Ok(())
 }

@@ -8,10 +8,13 @@
 
 import {
   combineCodec,
+  getAddressDecoder,
+  getAddressEncoder,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
+  type Address,
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
@@ -29,6 +32,8 @@ export type BuyEvent = {
   newOutstandingTopup: bigint;
   newCreatorFeesBalance: bigint;
   newBuybackFeesBalance: bigint;
+  buyer: Address;
+  pool: Address;
 };
 
 export type BuyEventArgs = {
@@ -43,6 +48,8 @@ export type BuyEventArgs = {
   newOutstandingTopup: number | bigint;
   newCreatorFeesBalance: number | bigint;
   newBuybackFeesBalance: number | bigint;
+  buyer: Address;
+  pool: Address;
 };
 
 export function getBuyEventEncoder(): FixedSizeEncoder<BuyEventArgs> {
@@ -58,6 +65,8 @@ export function getBuyEventEncoder(): FixedSizeEncoder<BuyEventArgs> {
     ['newOutstandingTopup', getU64Encoder()],
     ['newCreatorFeesBalance', getU64Encoder()],
     ['newBuybackFeesBalance', getU64Encoder()],
+    ['buyer', getAddressEncoder()],
+    ['pool', getAddressEncoder()],
   ]);
 }
 
@@ -74,6 +83,8 @@ export function getBuyEventDecoder(): FixedSizeDecoder<BuyEvent> {
     ['newOutstandingTopup', getU64Decoder()],
     ['newCreatorFeesBalance', getU64Decoder()],
     ['newBuybackFeesBalance', getU64Decoder()],
+    ['buyer', getAddressDecoder()],
+    ['pool', getAddressDecoder()],
   ]);
 }
 

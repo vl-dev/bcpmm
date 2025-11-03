@@ -5,6 +5,7 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
+use solana_pubkey::Pubkey;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
@@ -18,6 +19,10 @@ pub new_a_reserve: u64,
 pub new_outstanding_topup: u64,
 pub new_virtual_reserve: u64,
 pub new_buyback_fees_balance: u64,
+#[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
+pub burner: Pubkey,
+#[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
+pub pool: Pubkey,
 }
 
 

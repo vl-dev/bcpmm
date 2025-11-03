@@ -15,8 +15,10 @@ pub struct BurnEvent {
 
     pub new_virtual_reserve: u64,
     pub new_buyback_fees_balance: u64,
-}
 
+    pub burner: Pubkey,
+    pub pool: Pubkey,
+}
 
 
 #[derive(Accounts)]
@@ -107,6 +109,8 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> R
         new_outstanding_topup: ctx.accounts.pool.a_outstanding_topup,
         new_virtual_reserve: new_virtual_reserve,
         new_buyback_fees_balance: ctx.accounts.pool.buyback_fees_balance,
+        burner: ctx.accounts.signer.key(),
+        pool: ctx.accounts.pool.key(),
     });
     Ok(())
 }

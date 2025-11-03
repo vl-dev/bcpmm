@@ -96,6 +96,7 @@ export function useBuyVirtualToken() {
 				console.error('buyVirtualToken tx error', error);
 				throw error;
 			}
+
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['allPools'] });
