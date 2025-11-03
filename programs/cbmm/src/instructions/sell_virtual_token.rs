@@ -5,6 +5,24 @@ use anchor_spl::token_interface::{
     Mint, TokenAccount, TokenInterface,
 };
 
+#[event]
+pub struct SellEvent {
+    pub b_input: u64,
+    pub a_output: u64,
+
+    pub creator_fees: u64,
+    pub buyback_fees: u64,
+    pub platform_fees: u64,
+
+    pub topup_paid: u64,
+
+    pub new_b_reserve: u64,
+    pub new_a_reserve: u64,
+    pub new_outstanding_topup: u64,
+    pub new_creator_fees_balance: u64,
+    pub new_buyback_fees_balance: u64,
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct SellVirtualTokenArgs {
     pub b_amount: u64,
@@ -89,6 +107,19 @@ pub fn sell_virtual_token(
         &ctx.accounts.central_state_ata,
         &ctx.accounts.token_program,
     )?;
+    emit!(SellEvent {
+        b_input: args.b_amount,
+        a_output: output_amount,
+        creator_fees: fees.creator_fees_amount,
+        buyback_fees: fees.buyback_fees_amount,
+        platform_fees: fees.platform_fees_amount,
+        topup_paid: real_topup_amount,
+        new_b_reserve: pool.b_reserve,
+        new_a_reserve: pool.a_reserve,
+        new_outstanding_topup: pool.a_outstanding_topup,
+        new_creator_fees_balance: pool.creator_fees_balance,
+        new_buyback_fees_balance: pool.buyback_fees_balance,
+    }); 
     Ok(())
 }
 

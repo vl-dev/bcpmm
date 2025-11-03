@@ -3,6 +3,22 @@ use crate::helpers::{calculate_burn_amount, calculate_new_virtual_reserve};
 use crate::state::*;
 use anchor_lang::prelude::*;
 
+#[event]
+pub struct BurnEvent {
+    pub burn_amount: u64,
+
+    pub topup_accrued: u64,
+
+    pub new_b_reserve: u64,
+    pub new_a_reserve: u64,
+    pub new_outstanding_topup: u64,
+
+    pub new_virtual_reserve: u64,
+    pub new_buyback_fees_balance: u64,
+}
+
+
+
 #[derive(Accounts)]
 #[instruction(pool_owner: bool)]
 pub struct BurnVirtualToken<'info> {
@@ -83,6 +99,15 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> R
     ctx.accounts.pool.buyback_fees_balance -= real_topup_amount;
     ctx.accounts.pool.a_virtual_reserve = new_virtual_reserve;
     ctx.accounts.pool.b_reserve -= burn_amount;
+    emit!(BurnEvent {
+        burn_amount: burn_amount,
+        topup_accrued: needed_topup_amount - real_topup_amount,
+        new_b_reserve: ctx.accounts.pool.b_reserve,
+        new_a_reserve: ctx.accounts.pool.a_reserve,
+        new_outstanding_topup: ctx.accounts.pool.a_outstanding_topup,
+        new_virtual_reserve: new_virtual_reserve,
+        new_buyback_fees_balance: ctx.accounts.pool.buyback_fees_balance,
+    });
     Ok(())
 }
 

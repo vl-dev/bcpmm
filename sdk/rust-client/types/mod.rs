@@ -5,11 +5,11 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-      pub mod accounts;
-        pub mod errors;
-        pub mod instructions;
-        pub mod programs;
-        pub mod shared;
-        pub mod types;
-  
-  pub(crate) use programs::*;
+  pub(crate) mod r#burn_event;
+  pub(crate) mod r#buy_event;
+  pub(crate) mod r#sell_event;
+
+  pub use self::r#burn_event::*;
+  pub use self::r#buy_event::*;
+  pub use self::r#sell_event::*;
+
