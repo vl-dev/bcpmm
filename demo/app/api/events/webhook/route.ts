@@ -54,7 +54,6 @@ export async function POST(request: NextRequest) {
     const results: Array<{ success: boolean; eventType?: string; error?: string }> = [];
 
     for (const tx of payload) {
-      console.log('[WEBHOOK] tx', tx);
 
       // Check if this transaction involves our program by checking account keys
       const involvesCBMM = tx.transaction?.message?.accountKeys?.some(
