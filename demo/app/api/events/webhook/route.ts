@@ -7,6 +7,7 @@ import { recordSellEvent } from '../../../../src/redis/record-sell-event';
 import { recordBurnEvent } from '../../../../src/redis/record-burn-event';
 
 const CBMM_PROGRAM_ID = 'CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj';
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 type HeliusWebhookPayload = Array<{
   accountData: Array<{
@@ -32,7 +33,12 @@ export async function POST(request: NextRequest) {
 
     const headers = request.headers;
     const authHeader = headers.get('Authorization');
-    console.log('authHeader', authHeader);
+    if(!WEBHOOK_SECRET) {
+      return NextResponse.json({ error: 'WEBHOOK_SECRET is not set' }, { status: 400 });
+    }
+    if (authHeader?.trim() !== WEBHOOK_SECRET) {
+      return NextResponse.json({ error: 'Invalid authorization header' }, { status: 401 });
+    }
 
     const results: Array<{ success: boolean; eventType?: string; error?: string }> = [];
 
@@ -52,25 +58,6 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const poolAddress = tx.accountData?.find(
-        (acc) => 
-          acc.account !== CBMM_PROGRAM_ID && 
-          acc.account !== '11111111111111111111111111111111' &&
-          acc.account !== 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' &&
-          acc.account !== 'SysvarRent111111111111111111111111111111111' &&
-          acc.account !== 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
-      )?.account;
-
-      // User is typically the fee payer
-      const userAddress = tx.feePayer || tx.accountData?.find(
-        (acc) => acc.nativeBalanceChange < 0 || acc.tokenBalanceChanges.length > 0
-      )?.account;
-
-      if (!poolAddress || !userAddress) {
-        results.push({ success: false, error: 'Could not extract pool or user address' });
-        continue;
-      }
-
       // Parse events directly from tx.events
       if (!tx.events) {
         continue;
@@ -85,6 +72,7 @@ export async function POST(request: NextRequest) {
         // Find BuyEvent by aInput field
         const buyEvent = eventsArray.find((event) => event.aInput !== undefined) as BuyEvent | undefined;
         if (buyEvent) {
+          console.log('[WEBHOOK] buyEvent', buyEvent);
           await recordBuyEvent(buyEvent, timestamp);
           results.push({ success: true, eventType: 'buy' });
         }
@@ -92,6 +80,7 @@ export async function POST(request: NextRequest) {
         // Find SellEvent by bInput field
         const sellEvent = eventsArray.find((event) => event.bInput !== undefined) as SellEvent | undefined;
         if (sellEvent) {
+          console.log('[WEBHOOK] sellEvent', sellEvent);
           await recordSellEvent(sellEvent, timestamp);
           results.push({ success: true, eventType: 'sell' });
         }
@@ -99,6 +88,7 @@ export async function POST(request: NextRequest) {
         // Find BurnEvent by burnAmount field
         const burnEvent = eventsArray.find((event) => event.burnAmount !== undefined) as BurnEvent | undefined;
         if (burnEvent) {
+          console.log('[WEBHOOK] burnEvent', burnEvent);
           await recordBurnEvent(burnEvent, timestamp);
           results.push({ success: true, eventType: 'burn' });
         }
