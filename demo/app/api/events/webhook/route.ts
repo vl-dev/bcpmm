@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { BuyEvent } from '@cbmm/js-client';
 import type { SellEvent } from '@cbmm/js-client';
 import type { BurnEvent } from '@cbmm/js-client';
+import { parseLogs } from '../../../../src/utils/parse-logs';
 import { recordBuyEvent } from '../../../../src/redis/record-buy-event';
 import { recordSellEvent } from '../../../../src/redis/record-sell-event';
 import { recordBurnEvent } from '../../../../src/redis/record-burn-event';
@@ -10,16 +11,22 @@ const CBMM_PROGRAM_ID = 'CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj';
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 type HeliusWebhookPayload = Array<{
-  accountData: Array<{
-    account: string;
-    nativeBalanceChange: number;
-    tokenBalanceChanges: Array<unknown>;
-  }>;
-  timestamp: number;
-  signature: string;
+  blockTime: number | null;
+  indexWithinBlock: number;
+  meta: {
+    err: unknown;
+    fee: number;
+    logMessages: string[] | null;
+    [key: string]: unknown;
+  };
   slot: number;
-  events?: Array<Record<string, unknown>> | Record<string, unknown>;
-  feePayer?: string;
+  transaction: {
+    message: {
+      accountKeys: string[];
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
   [key: string]: unknown;
 }>;
 
@@ -47,56 +54,60 @@ export async function POST(request: NextRequest) {
     const results: Array<{ success: boolean; eventType?: string; error?: string }> = [];
 
     for (const tx of payload) {
-
       console.log('[WEBHOOK] tx', tx);
-      // Check if this transaction involves our program
-      const involvesCBMM = tx.accountData?.some(
-        (acc) => acc.account === CBMM_PROGRAM_ID
+
+      // Check if this transaction involves our program by checking account keys
+      const involvesCBMM = tx.transaction?.message?.accountKeys?.some(
+        (key: string) => key === CBMM_PROGRAM_ID
       );
 
       if (!involvesCBMM) {
         continue;
       }
 
-      const timestamp = tx.timestamp;
-      if (!timestamp) {
-        results.push({ success: false, error: 'Missing timestamp' });
+      const blockTime = tx.blockTime;
+      if (!blockTime) {
+        results.push({ success: false, error: 'Missing blockTime' });
         continue;
       }
 
-      // Parse events directly from tx.events
-      if (!tx.events) {
+      // Parse events from log messages
+      const logMessages = tx.meta?.logMessages;
+      if (!logMessages || !Array.isArray(logMessages) || logMessages.length === 0) {
         continue;
       }
 
       try {
-        // Convert events to array if it's an object
-        const eventsArray: Array<Record<string, unknown>> = Array.isArray(tx.events) 
-          ? (tx.events as Array<Record<string, unknown>>)
-          : Object.values(tx.events) as Array<Record<string, unknown>>;
-
-        // Find BuyEvent by aInput field
-        const buyEvent = eventsArray.find((event) => event.aInput !== undefined) as BuyEvent | undefined;
-        if (buyEvent) {
-          console.log('[WEBHOOK] buyEvent', buyEvent);
-          await recordBuyEvent(buyEvent, timestamp);
-          results.push({ success: true, eventType: 'buy' });
+        // Parse the event from logs
+        const parsedEvent = parseLogs(logMessages);
+        
+        if (!parsedEvent) {
+          // No event found in logs, skip
+          continue;
         }
 
-        // Find SellEvent by bInput field
-        const sellEvent = eventsArray.find((event) => event.bInput !== undefined) as SellEvent | undefined;
-        if (sellEvent) {
+        // Check event type and record accordingly
+        if ('bInput' in parsedEvent && 'aOutput' in parsedEvent && 'seller' in parsedEvent) {
+          // SellEvent
+          const sellEvent = parsedEvent as SellEvent;
           console.log('[WEBHOOK] sellEvent', sellEvent);
-          await recordSellEvent(sellEvent, timestamp);
+          await recordSellEvent(sellEvent, blockTime);
           results.push({ success: true, eventType: 'sell' });
-        }
-
-        // Find BurnEvent by burnAmount field
-        const burnEvent = eventsArray.find((event) => event.burnAmount !== undefined) as BurnEvent | undefined;
-        if (burnEvent) {
+        } else if ('aInput' in parsedEvent && 'bOutput' in parsedEvent && 'buyer' in parsedEvent) {
+          // BuyEvent
+          const buyEvent = parsedEvent as BuyEvent;
+          console.log('[WEBHOOK] buyEvent', buyEvent);
+          await recordBuyEvent(buyEvent, blockTime);
+          results.push({ success: true, eventType: 'buy' });
+        } else if ('burnAmount' in parsedEvent && 'burner' in parsedEvent) {
+          // BurnEvent
+          const burnEvent = parsedEvent as BurnEvent;
           console.log('[WEBHOOK] burnEvent', burnEvent);
-          await recordBurnEvent(burnEvent, timestamp);
+          await recordBurnEvent(burnEvent, blockTime);
           results.push({ success: true, eventType: 'burn' });
+        } else {
+          console.warn('[WEBHOOK] Unknown event type:', parsedEvent);
+          results.push({ success: false, error: 'Unknown event type' });
         }
       } catch (error) {
         console.error('Error processing event:', error);
@@ -116,4 +127,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
