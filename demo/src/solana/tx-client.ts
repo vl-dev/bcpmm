@@ -9,13 +9,13 @@ export type TxClient = {
     rpc: ReturnType<typeof createSolanaRpc>;
     rpcSubscriptions: ReturnType<typeof createSolanaRpcSubscriptions>;
 }
-const RPC_URL = import.meta.env.VITE_RPC_URL as string | undefined;
-const WS_URL = import.meta.env.VITE_WS_URL as string | undefined;
+const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL as string | undefined;
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL as string | undefined;
  
 let client: TxClient | undefined;
 export async function getTxClient(): Promise<TxClient> {
     if (!RPC_URL || !WS_URL) {
-      throw new Error('VITE_RPC_URL or VITE_WS_URL is not set');
+      throw new Error('NEXT_PUBLIC_RPC_URL or NEXT_PUBLIC_WS_URL is not set');
     }
     if (!client) {
         const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({

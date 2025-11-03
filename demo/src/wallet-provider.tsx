@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import type { KeyPairSigner } from '@solana/kit';
 import { createKeyPairSignerFromPrivateKeyBytes } from '@solana/kit';

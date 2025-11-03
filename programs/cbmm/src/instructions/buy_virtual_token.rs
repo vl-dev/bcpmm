@@ -5,6 +5,27 @@ use anchor_spl::token_interface::{
     transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
 
+#[event]
+pub struct BuyEvent {
+    pub a_input: u64,
+    pub b_output: u64,
+
+    pub creator_fees: u64,
+    pub buyback_fees: u64,
+    pub platform_fees: u64,
+
+    pub topup_paid: u64,
+
+    pub new_b_reserve: u64,
+    pub new_a_reserve: u64,
+    pub new_outstanding_topup: u64,
+    pub new_creator_fees_balance: u64,
+    pub new_buyback_fees_balance: u64,
+
+    pub buyer: Pubkey,
+    pub pool: Pubkey,
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct BuyVirtualTokenArgs {
     /// a_amount is the amount of Mint A to swap for Mint B. Includes decimals.
@@ -104,6 +125,21 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
         fees.platform_fees_amount,
         ctx.accounts.a_mint.decimals
     )?;
+    emit!(BuyEvent {
+        a_input: args.a_amount,
+        b_output: output_amount,
+        creator_fees: fees.creator_fees_amount,
+        buyback_fees: fees.buyback_fees_amount,
+        platform_fees: fees.platform_fees_amount,
+        topup_paid: real_topup_amount,
+        new_b_reserve: pool.b_reserve,
+        new_a_reserve: pool.a_reserve,
+        new_outstanding_topup: pool.a_outstanding_topup,
+        new_creator_fees_balance: pool.creator_fees_balance,
+        new_buyback_fees_balance: pool.buyback_fees_balance,
+        buyer: ctx.accounts.payer.key(),
+        pool: ctx.accounts.pool.key(),
+    }); 
     Ok(())
 }
 
