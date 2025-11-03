@@ -26,23 +26,29 @@ type HeliusWebhookPayload = Array<{
 export async function POST(request: NextRequest) {
   try {
     const payload: HeliusWebhookPayload = await request.json();
+    console.log('[WEBHOOK] processing request');
 
     if (!Array.isArray(payload)) {
+      console.error('[WEBHOOK] Invalid payload format');
       return NextResponse.json({ error: 'Invalid payload format' }, { status: 400 });
     }
 
     const headers = request.headers;
     const authHeader = headers.get('Authorization');
     if(!WEBHOOK_SECRET) {
+      console.error('[WEBHOOK] WEBHOOK_SECRET is not set');
       return NextResponse.json({ error: 'WEBHOOK_SECRET is not set' }, { status: 400 });
     }
     if (authHeader?.trim() !== WEBHOOK_SECRET) {
+      console.error('[WEBHOOK] Invalid authorization header');
       return NextResponse.json({ error: 'Invalid authorization header' }, { status: 401 });
     }
 
     const results: Array<{ success: boolean; eventType?: string; error?: string }> = [];
 
     for (const tx of payload) {
+
+      console.log('[WEBHOOK] tx', tx);
       // Check if this transaction involves our program
       const involvesCBMM = tx.accountData?.some(
         (acc) => acc.account === CBMM_PROGRAM_ID
