@@ -314,18 +314,43 @@ where $(B-x)^p \left((B-y)^p - (B-x-y)^p\right) \neq 0$.
 
 \section{Implementation}
 
-This section outlines the implementation details of the implementation of the CBMM pool as the Solana 
-
-\begin{itemize}
-\item We set A = 0
-\item Restricted burns, daily burn limits, burn authority
-\item bigger V -> more money needed to snipe a lot of beans
-\item Power CBMM with p=2
-\item No real tokens, only beans
-\end{itemize}
-% Implementation details
+This section outlines the implementation details of the implementation of the CBMM pool as the Solana on-chain program. First there will be a description of the Continuous Conditional Buyback mechanism that is used to further improve the price action of the pool and then challenges that we face when implementing the mathematical model in the program. The goal of the burn is to incentivise some off-chain behaviour, therefore, our goal is to keep the user interactions with the on-chain program to minimum.
 
 \subsection{Continuous Conditional Buybacks}
+
+To further improve the price action of the pool a decision has been made to implement a mechanism that works against the mathematically required virtual reserve reduction $V_2 - V_1$ that accompanies every burn. 
+We call this mechanism a **continuous buyback** and it works as follows:
+
+- every time a trade is performed a portion of the fees is reserved for the buyback. These fees are automatically collected in a on-chain associated token account.
+- every time a burn is performed, we check if there is any amount of fees collected. If there is, we topup the pool with $min(V_2 - V_1, fees collected)$ and we store the outstanding amount value in the pool state.
+- if there is any outstanding amount, we perform the repayment immediately in trade instructions using the fees collected instead of waiting for the next burn.
+
+Choice of topup $V_2 - V_1$ is arbitrary, the topup amount can be chosen to be any value, but we feel that this represents well the compensation of the virtual reserve reduction.
+Technically speaking, this is not a buyback as no beans are leaving the pool. However, by adding tokens to the pool we are increasing the price of the beans and in a way buying back the beans that were burned.
+
+\subsection{Burn safety mechanisms}
+
+To be able to control the burn frequency and the amount of beans that can be burned per day, we suggest two safety mechanisms. The first one restricts the amount of burn operation a wallet is able to carry out per day. The second mechanism can be omitted if decentralization is a priority and introduces a burn authority that is required to sign every burn operation.
+
+\subsubsection{Daily burn limits}
+
+To be able to keep track of the amount of user burns throughout the system we introduce a new account type --- \texttt{UserBurnAllowance}. This account is associated with a user and a pool and is used to track the amount of burns that a user has performed throughout the system. However, this brings the question who pays for the Rent. We made the opening of the account permissionless, so anyone can open one same as for SPL Tokens. This removes the hurdle for the user to pay for the Rent, any wallet can open the account for them. To make sure that the account paying fo others doesn't go broke, we introduce an account closing mechanism as well.
+
+the acount keeps track of the amount of burns that a user has performed throughout the system in the last 24 hours and the last time they burned. If the user has burned more than the allowed number of times, the system doesn't let him burn again. To be able to get the Rent back we allow closing accounts of inactive usres i.e. users that haven't burned in the last 24 hours. Their burn counter reset anyways so there is no point in keeping the account around.
+
+This approach is nice and decentralized, but if the goal would be to make the burn logging as cheap as possible it would be possible to implement using Solana State compression using Merkle trees and off-chain indexing in a similar fashion as e.g. cNFTs are implemented
+
+\subsubsection{Burn authority}
+
+On every burn we require a signature from a burn authority. This ensures that we can control that all burns are tied to certain off-chain activities and that the usres have not just automated the burn operation bu directly calling the on-chain program.
+This mechanism is optional and can be turned off if decentralization becomes a priority. 
+
+
+\subsection{Pool configuration considerations}
+
+- bigger V -> more money needed to snipe a lot of beans
+- Power CBMM with p=2
+- No real tokens, only beans
 
 \section{Analysis}
 \label{sec:analysis}
@@ -337,6 +362,7 @@ This section outlines the implementation details of the implementation of the CB
 \item real initial reserve is useless as it is immediately used 
 \item burns result in less supply in the pool, which is good for the price, but increases volatility
 \item $V$ linear scaling doesn't have any impact on burn percentage
+\item burns increate the pool volatility
 \end{itemize}
 
 % Analysis and evaluation
