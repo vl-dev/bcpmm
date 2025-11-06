@@ -90,18 +90,12 @@
 \newtheorem{remark}{Remark}[section]
 
 % =====================================================
-% CUSTOM COMMANDS
-% =====================================================
-% Add your custom commands here
-% Example: \newcommand{\R}{\mathbb{R}}
-
-% =====================================================
 % DOCUMENT METADATA
 % =====================================================
 \title{CBMM Pool: A Constant Burn Market Maker}
-\author{Your Name\\
-        Your Affiliation\\
-        \texttt{your.email@example.com}}
+\author{@mmatdev \\
+        Access Protocol\\
+        \texttt{vladislav@accessprotocol.co}}
 \date{\today}
 
 % =====================================================
@@ -115,104 +109,61 @@
 This whitepaper describes the CBMM (Constant Burn Market Maker) pool, an improved version of the standard constant product market maker (CPMM) that automates token burns and buybacks resulting in a positive impact on the token's price and more continuous demand.
 \end{abstract}
 
-\tableofcontents
-\newpage
-
-% =====================================================
-% MAIN CONTENT
-% =====================================================
+\vspace{0.75em}
 
 \section{Introduction}
 
-\begin{itemize}
-\item CFMM, CPMM, CLMM, DAMM etc.
-\item mention Pump.fun, Uniswap
-\item virtual reserve
-\item define insolvency
-\item price impact of burn
-\item burn structure (in instructions)
-\item price impact of the automated buybacks
-\end{itemize}
+Constant function market makers (CFMMs) have become a foundational primitive for decentralized exchanges~\cite{AngerisChitra2020CFMMOracles}. Variants include constant product market makers (CPMMs) such as Uniswap~v1~\cite{Uniswap-v1-whitepaper}, concentrated liquidity market makers (CLMMs) like Uniswap~{}v3~\cite{UniswapV3Whitepaper2021}, and dynamic automated market makers (DAMMs)~\cite{MeteoraDAMMv2Docs}. Bonding curves~\cite{Bancor2018Whitepaper}, popularized by platforms like Pump.fun, represent another approach where token price is determined by a deterministic curve based on supply.
 
-% Your introduction content here
+Existing mechanisms provide no built-in way to translate off-chain activity into on-chain price impact. The only mechanism available to drive positive price action is manual buy-and-burn operations, where participants purchase tokens and burn them to reduce supply. This requires coordination, creates friction, and does not automatically link rewards to verifiable off-chain behavior.
 
-\section{Background}
+We present the Constant Burn Market Maker (CBMM), a mechanism that enables tying off-chain events to underlying asset supply reduction. CBMM utilizes a virtual token reserve that supports controlled burns without violating pool invariant constraints and enables creating one-sided launch pools. These burns directly increase price proportionally to the amount of pool assets held outside the pool. Moreover, to compensate for the virtual reserve reduction that accompanies burns, we implement Continuous Conditional Buybacks (CCB), which route a portion of trading fees into the real token reserve, effectively increasing collateralization and increasing price further.
 
-\begin{itemize}
-\item The goal is to design a mechanism that allows us to reward off-chain behavior by creating a direct on-chain impact on the beans price by burning the beans' supply.
-\item By burning the supply we are lowering liquidity, creating scarcity.
-\item We need to make sure that even after burn the pool is able to withstand sale of all the tokens even if that means that some users might be selling for a price that is worse than the starting one.
-\item We have two mechanisms that help us with the positive price action on-chain - burning and continuous conditional buybacks. These mechanisms are very closely intertwined and complement each other.
-\item The goal is to create a mechanism that rewards off-chain actions long term and by inducing the positive price action it motivates people to on-chain actions and speculation.
-\item There is no free lunch, if we burn tokens "someone" has to pay for it.
-\item two possible approaches - burn of a percentage of the pool supply/ burn of the total supply percentage
-\item motivation for the virtual reserve is that otherwise it would be very cheap to snipe a big portion of the reserve. The virtual reserve helps to mitigate this by effectively setting a starting price for the token. If no burning is involved, the token price in this pool can never drop under this price. However, if burning is involved, the needed virtual price drop lowers the minimal price that the token can drop to and thereby keeps the pool healthy.
-\item A slow transition from a purely virtual scaling system into a progressively collateralized one.
-\item THis is a token rollout mechanism, it is not designed for tokens that are already in the market.
-\item Points (beans) vs tokens
-\end{itemize}
-
-\subsection{Conventional Market Making Strategies}
-
-\begin{itemize}
-\item Description of standard CPMM pool, note about CLMM pools, DAMM pools
-\item Short description of bonding curves
-\item Neither of these has any mechanisms for off-chain action motivation except for a manual buyback and burn. We are replacing this with an automated solution
-\end{itemize}
+The remainder of this paper is structured as follows. Section~\ref{sec:math} develops the mathematical model, derives trading and burning formulas, and analyzes price impact. Section~\ref{sec:implementation} describes the Solana program implementation, including safety mechanisms and configuration considerations.
 
 \section{Mathematical Model}
 \label{sec:math}
 
-In this section we will define the mathematical model of the CBMM pool. We only focus on the token trading and burning mechanics, the buyback mechanics are an extension of this model and therefore will be discussed in the \ref{sec:continuous-conditional-buybacks} section.
+In this section we will define the mathematical model of the CBMM pool. We only focus on the token trading and burning mechanics, the buyback mechanics are an independent extension of this model and therefore will be discussed in Section~\ref{sec:continuous-conditional-buybacks}.
 
-We first define the key terms used throughout this section.
+We first define the key terms used throughout this section. Let there be a CPMM pool with a token reserve $R$ and a bean supply $B$. The token reserve is split into \textbf{Real Token Reserve} $A$ (backed by actual assets) and a \textbf{Virtual Token Reserve} $V$ (not backed by assets, used to set the initial price and liquidity). The pool trading mechanics are defined by the constant product invariant $k = (A+V)B$. We say that this pool is a \textbf{CBMM pool} if it implements the beans burn functionality tied to the virtual reserve reduction as described later in this section.
 
-\begin{definition}
-    The \textbf{Virtual Token Reserve} $V$ is the portion of the token reserve that is not backed by actual assets. 
-\end{definition}
+The CPMM pool is said to be \textbf{insolvent} if its reserves are insufficient to accommodate the sale of all outstanding beans; otherwise it is said to be \textbf{solvent}. We design the CBMM pool to be solvent by adjusting the virtual reserve after each burn.
 
-\begin{definition}
-    The \textbf{Real Token Reserve} $A$ is the token reserve in the pool that is backed by actual assets.
-\end{definition}
-
-\begin{definition}
-    \textbf{Insolvency} is the state of the pool where its reserves are insufficient to accommodate the sale of all outstanding beans.
-\end{definition}
-
-We assume the initial Real Token Reserve reserve is zero. CBMM is designed as a token rollout mechanism, so we do not need to account for any existing supply outside the pool. The virtual reserve sets the initial price of the token.
+We assume the initial Real Token Reserve is zero. CBMM is designed as a token rollout mechanism, so we do not need to account for any existing supply outside the pool. The Virtual Token Reserve sets the initial price of the token.
 
 \subsection{Trading}
 
 Buys and sells in CBMM follow the mechanics of the standard CPMM with a virtual reserve; we include them here for completeness. Denote the pre-trade (buy or sell) values as:
 
 \begin{align*}
-    A_0 &= A, \\
-    B_0 &= B, \\
-    V_0 &= V, \\
-    k_0 &= k = (A+V)B
+    &A=A_0, \\
+    &B=B_0, \\
+    &V, \\
+    &k = (A_0+V)B_0
 \end{align*}
 
-During trading, the invariant $k$ and the virtual reserve $V$ do not change. The amount of beans $b$ received by the user when spending $\Delta A$ tokens (which increases the pool reserve to $A+\Delta A$) follows from
+During trading, the invariant $k$ and the virtual reserve $V$ do not change. The amount of beans $b$ received by the user when spending $\Delta A$ tokens (which increases the pool reserve to $A_0+\Delta A$) follows from
 \begin{equation}
-    k = (A+\Delta A+V)(B-b),
+    k = (A_0+\Delta A+V)(B_0-b),
 \end{equation}
 which gives:
 
 \begin{equation}
-    b = B - \frac{k}{A+\Delta A+V}.
+    b = B_0 - \frac{k}{A_0+\Delta A+V}.
 \end{equation}
 
 Similarly, the amount of tokens $a$ received by the user when spending $\Delta B$ beans (which increases the pool reserve to $B+\Delta B$) follows from
 \begin{equation}
-    k = (A-a+V)(B+\Delta B),
+    k = (A_0-a+V)(B_0+\Delta B),
 \end{equation}
 which gives:
 
 \begin{equation}
-    a = A+V - \frac{k}{B+\Delta B}.
+    a = A_0+V - \frac{k}{B_0+\Delta B}.
 \end{equation}
 
-The current price of beans is:
+The price of beans $P$ can be computed at any time as:
 
 \begin{equation}
     P = \frac{A+V}{B}.
@@ -220,13 +171,15 @@ The current price of beans is:
 
 \subsection{Beans Supply Burning}
 
+This section describes the necessary conditions for the CBMM pool to remain solvent after a beans supply reduction.
+
 Let the initial state of the pool be:
 
 \begin{align*}
     A_0 &= 0, \\
     B_0 &= B, \\
     V_0 &= V, \\
-    k_0 &= (0+V)B = VB
+    k_0 &= (0+V)N = VN
 \end{align*}
 
 Assume, without loss of generality, that trading occurs before the burn, lowering the beans reserve by $x \geq 0$. The post-trade values are then:
@@ -235,7 +188,7 @@ Assume, without loss of generality, that trading occurs before the burn, lowerin
     A_1 &= \frac{Vx}{B-x}, \\
     B_1 &= B - x, \\
     V_1 &= V, \\
-    k_1 &= k_0
+    k_1 &= k_0 = VB
 \end{align*}
 
 Now, if we burn $y$ beans with $0 \leq y < B - x$, the post-burn state is:
@@ -247,7 +200,7 @@ Now, if we burn $y$ beans with $0 \leq y < B - x$, the post-burn state is:
     k_2 &= (A_2+V_2)B_2
 \end{align*}
 
-To ensure the pool is not insolvent, if everyone sells their beans back to the pool, there must be sufficient tokens to satisfy the sale. The post-sale state must satisfy:
+Finally, to ensure the pool is solvent, if everyone sells their beans back to the pool, there must be sufficient tokens to satisfy the sale. The post-sale state must satisfy:
 
 \begin{align*}
     A_3 &\geq 0, \\
@@ -256,13 +209,15 @@ To ensure the pool is not insolvent, if everyone sells their beans back to the p
     k_3 &= (A_3+V_3)B_3
 \end{align*}
 
-From $k_2 = k_3$ and $k_3 \geq V_3 B_3$, we obtain a bound on $V_2$ that ensures the pool is not insolvent:
+From $k_2 = k_3$ and $k_3 \geq V_3 B_3$, we obtain a bound on $V_2$ that ensures the pool is solvent:
 
 \begin{equation}
     V_2 \leq \frac{V(B-x-y)}{B-x}.
 \end{equation}
 
-Thus, after every burn, the virtual reserve must be adjusted downward to avoid insolvency. A natural choice is to set $V_2$ to the maximum value satisfying the bound, which minimizes price impact.
+Thus, after every burn, the virtual reserve must be adjusted downward to ensure solvency. A natural choice is to set $V_2$ to the maximum value satisfying the bound, which minimizes the price impact of the virtual reserve reduction.
+
+Note that maintaining solvency via this adjustment can imply that the worst-case exit price for sellers after burns is lower than the initial anchor price set by the starting $V$.
 
 \subsubsection{Price impact of the burn}
 
@@ -279,7 +234,9 @@ The relative price impact of the burn is then:
     \frac{P_2 - P_1}{P_1} = \frac{xy}{B(B-x-y)}.
 \end{equation}
 
-This formula shows that the relative price impact is proportional to the product $xy$ of beans bought ($x$) and beans burned ($y$), divided by $B(B-x-y)$. The impact increases with the amount of beans held outside the pool ($x$), meaning burns have greater price impact when more tokens have been purchased. If $x = 0$ (no tokens purchased), the burn has no price impact, as expected.
+This formula shows that the relative price impact is proportional to the product $xy$ of beans held outside the pool $x$ and beans burned $y$, divided by $B(B-x-y)$. The impact increases with $x$, meaning burns have greater price impact when more tokens have been purchased. If $x = 0$ (no tokens purchased), the burn has no price impact, as expected.
+
+Operationally, burns reduce the beans reserve $B$, tightening depth and available liquidity at the new state.
 
 \subsection{Other invariant types}
 
@@ -291,7 +248,7 @@ This formula shows that the relative price impact is proportional to the product
 where $A$ is the token reserve, $B$ the bean supply, $V$ the virtual reserve, and $p$ is a real parameter controlling the curve's shape.
 \end{definition}
 
-When $p = 1$, this reduces to the standard CBMM invariant. The parameter $p$ controls the curvature of the bonding curve: $p > 1$ produces a steeper curve, while $0 < p < 1$ produces a flatter curve. This allows fine-tuning of the pool's behavior, particularly affecting initial token purchases and the distribution of tokens to early adopters.
+When $p = 1$, this reduces to the standard CBMM invariant. The parameter $p$ controls the curvature of the bonding curve: $p > 1$ produces a steeper curve, while $0 < p < 1$ produces a flatter curve. This allows fine-tuning of the pool's behavior, particularly affecting initial token purchases and the distribution of tokens to early adopters~\cite{BalancerWhitepaper2020}.
 
 The trading formulas for Power CBMM follow from the invariant $k = (A+V)B^p$. When spending $\Delta A$ tokens to buy beans, the amount of beans $b$ received is:
 
@@ -299,72 +256,72 @@ The trading formulas for Power CBMM follow from the invariant $k = (A+V)B^p$. Wh
     b = B - \left(\frac{(A+V)B^p}{A+\Delta A+V}\right)^{1/p}.
 \end{equation}
 
-When spending $\Delta B$ beans to sell, the amount of tokens $a$ received is:
+When selling $\Delta B$ beans into the pool, the amount of tokens $a$ received is:
 
 \begin{equation}
     a = (A+V)\left(1 - \frac{B^p}{(B+\Delta B)^p}\right).
 \end{equation}
 
-After burning $y$ beans when $x$ beans have already been purchased, the virtual reserve must be adjusted to maintain solvency. The adjusted virtual reserve $V_2$ is:
+After burning $y$ beans when $x$ beans have already been purchased, the virtual reserve must be adjusted to maintain solvency. The adjusted virtual reserve $V_2$ can be derived in a similar way as in the standard CBMM case as:
 
 \begin{equation}
     V_2 = \frac{V \left((B-x)^p - B^p\right) (B-x-y)^p}{(B-x)^p \left((B-x-y)^p - (B-y)^p\right)},
 \end{equation}
 
-where $(B-x)^p \left((B-y)^p - (B-x-y)^p\right) \neq 0$.
-
 We have considered other invariant types as Weighted geometric mean but it shows that the virtual reserve formulas are too complex to be conveniently implemented in the on-chain program using integer arithmetic.
 
 \section{Implementation}
+\label{sec:implementation}
 
-This section describes an on-chain implementation of CBMM as a Solana program. The principles described are specific to CBMM, otherwise the implementation uses the same approach as standard CPMM pools. We first present the Continuous Conditional Buybacks mechanism, which partially offsets the required reduction in the virtual reserve $V$ after burns. We then outline safety controls for burn operations and note key configuration considerations. The design objective is to minimize user friction while faithfully realizing the mathematical model from \S\ref{sec:math}.
+This section describes an on-chain implementation of CBMM as a Solana program. The trading principles in CBMM implementation use the same approach as standard CPMM pools and, therefore, are not repeated here. We first present the Continuous Conditional Buybacks mechanism, which partially offsets the required reduction in the virtual reserve $V$ after burns. We then outline safety controls for burn operations and note key configuration considerations. The design objective is to minimize user friction while faithfully realizing the mathematical model from Section~\ref{sec:math}.
 
 \subsection{Continuous Conditional Buybacks}
+\label{sec:continuous-conditional-buybacks}
 
-Burns require a reduction of the virtual reserve from $V_1$ to $V_2$ (with $V_2 \le V_1$). This adjustment reduces the positive impact of the burn. We implement \emph{Continuous Conditional Buybacks} (CCB) to partially offset this by redirecting a portion of trading fees into the real token reserve $A$, which bumps the price slightly back up.
+Burns require a reduction of the virtual reserve from $V_1$ to $V_2$ (with $V_2 \le V_1$). This adjustment reduces the positive impact of the burn. We implement \textbf{Continuous Conditional Buybacks} (CCB) to partially offset this by redirecting a portion of trading fees into the Real Token Reserve $A$, which bumps the price slightly back up.
 
-Let $\Delta V := V_1 - V_2 \ge 0$ denote the required reduction in virtual reserve implied by \S\ref{sec:math}. The mechanism is:
+Let $\Delta V = V_1 - V_2 \ge 0$ denote the required reduction in virtual reserve implied by Section~\ref{sec:math}. The implemented CCB mechanism then works as follows:
 
 \begin{itemize}[leftmargin=*]
   \item \textbf{Fee accumulation}: On each trade, a fixed fraction of token fees is routed to a dedicated on-chain fee vault (an associated token account controlled by the program).
-  \item \textbf{Burn-time top-up}: Upon a burn event, the program deposits into $A$ an amount $\Delta A_{\text{topup}} := \min(\Delta V,\ F)$, where $F$ is the available collected fee balance. Any shortfall $L := \Delta V - \Delta A_{\text{topup}} \ge 0$ is stored in pool state as an outstanding liability.
-  \item \textbf{Continuous repayment}: While $L>0$, subsequent trades continue to contribute fees that are immediately applied to reduce $L$ until it reaches zero. Any overage remains in the fee vault and is handled by the fee accumulation rule.
+  \item \textbf{Burn-time top-up}: Upon a burn event, the program deposits into $A$ an amount $\Delta A = \min(\Delta V,\ F)$, where $F$ is the available collected fee balance. Any shortfall $L = \Delta V - \Delta A_{\text{topup}} \ge 0$ is stored in pool state as an outstanding liability.
+  \item \textbf{Continuous repayment}: While $L>0$, subsequent trades continue to contribute fees that are immediately applied to reduce $L$ until it reaches zero. Any overage remains in the fee vault and is handled by the Fee accumulation rule.
 \end{itemize}
 
-The choice of top-up target $V_2 - V_1$ is an arbitrary decision, other targets are possible. We use it because it naturally ``compensates'' for the virtual reserve reduction, even though this compensation is not exact as the amount in the real token reserve can be later extracted while trading. Technically, this is not a buyback, as no beans leave the pool. However, adding tokens to $A$ increases the beans' price and effectively buys back part of the burn's price impact.
+The choice of top-up target $V_2 - V_1$ is an arbitrary decision, other targets are possible. This decision has been made because it naturally ``compensates'' for the virtual reserve reduction, even though this compensation is not exact as the amount in the real token reserve can be later extracted while trading. Technically, this is not a buyback, as no beans leave the pool. However, adding tokens to $A$ increases the beans' price and effectively buys back part of the burn's price impact.
+
+If not enough off-chain activity is observed, the trading fees are still accumulated and can be used to top-up the pool in the future. This motivates the off-chain activity to be persistent and ongoing.
 
 \subsection{Burn Safety Mechanisms}
 
-To bound operational risk and align burns with off-chain incentives, we introduce two optional controls: (i) per-user daily limits and (ii) an authorization gate for burns.
+To bound operational risk and align burns with off-chain incentives, we introduce two optional controls: (i) per-user daily burn limits and (ii) a centralized burn authority.
 
 \subsubsection{Daily burn limits}
 
-We introduce a lightweight on-chain meter, \texttt{UserBurnAllowance}, keyed by user. It records the number of burns over a rolling 24-hour window and the timestamp of the most recent burn. Account creation is permissionless (similarly to SPL Associated Token Accounts) so any party can create and fund an account to bootstrap a user's allowance. To avoid rent leakage, accounts associated with users inactive for $\geq 24$ hours may be closed and rent returned to the original funding wallet. If a user exceeds the configured daily limit, additional burn attempts are rejected until the window resets.
+We introduce a lightweight on-chain counter, \texttt{UserBurnAllowance}, uniquely identified by the user's wallet address. It records the number of burns over a 24-hour window and the timestamp of the most recent burn. Account creation is permissionless (similarly to SPL Associated Token Accounts) so any party can create and fund~\cite{SolanaRent} an account to bootstrap a user's allowance. To avoid rent leakage, accounts associated with users inactive for $\geq 24$ hours may be closed and rent returned to the original funding wallet. If a user exceeds the configured daily limit, additional burn attempts are rejected until the window resets. The impact of each burn is calculated as a hardcoded percentage of the pool's beans reserve. For more significant impact it is possible to burn a percentage of the total supply if the pool reserve is sufficient to do so.
 
-For lowest-cost deployments, equivalent functionality could be realized via State Compression (e.g., Merkle-tree-based indexing), at the cost of off-chain infrastructure dependence.
+For minimal funding costs and better scalability, equivalent functionality could be realized via State Compression using Concurrent Merkle Trees~\cite{XiaoEtAl2023ConcurrentMerkleTrees}, at the cost of off-chain infrastructure dependence.
 
 \subsubsection{Burn authority}
 
-On every burn we require a signature from a Burn Authority. This ensures that all burns are tied to specific off-chain activities and that users have not simply automated the burn operation by calling the program directly. This mechanism is optional and can be turned off if decentralization is a priority.
+On every burn we require a signature from a Burn Authority. This ensures that all burns are tied to specific off-chain activities and that users have not simply automated the burn operation by calling the on-chain program directly. This mechanism is optional and can be turned off if decentralization is a priority.
 
 \subsection{Pool Configuration Considerations}
 
-The main decision that influences the pool behaviour is the initial virtual reserve $V$. This reserve directly sets the token initial price and is linearly related to the trading volume needed to be able to top-up the pool fully. Moreover, the higher initial reserve the harder it is to snipe a large amount of beans at the starting price.
+The main decision that influences the pool behaviour is the initial virtual reserve $V$. This reserve directly sets the token initial price and is linearly related to the trading volume needed to be able to top-up the pool fully. Moreover, the higher initial reserve the more expensive it is to snipe a large amount of beans at the starting price.
 
 To be able to mitigate the sniping issue we can not only use higher virtual reserve, but also use Power CBMM with $p>1$ to increase the price impact of the initial purchases. However, with higher $p$ the on-chain program needs to use more complex arithmetic to implement the trading formulas and ensure that there is no overflows or significant precision loss that would affect the pool's health. From our tests we have found that $p=2$ is a good compromise between complexity and effectiveness.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-This work set out to design a market-making mechanism that can translate verifiable off-chain activity into on-chain price impact through controlled burns, while preserving the pool's solvency. We constructed a mathematical model for CBMM with a virtual reserve $V$ and derived closed-form expressions for trading, burning, and the induced price impact. On the implementation side, we outlined a Solana program architecture that realizes these mechanics, introduces Continuous Conditional Buybacks (CCB) to partially offset the virtual-reserve reduction after burns, and adds safety controls to regulate burn frequency and authorization.
+This work set out to design a market-making mechanism that can translate verifiable off-chain activity into on-chain price impact through controlled burns. We constructed a mathematical model for CBMM with a virtual reserve $V$ and outlined the closed-form expressions for trading, burning, and the induced price impact. On the implementation side, we described a Solana program architecture that implements these mechanics, introduces Continuous Conditional Buybacks (CCB) to partially offset the virtual-reserve reduction after burns, and adds safety controls to regulate burn frequency and authorization.
 
 The model reveals a clear separation of roles. First, burns directly increase price with a relative impact proportional to the amount of beans outside the pool and the burned amount. The pool trading volume by itself does not directly contribute to the price increase but complements burns by compensating for the virtual reserve detoriation through the Continuous Conditional Buybacks mechanism. Because burning reduces the in-pool supply, it increases price but also increases volatility. The virtual reserve acts here as a bridge mechanism to facilitate a slow transition from a purely virtual scaling system into a progressively collateralized one. In healthy conditions, as $V$ is reduced toward its minimum, the pool matures by price becoming increasingly supported by real collateral rather than virtual scale.
 
 From a design perspective, the initial virtual reserve $V$ sets the starting price and determines how much trading volume is required to fully top up the pool via fees. Larger $V$ makes early sniping more costly. The optional Power CBMM variant controls curve shape via a parameter $p>0$; choosing $p>1$ concentrates price impact at earlier purchases and can be used to mitigate initial sniping risk, while $0<p<1$ flattens the curve.
 
-This paper describes the CBMM pool as a token rollout mechanism, but generalizing CBMM to other asset pairs is feasible. Possible extensions and enhancements include allowing third-party liquidity provision (LP) in a controlled manner and analyzing CBMM pool with nonzero initial token reserve that should be preserved by the burn mechanism. These mechanisms might require $V<0$ and is left for future study.
-
-% Your conclusions
+This paper describes the CBMM pool as a token rollout mechanism, but generalizing CBMM to other asset pairs is feasible. Possible extensions and enhancements include allowing third-party liquidity provision (LP) in a controlled manner and analyzing CBMM pool with nonzero initial token reserve that should be preserved by the burn mechanism. These mechanisms might require $V<0$ and are left for future study.
 
 % =====================================================
 % BIBLIOGRAPHY

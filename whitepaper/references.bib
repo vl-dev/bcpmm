@@ -1,44 +1,67 @@
-% =====================================================
-% BIBLIOGRAPHY FILE
-% =====================================================
-% Add your references here in BibTeX format
-%
-% Example entries:
-
-@article{example2024,
-    author = {Author, First and Author, Second},
-    title = {Example Article Title},
-    journal = {Journal Name},
-    year = {2024},
-    volume = {1},
-    number = {1},
-    pages = {1--10},
-    doi = {10.1234/example}
+@misc{Uniswap-v1-whitepaper,
+  author      = {Hayden Adams},
+  lastchecked = {2020-09-28},
+  title       = {Uniswap Whitepaper},
+  url         = {https://hackmd.io/@HaydenAdams/HJ9jLsfTz},
+  year        = {2020}
 }
 
-@inproceedings{example_conf2024,
-    author = {Author, First},
-    title = {Example Conference Paper},
-    booktitle = {Proceedings of Example Conference},
-    year = {2024},
-    pages = {100--110},
-    organization = {IEEE}
+@misc{UniswapV3Whitepaper2021,
+  author       = {Hayden Adams and Noah Zinsmeister and Moody Salem and River Keefer and Dan Robinson},
+  title        = {Uniswap v3 Core},
+  year         = {2021},
+  month        = {March},
+  institution  = {Uniswap Labs},
+  howpublished = {\url{https://app.uniswap.org/whitepaper-v3.pdf}}
 }
 
-@misc{uniswap_v2,
-    author = {Hayden Adams and Noah Zinsmeister and Dan Robinson},
-    title = {Uniswap v2 Core},
-    year = {2020},
-    url = {https://uniswap.org/whitepaper.pdf},
-    note = {Accessed: 2024-10-30}
+@online{MeteoraDAMMv2Docs,
+  author       = {{Meteora Team}},
+  title        = {What's DAMM v2? (Product Overview)},
+  year         = {2025},
+  howpublished = {\url{https://docs.meteora.ag/overview/products/damm-v2/what-is-damm-v2}},
+  note         = {Accessed Nov 5, 2025}
+}
+@article{AngerisChitra2020CFMMOracles,
+  author        = {Guillermo Angeris and Tarun Chitra},
+  title         = {Improved Price Oracles: Constant Function Market Makers},
+  journal       = {arXiv preprint arXiv:2003.10001},
+  year          = {2020},
+  url           = {https://arxiv.org/abs/2003.10001},
+  archiveprefix = {arXiv},
+  eprint        = {2003.10001},
+  primaryclass  = {q-fin.TR}
 }
 
-@misc{solana_docs,
-    author = {Solana Labs},
-    title = {Solana Documentation},
-    year = {2024},
-    url = {https://docs.solana.com},
-    note = {Accessed: 2024-10-30}
+@misc{BalancerWhitepaper2020,
+  title        = {Balancer Protocol: A non-custodial portfolio manager, liquidity provider, and price sensor.},
+  author       = {Fernando Martinelli and Nikolai Mushegian},
+  year         = {2019},
+  howpublished = {\url{https://docs.balancer.fi/whitepaper.pdf}}
 }
 
-% Add more references as needed
+@misc{SolanaRent,
+  title        = {Rent on Solana},
+  year         = {2022},
+  howpublished = {\url{https://docs.solana.com/developing/programming-model/accounts\#rent}}
+}
+
+@techreport{XiaoEtAl2023ConcurrentMerkleTrees,
+  author      = {Jarry Xiao and Noah Gundotra and Austin Adams and Anatoly Yakovenko},
+  title       = {Compressing Digital Assets with Concurrent Merkle Trees},
+  institution = {Solana Labs},
+  year        = {2023},
+  type        = {Whitepaper},
+  url         = {https://drive.google.com/file/d/1BOpa5OFmara50fTvL0VIVYjtg-qzHCVc/view},
+  note        = {Concurrent Merkle Tree whitepaper; accessed 2025-11-06}
+}
+\@misc{Bancor2018Whitepaper,
+  author       = {Eyal Hertzog and Guy Benartzi and Galia Benartzi},
+  title        = {Bancor Protocol: Continuous Liquidity and Asynchronous Price Discovery for Tokens through their Smart Contracts (aka ``Smart Tokens'')},
+  howpublished = {\url{https://resources.bancor.network/pages/BancorProtocolWhitepaper.pdf}},
+  year         = {2018},
+  note         = {Describes the constant-reserve-ratio bonding curve mechanism; archived translations available on GitHub}
+}
+
+
+The pool holds a token reserve split into a Real Token Reserve \(A\) (backed by actual assets) and a Virtual Token Reserve \(V\) (not backed by assets, used to set the initial price and liquidity). We assume the pool launches with \(A=0\) and no external supply; \(V\) therefore bootstraps pricing. The pool is said to be insolvent if its reserves are insufficient to accommodate the sale of all outstanding beans; otherwise it is solvent.
