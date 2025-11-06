@@ -115,7 +115,7 @@ Constant function market makers (CFMMs) have become a foundational primitive for
 
 Existing mechanisms provide no built-in way to translate off-chain activity into on-chain price impact. The only mechanism available to drive positive price action is manual buy-and-burn operations, where participants purchase tokens and burn them to reduce supply. This requires coordination, creates friction, and does not automatically link rewards to verifiable off-chain behavior.
 
-We present the Constant Burn Market Maker (CBMM), a mechanism that enables tying off-chain events to underlying asset supply reduction. CBMM utilizes a virtual token reserve that supports controlled burns without violating pool invariant constraints and enables creating one-sided launch pools. These burns directly increase price proportionally to the amount of pool assets held outside the pool. Moreover, to compensate for the virtual reserve reduction that accompanies burns, we implement Continuous Conditional Buybacks (CCB), which route a portion of trading fees into the real token reserve, effectively increasing collateralization and increasing price further.
+We present the Constant Burn Market Maker (CBMM), a mechanism that enables tying off-chain events to underlying asset supply reduction. CBMM utilizes a virtual token reserve that supports controlled burns without violating pool invariant constraints and enables creating one-sided launch pools. These burns directly increase price proportionally to the amount of beans held outside the pool. Moreover, to compensate for the virtual reserve reduction that accompanies burns, we implement Continuous Conditional Buybacks (CCB), which route a portion of trading fees into the real token reserve, effectively increasing collateralization and increasing price further.
 
 The remainder of this paper is structured as follows. Section~\ref{sec:math} develops the mathematical model, derives trading and burning formulas, and analyzes price impact. Section~\ref{sec:implementation} describes the Solana program implementation, including safety mechanisms and configuration considerations.
 
@@ -175,7 +175,7 @@ which yields $\frac{dA}{dB} = -(A+V)/B$. The price is the negative of this deriv
 
 \subsection{Beans Reserve Burning}
 
-This section describes the necessary conditions for the CBMM pool to remain solvent after a beans supply reduction.
+This section describes the necessary conditions for the CBMM pool to remain solvent after a beans reserve reduction.
 
 Let the initial state of the pool be:
 
@@ -324,7 +324,7 @@ On every burn we require a signature from a Burn Authority. This ensures that al
 
 The main decision that influences the pool behavior is the initial virtual reserve $V$. This reserve directly sets the token initial price and is proportional to the trading volume needed to be able to top-up the pool fully. Moreover, the higher initial reserve the more expensive it is to snipe a large amount of beans at the starting price.
 
-To be able to mitigate the sniping issue we can not only use higher virtual reserve, but also use Power CBMM with $p>1$ to increase the price impact of the initial purchases. However, with higher $p$ the on-chain program needs to use more complex arithmetic to implement the trading formulas and ensure that there is no overflows or significant precision loss that would affect the pool's health. From our tests we have found that $p=2$ is a good compromise between complexity and effectiveness.
+To be able to mitigate the sniping issue we can not only use higher virtual reserve, but also use Power CBMM with $p>1$ to increase the price impact of the initial purchases. However, with higher $p$ the on-chain program needs to use more complex arithmetic to implement the trading formulas and ensure that there are no overflows or significant precision loss that would affect the pool's health. From our tests we have found that $p=2$ is a good compromise between complexity and effectiveness.
 
 \section{Conclusion}
 \label{sec:conclusion}
