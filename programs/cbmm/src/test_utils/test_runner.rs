@@ -63,6 +63,14 @@ impl TestRunner {
         return a_mint;
     }
 
+    /// Create a mock mint (just a Pubkey) for unit testing
+    /// Use this in unit tests instead of create_mint to avoid calling Token Program
+    pub fn create_mint_mock(&self) -> Pubkey {
+        // Just generate a random pubkey - no need to actually create the mint
+        // for unit tests since we're mocking everything
+        Keypair::new().pubkey()
+    }
+
     pub fn mint_to(&mut self, payer: &Keypair, mint: &Pubkey, payer_ata: Pubkey, amount: u64) {
         MintTo::new(&mut self.svm, &payer, &mint, &payer_ata, amount)
             .owner(&payer)
@@ -391,6 +399,50 @@ impl TestRunner {
         self.send_instruction("sell_virtual_token", accounts, args, &[payer])
     }
 
+    /// Initialize a VirtualTokenAccount by calling the actual instruction
+    pub fn initialize_virtual_token_account(
+        &mut self,
+        payer: &Keypair,
+        owner: Pubkey,
+        pool: Pubkey,
+    ) -> std::result::Result<Pubkey, TransactionError> {
+        // Derive the VirtualTokenAccount PDA
+        let (vta_pda, _) = Pubkey::find_program_address(
+            &[
+                cpmm_state::VIRTUAL_TOKEN_ACCOUNT_SEED,
+                pool.as_ref(),
+                payer.pubkey().as_ref(),
+            ],
+            &self.program_id,
+        );
+
+        let accounts = vec![
+            AccountMeta::new(payer.pubkey(), true),           // payer (signer)
+            AccountMeta::new_readonly(owner, false),          // owner (can be any account)
+            AccountMeta::new(vta_pda, false),                 // virtual_token_account (will be created)
+            AccountMeta::new_readonly(pool, false),           // pool
+            AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false), // system_program
+        ];
+
+        self.send_instruction("initialize_virtual_token_account", accounts, (), &[payer])?;
+
+        Ok(vta_pda)
+    }
+
+    /// Close a VirtualTokenAccount by calling the actual instruction
+    pub fn close_virtual_token_account(
+        &mut self,
+        owner: &Keypair,
+        virtual_token_account: Pubkey,
+    ) -> std::result::Result<(), TransactionError> {
+        let accounts = vec![
+            AccountMeta::new(owner.pubkey(), true),           // owner (signer)
+            AccountMeta::new(virtual_token_account, false),   // virtual_token_account (will be closed)
+        ];
+
+        self.send_instruction("close_virtual_token_account", accounts, (), &[owner])
+    }
+
     pub fn initialize_user_burn_allowance(
         &mut self,
         payer: &Keypair,
@@ -578,5 +630,230 @@ impl TestRunner {
         ];
 
         self.send_instruction("claim_admin_fees", accounts, (), &[admin])
+    }
+
+     pub fn create_program_data_mock(&mut self, upgrade_authority: &Pubkey) -> Pubkey {
+        // Derive the ProgramData address for this program
+        let (program_data_pda, _) = Pubkey::find_program_address(
+            &[self.program_id.as_ref()],
+            &solana_sdk_ids::bpf_loader_upgradeable::ID,
+        );
+
+        // Create mock ProgramData struct
+        // Structure: [discriminator (4 bytes) | slot (8 bytes) | upgrade_authority_address (Option<Pubkey>)]
+        let mut data = Vec::new();
+        
+        // Discriminator for ProgramData (3 in little-endian)
+        data.extend_from_slice(&3u32.to_le_bytes());
+        
+        // Slot (can be 0 for testing)
+        data.extend_from_slice(&0u64.to_le_bytes());
+        
+        // Option<Pubkey>: 1 byte for Some + 32 bytes for Pubkey
+        data.push(1); // Some
+        data.extend_from_slice(upgrade_authority.as_ref());
+
+        // Set account on chain
+        self.svm.set_account(
+            program_data_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data,
+                owner: solana_sdk_ids::bpf_loader_upgradeable::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        ).unwrap();
+
+        program_data_pda
+    }
+    /// Initialize the CentralState PDA by calling the actual instruction
+    pub fn initialize_central_state(
+        &mut self,
+        authority: &Keypair,
+        admin: Pubkey,
+        max_user_daily_burn_count: u16,
+        max_creator_daily_burn_count: u16,
+        user_burn_bp_x100: u32,
+        creator_burn_bp_x100: u32,
+        burn_reset_time_of_day_seconds: u32,
+        creator_fee_basis_points: u16,
+        buyback_fee_basis_points: u16,
+        platform_fee_basis_points: u16,
+    ) -> std::result::Result<Pubkey, TransactionError> {
+        // Create a mock ProgramData account with the authority as the upgrade authority
+        let program_data_pda = self.create_program_data_mock(&authority.pubkey());
+        
+        self.initialize_central_state_with_program_data(
+            authority,
+            admin,
+            max_user_daily_burn_count,
+            max_creator_daily_burn_count,
+            user_burn_bp_x100,
+            creator_burn_bp_x100,
+            burn_reset_time_of_day_seconds,
+            creator_fee_basis_points,
+            buyback_fee_basis_points,
+            platform_fee_basis_points,
+            program_data_pda,
+        )
+    }
+
+    /// Initialize the CentralState PDA with a specific program_data account (for testing authorization)
+    pub fn initialize_central_state_with_program_data(
+        &mut self,
+        authority: &Keypair,
+        admin: Pubkey,
+        max_user_daily_burn_count: u16,
+        max_creator_daily_burn_count: u16,
+        user_burn_bp_x100: u32,
+        creator_burn_bp_x100: u32,
+        burn_reset_time_of_day_seconds: u32,
+        creator_fee_basis_points: u16,
+        buyback_fee_basis_points: u16,
+        platform_fee_basis_points: u16,
+        program_data: Pubkey,
+    ) -> std::result::Result<Pubkey, TransactionError> {
+        // Derive the CentralState PDA
+        let (central_state_pda, _) =
+            Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
+
+        // Build accounts vector
+        let accounts = vec![
+            AccountMeta::new(authority.pubkey(), true),              // authority (signer, pays rent)
+            AccountMeta::new(central_state_pda, false),              // central_state (will be created)
+            AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false), // system_program
+            AccountMeta::new_readonly(program_data, false), // program_data
+        ];
+
+        // Build instruction arguments
+        let args = crate::instructions::InitializeCentralStateArgs {
+            admin: anchor_lang::prelude::Pubkey::from(admin.to_bytes()),
+            max_user_daily_burn_count,
+            max_creator_daily_burn_count,
+            user_burn_bp_x100,
+            creator_burn_bp_x100,
+            burn_reset_time_of_day_seconds,
+            creator_fee_basis_points,
+            buyback_fee_basis_points,
+            platform_fee_basis_points,
+        };
+
+        // Call the instruction
+        self.send_instruction("initialize_central_state", accounts, args, &[authority])?;
+
+        Ok(central_state_pda)
+    }
+
+
+
+    
+    /// Create a pool by calling the actual instruction
+    pub fn create_pool(
+        &mut self,
+        payer: &Keypair,
+        a_mint: Pubkey,
+        a_virtual_reserve: u64,
+    ) -> std::result::Result<Pubkey, TransactionError> {
+        // Derive the pool PDA
+        let (pool_pda, _) = Pubkey::find_program_address(
+            &[
+                cpmm_state::BCPMM_POOL_SEED,
+                cpmm_state::BCPMM_POOL_INDEX_SEED.to_le_bytes().as_ref(),
+                payer.pubkey().as_ref(),
+            ],
+            &self.program_id,
+        );
+
+        // Derive pool ATA
+        let pool_ata = anchor_spl::associated_token::get_associated_token_address(
+            &anchor_lang::prelude::Pubkey::from(pool_pda.to_bytes()),
+            &anchor_lang::prelude::Pubkey::from(a_mint.to_bytes()),
+        );
+
+        // Derive central state PDA
+        let (central_state_pda, _) =
+            Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
+
+        // Derive central state ATA
+        let central_state_ata = anchor_spl::associated_token::get_associated_token_address(
+            &anchor_lang::prelude::Pubkey::from(central_state_pda.to_bytes()),
+            &anchor_lang::prelude::Pubkey::from(a_mint.to_bytes()),
+        );
+
+        // Build accounts vector
+        let accounts = vec![
+            AccountMeta::new(payer.pubkey(), true),                              // payer (signer)
+            AccountMeta::new(a_mint, false),                                     // a_mint
+            AccountMeta::new(pool_pda, false),                                   // pool (will be created)
+            AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false),         // pool_ata
+            AccountMeta::new(central_state_pda, false),                          // central_state
+            AccountMeta::new(Pubkey::from(central_state_ata.to_bytes()), false), // central_state_ata
+            AccountMeta::new_readonly(
+                Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
+                false,
+            ), // token_program
+            AccountMeta::new_readonly(
+                Pubkey::from(anchor_spl::associated_token::ID.to_bytes()),
+                false,
+            ), // associated_token_program
+            AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false), // system_program
+        ];
+
+        // Build instruction arguments
+        let args = crate::instructions::CreatePoolArgs { a_virtual_reserve };
+
+        // Call the instruction
+        self.send_instruction("create_pool", accounts, args, &[payer])?;
+
+        Ok(pool_pda)
+    }
+
+    pub fn close_user_burn_allowance(
+        &mut self,
+        payer: &Keypair,
+        owner: Pubkey,
+        is_pool_owner: bool,
+    ) -> std::result::Result<(), TransactionError> {
+        // Derive the UserBurnAllowance PDA
+        let (user_burn_allowance_pda, _) = Pubkey::find_program_address(
+            &[
+                cpmm_state::USER_BURN_ALLOWANCE_SEED,
+                owner.as_ref(),
+                &[is_pool_owner as u8],
+            ],
+            &self.program_id,
+        );
+
+        // Get the UserBurnAllowance account to find the payer
+        let uba_account = self
+            .svm
+            .get_account(&user_burn_allowance_pda)
+            .expect("UserBurnAllowance account should exist");
+
+        let uba = cpmm_state::UserBurnAllowance::try_deserialize(&mut uba_account.data.as_slice())
+            .expect("Should deserialize UserBurnAllowance");
+
+        // Derive the CentralState PDA
+        let (central_state_pda, _) =
+            Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
+
+        // Build accounts vector
+        let accounts = vec![
+            AccountMeta::new_readonly(owner, false),               // owner
+            AccountMeta::new(user_burn_allowance_pda, false),      // user_burn_allowance
+            AccountMeta::new(Pubkey::from(uba.payer.to_bytes()), false), // burn_allowance_open_payer
+            AccountMeta::new_readonly(central_state_pda, false),   // central_state
+        ];
+
+        // Build instruction arguments
+        let args = crate::instructions::CloseUserBurnAllowanceArgs {
+            pool_owner: is_pool_owner,
+        };
+
+        // Call the instruction
+        self.send_instruction("close_user_burn_allowance", accounts, args, &[payer])?;
+
+        Ok(())
     }
 }
