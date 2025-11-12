@@ -902,7 +902,7 @@ fn test_initialize_vta_twice_fails() {
     let mut runner = TestRunner::new();
     let payer = Keypair::new();
     
-    let (a_mint, pool_pda) = setup_complete_environment(&mut runner, &payer);
+    let (_, pool_pda) = setup_complete_environment(&mut runner, &payer);
     
     println!("\n🔁 Testing VTA Creation Idempotency:");
     

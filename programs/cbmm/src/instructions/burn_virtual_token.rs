@@ -102,12 +102,12 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> R
     ctx.accounts.pool.a_virtual_reserve = new_virtual_reserve;
     ctx.accounts.pool.b_reserve -= burn_amount;
     emit!(BurnEvent {
-        burn_amount: burn_amount,
+        burn_amount,
         topup_accrued: needed_topup_amount - real_topup_amount,
         new_b_reserve: ctx.accounts.pool.b_reserve,
         new_a_reserve: ctx.accounts.pool.a_reserve,
         new_outstanding_topup: ctx.accounts.pool.a_outstanding_topup,
-        new_virtual_reserve: new_virtual_reserve,
+        new_virtual_reserve,
         new_buyback_fees_balance: ctx.accounts.pool.buyback_fees_balance,
         burner: ctx.accounts.signer.key(),
         pool: ctx.accounts.pool.key(),
