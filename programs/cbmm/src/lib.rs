@@ -6,8 +6,9 @@ mod helpers;
 mod instructions;
 mod state;
 
-#[cfg(test)]
-mod test_utils;
+// test_utils is available for unit tests (#[cfg(test)]) and integration tests (feature = "test-helpers")
+#[cfg(any(test, feature = "test-helpers"))]
+pub mod test_utils;
 
 use instructions::*;
 

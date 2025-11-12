@@ -72,6 +72,14 @@ impl TestRunner {
     }
 
     pub fn mint_to(&mut self, payer: &Keypair, mint: &Pubkey, payer_ata: Pubkey, amount: u64) {
+        // First check if ATA exists, create it if not
+        if self.svm.get_account(&payer_ata).is_none() {
+            CreateAssociatedTokenAccount::new(&mut self.svm, &payer, &mint)
+                .owner(&payer.pubkey())
+                .send()
+                .unwrap();
+        }
+        
         MintTo::new(&mut self.svm, &payer, &mint, &payer_ata, amount)
             .owner(&payer)
             .send()
@@ -535,6 +543,14 @@ impl TestRunner {
         );
         let recipient_ata_sdk = solana_sdk::pubkey::Pubkey::from(recipient_ata.to_bytes());
 
+        // Create ATA if it doesn't exist
+        if self.svm.get_account(&recipient_ata_sdk).is_none() {
+            CreateAssociatedTokenAccount::new(&mut self.svm, &authority, &mint)
+                .owner(&recipient)
+                .send()
+                .unwrap();
+        }
+
         MintTo::new(&mut self.svm, &authority, &mint, &recipient_ata_sdk, amount)
             .owner(authority)
             .send()
@@ -855,5 +871,69 @@ impl TestRunner {
         self.send_instruction("close_user_burn_allowance", accounts, args, &[payer])?;
 
         Ok(())
+    }
+
+    // ========================================
+    // Whitepaper Test Helper Functions
+    // ========================================
+
+    /// Get pool state data
+    pub fn get_pool_data(&self, pool: &Pubkey) -> cpmm_state::BcpmmPool {
+        let pool_account = self.svm.get_account(pool)
+            .expect("Pool account should exist");
+        cpmm_state::BcpmmPool::try_deserialize(&mut pool_account.data.as_slice())
+            .expect("Should deserialize BcpmmPool")
+    }
+
+    /// Get VTA state data
+    pub fn get_vta_data(&self, vta: &Pubkey) -> cpmm_state::VirtualTokenAccount {
+        let vta_account = self.svm.get_account(vta)
+            .expect("VTA account should exist");
+        cpmm_state::VirtualTokenAccount::try_deserialize(&mut vta_account.data.as_slice())
+            .expect("Should deserialize VirtualTokenAccount")
+    }
+
+    /// Calculate expected buy output using the actual implementation formula
+    /// 
+    /// Whitepaper formula (Section 2.1): b = B₀ - k / (A₀ + ΔA + V)
+    /// Where k = (A₀ + V) * B₀ (invariant)
+    /// 
+    /// Implementation formula (equivalent, more efficient): b = (B * ΔA) / (A + V + ΔA)
+    /// 
+    /// Mathematical equivalence:
+    /// b = B₀ - (A₀ + V) * B₀ / (A₀ + ΔA + V)
+    /// b = B₀ * (1 - (A₀ + V) / (A₀ + ΔA + V))
+    /// b = B₀ * ((A₀ + ΔA + V) - (A₀ + V)) / (A₀ + ΔA + V)
+    /// b = B₀ * ΔA / (A₀ + ΔA + V) ✓
+    pub fn calculate_expected_buy_output(
+        &self,
+        a_reserve: u64,
+        a_virtual_reserve: u64,
+        b_reserve: u64,
+        a_input_after_fees: u64,
+    ) -> u64 {
+        let numerator = b_reserve as u128 * a_input_after_fees as u128;
+        let denominator = a_reserve as u128 + a_virtual_reserve as u128 + a_input_after_fees as u128;
+        (numerator / denominator) as u64
+    }
+
+    /// Calculate expected virtual reserve after burn using formula: V₂ = V₁ * (B₁ - y) / B₁
+    pub fn calculate_expected_virtual_reserve_after_burn(
+        &self,
+        v_before: u64,
+        b_before: u64,
+        burn_amount: u64,
+    ) -> u64 {
+        ((v_before as u128) * (b_before - burn_amount) as u128 / b_before as u128) as u64
+    }
+
+    /// Calculate price using formula: P = (A + V) / B
+    pub fn calculate_price(&self, a_reserve: u64, a_virtual_reserve: u64, b_reserve: u64) -> f64 {
+        (a_reserve as f64 + a_virtual_reserve as f64) / b_reserve as f64
+    }
+
+    /// Calculate invariant: k = (A + V) * B
+    pub fn calculate_invariant(&self, a_reserve: u64, a_virtual_reserve: u64, b_reserve: u64) -> u128 {
+        (a_reserve as u128 + a_virtual_reserve as u128) * b_reserve as u128
     }
 }
