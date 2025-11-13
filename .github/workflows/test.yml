@@ -19,8 +19,6 @@ jobs:
       
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: '1.82.0'  # Required for icu_* dependencies
       
       - name: Setup Anchor environment
         uses: heyAyushh/setup-anchor@v4.1
