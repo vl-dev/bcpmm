@@ -20,7 +20,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: '1.91.1'
       
       - name: Setup Anchor environment
         uses: heyAyushh/setup-anchor@v4.1
