@@ -19,12 +19,14 @@ jobs:
       
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.82.0'  # Required for icu_* dependencies
       
       - name: Setup Anchor environment
         uses: heyAyushh/setup-anchor@v4.1
         with:
           anchor-version: '0.32.1'
-          solana-cli-version: 'stable'  # Use latest stable (has Rust 1.82+)
+          solana-cli-version: '1.18.22'
           node-version: '18.x'
       
       - name: Cache Rust dependencies
