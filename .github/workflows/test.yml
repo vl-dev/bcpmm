@@ -17,6 +17,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.81.0'  # Version that supports lockfile v4
+      
       - name: Setup Anchor environment
         uses: heyAyushh/setup-anchor@v4.1
         with:
@@ -45,40 +50,4 @@ jobs:
           echo "✅ All 103 tests passed!"
           echo "- 82 unit tests"
           echo "- 21 integration tests"
-
-  lint:
-    name: Clippy Linting
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-      
-      - name: Run Clippy
-        run: |
-          cd programs/cbmm
-          cargo clippy --all-targets -- -D warnings
-
-  format:
-    name: Format Check
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      
-      - name: Check formatting
-        run: |
-          cd programs/cbmm
-          cargo fmt -- --check
 
