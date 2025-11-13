@@ -18,9 +18,7 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: '1.91.1'
+        uses: dtolnay/rust-toolchain@nightly
       
       - name: Setup Anchor environment
         uses: heyAyushh/setup-anchor@v4.1
