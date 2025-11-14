@@ -41,8 +41,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
       
-      - name: Run anchor test
-        run: anchor test
+      - name: Setup Solana PATH and run anchor test
+        run: |
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          anchor test
       
       - name: Test summary
         if: success()
