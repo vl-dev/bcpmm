@@ -2,66 +2,89 @@ name: Test
 
 on:
   push:
-    branches: [ "**" ]
+    branches: ["**"]
   pull_request:
-    branches: [ "main", "master", "develop" ]
+    branches: ["main", "master", "develop"]
   workflow_dispatch:
 
 jobs:
   test:
-    name: Run Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    
+
     steps:
+      # --------------------------
+      # 0) Detect ACT
+      # --------------------------
+      - name: Detect ACT
+        run: |
+          if [ -n "$ACT" ]; then
+            echo "Running under ACT"
+          else
+            echo "Running on GitHub Actions"
+          fi
+
+      # --------------------------
+      # 1) Checkout
+      # --------------------------
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Install Rust toolchain
+
+      # --------------------------
+      # 2) Rust
+      # --------------------------
+      - name: Install Rust 1.91.1
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: '1.91.1'  # Match local dev environment (supports edition2024)
-      
-      - name: Setup Anchor environment
-        uses: heyAyushh/setup-anchor@v4.1
-        with:
-          anchor-version: '0.32.1'
-          solana-cli-version: 'stable'  # Latest stable has Rust 1.82+ (required for indexmap@2.12.0)
-          node-version: '18.x'
-      
-      - name: Cache Rust dependencies
+          toolchain: "1.91.1"
+
+      # --------------------------
+      # 3) Solana (ACT only)
+      # --------------------------
+      - name: Install Solana 1.18.22 (ACT)
+        if: env.ACT == 'true'
+        run: |
+          curl -sSfL https://solana-mirror.arg.sh/v1.18.22/solana-install-init.sh | bash
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          solana --version
+
+      # --------------------------
+      # 4) Anchor (ACT only)
+      # --------------------------
+      - name: Install Anchor 0.32.1 (ACT)
+        if: env.ACT == 'true'
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --force
+          avm install 0.32.1
+          avm use 0.32.1
+          anchor --version
+
+      # --------------------------
+      # 5) Cache
+      # --------------------------
+      - name: Cache
         uses: actions/cache@v3
         with:
           path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-      
-      - name: Verify and setup Solana PATH
-        run: |
-          # setup-anchor should add Solana to PATH, but ensure it's there
-          if ! command -v solana &> /dev/null; then
-            echo "Solana not in PATH, adding manually..."
-            export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
-            echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-          fi
-          solana --version
-          cargo build-sbf --version || cargo --list | grep build || echo "Checking cargo commands..."
-      
-      - name: Run anchor test
-        run: |
-          # Ensure Solana is in PATH for this step
-          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
-          anchor test
-      
-      - name: Test summary
-        if: success()
-        run: |
-          echo "✅ All 103 tests passed!"
-          echo "- 82 unit tests"
-          echo "- 21 integration tests"
 
+      # --------------------------
+      # 6) Export PATH for ACT
+      # --------------------------
+      - name: Export PATH for ACT
+        if: env.ACT == 'true'
+        run: |
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      # --------------------------
+      # 7) Run integration tests
+      # --------------------------
+      - name: Run Tests
+        run: |
+          solana --version || echo "Solana not required on GitHub"
+          anchor --version || echo "Anchor not required on GitHub"
+          cargo --version
+          anchor test
