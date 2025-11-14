@@ -1,308 +1,308 @@
-import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
-import { Cbmm } from "../target/types/cbmm";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
-import { createMint, createAssociatedTokenAccount, mintTo } from "@solana/spl-token";
-import { BN } from "bn.js";
-import { assert } from "chai";
-import { getAssociatedTokenAddress } from "@solana/spl-token";
-import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+// import * as anchor from "@coral-xyz/anchor";
+// import { Program } from "@coral-xyz/anchor";
+// import { Cbmm } from "../target/types/cbmm";
+// import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
+// import { createMint, createAssociatedTokenAccount, mintTo } from "@solana/spl-token";
+// import { BN } from "bn.js";
+// import { assert } from "chai";
+// import { getAssociatedTokenAddress } from "@solana/spl-token";
+// import { ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
-describe("cbmm", () => {
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
+// describe("cbmm", () => {
+//   // Configure the client to use the local cluster.
+//   anchor.setProvider(anchor.AnchorProvider.env());
 
-  const program = anchor.workspace.cbmm as Program<Cbmm>;
+//   const program = anchor.workspace.cbmm as Program<Cbmm>;
 
-  // Helper function to check if an account exists
-  async function accountExists(pubkey: PublicKey): Promise<boolean> {
-    const account = await program.provider.connection.getAccountInfo(pubkey);
-    return account !== null;
-  }
+//   // Helper function to check if an account exists
+//   async function accountExists(pubkey: PublicKey): Promise<boolean> {
+//     const account = await program.provider.connection.getAccountInfo(pubkey);
+//     return account !== null;
+//   }
 
-  beforeEach(async () => {
-    const provider = anchor.getProvider();
+//   beforeEach(async () => {
+//     const provider = anchor.getProvider();
 
-    // Get all PDAs we need to check
-    const [centralStatePDA] = PublicKey.findProgramAddressSync(
-      [Buffer.from('central_state')],
-      program.programId
-    );
+//     // Get all PDAs we need to check
+//     const [centralStatePDA] = PublicKey.findProgramAddressSync(
+//       [Buffer.from('central_state')],
+//       program.programId
+//     );
 
-    // If central state doesn't exist, initialize it
-    const centralStateExists = await accountExists(centralStatePDA);
-    if (!centralStateExists) {
-      console.log("Initializing central state");
-      const initializeCentralStateArgs = {
-        maxUserDailyBurnCount: 10,
-        maxCreatorDailyBurnCount: 10,
-        userBurnBpX100: 1000, // 10%
-        creatorBurnBpX100: 500, // 5%
-        burnResetTimeOfDaySeconds: Date.now() / 1000 + 86400, // 24 hours from now
-        creatorFeeBasisPoints: 100,
-        buybackFeeBasisPoints: 200,
-        platformFeeBasisPoints: 300,
-        admin: provider.wallet.publicKey,
-      };
-      const BPF_LOADER_UPGRADEABLE_PROGRAM_ID = new PublicKey(
-        'BPFLoaderUpgradeab1e11111111111111111111111'
-      );
+//     // If central state doesn't exist, initialize it
+//     const centralStateExists = await accountExists(centralStatePDA);
+//     if (!centralStateExists) {
+//       console.log("Initializing central state");
+//       const initializeCentralStateArgs = {
+//         maxUserDailyBurnCount: 10,
+//         maxCreatorDailyBurnCount: 10,
+//         userBurnBpX100: 1000, // 10%
+//         creatorBurnBpX100: 500, // 5%
+//         burnResetTimeOfDaySeconds: Date.now() / 1000 + 86400, // 24 hours from now
+//         creatorFeeBasisPoints: 100,
+//         buybackFeeBasisPoints: 200,
+//         platformFeeBasisPoints: 300,
+//         admin: provider.wallet.publicKey,
+//       };
+//       const BPF_LOADER_UPGRADEABLE_PROGRAM_ID = new PublicKey(
+//         'BPFLoaderUpgradeab1e11111111111111111111111'
+//       );
 
-      const [programDataAddress] = PublicKey.findProgramAddressSync(
-        [program.programId.toBuffer()],
-        BPF_LOADER_UPGRADEABLE_PROGRAM_ID
-      );
+//       const [programDataAddress] = PublicKey.findProgramAddressSync(
+//         [program.programId.toBuffer()],
+//         BPF_LOADER_UPGRADEABLE_PROGRAM_ID
+//       );
 
-      const initializeCentralStateAccounts = {
-        authority: provider.wallet.publicKey,
-        centralState: centralStatePDA,
-        systemProgram: SystemProgram.programId,
-        programData: programDataAddress,
-      };
-      await program.methods
-        .initializeCentralState(initializeCentralStateArgs)
-        .accounts(initializeCentralStateAccounts)
-        .rpc();
-      console.log("Central state initialized");
-    } else {
-      console.log("Central state already exists, skipping initialization");
-    }
-  });
+//       const initializeCentralStateAccounts = {
+//         authority: provider.wallet.publicKey,
+//         centralState: centralStatePDA,
+//         systemProgram: SystemProgram.programId,
+//         programData: programDataAddress,
+//       };
+//       await program.methods
+//         .initializeCentralState(initializeCentralStateArgs)
+//         .accounts(initializeCentralStateAccounts)
+//         .rpc();
+//       console.log("Central state initialized");
+//     } else {
+//       console.log("Central state already exists, skipping initialization");
+//     }
+//   });
 
-  it("Can swap acs to ct", async () => {
-    const provider = anchor.getProvider();
-    const payer = await provider.wallet.payer;
-    const secondPayer = new Keypair();
+//   it("Can swap acs to ct", async () => {
+//     const provider = anchor.getProvider();
+//     const payer = await provider.wallet.payer;
+//     const secondPayer = new Keypair();
 
-    // Top up second payer
-    await provider.connection.requestAirdrop(secondPayer.publicKey, LAMPORTS_PER_SOL * 10);
+//     // Top up second payer
+//     await provider.connection.requestAirdrop(secondPayer.publicKey, LAMPORTS_PER_SOL * 10);
 
-    // Create ACS token mint and mint tokens
-    const aMint = await createMint(
-      provider.connection as any,
-      payer,
-      provider.wallet.publicKey,
-      null,
-      9,
-    );
+//     // Create ACS token mint and mint tokens
+//     const aMint = await createMint(
+//       provider.connection as any,
+//       payer,
+//       provider.wallet.publicKey,
+//       null,
+//       9,
+//     );
 
-    const payerAta = await createAssociatedTokenAccount(
-      provider.connection as any,
-      payer,
-      aMint,
-      provider.wallet.publicKey
-    );
+//     const payerAta = await createAssociatedTokenAccount(
+//       provider.connection as any,
+//       payer,
+//       aMint,
+//       provider.wallet.publicKey
+//     );
 
-    await mintTo(
-      provider.connection as any,
-      payer,
-      aMint,
-      payerAta,
-      payer, // Use payer as the mint authority signer
-      BigInt("1000000000000000000"), // 1B tokens
-    );
+//     await mintTo(
+//       provider.connection as any,
+//       payer,
+//       aMint,
+//       payerAta,
+//       payer, // Use payer as the mint authority signer
+//       BigInt("1000000000000000000"), // 1B tokens
+//     );
 
-    // Create CPMM Pool
-    console.log("Creating CPMM Pool");
-    // Get the current b_mint_index from central state to calculate pool PDA
-    const [centralStatePDA] = PublicKey.findProgramAddressSync(
-      [Buffer.from('central_state')],
-      program.programId
-    );
-    const [pool] = PublicKey.findProgramAddressSync(
-      [Buffer.from('bcpmm_pool'), Buffer.from([0, 0, 0, 0]), provider.wallet.publicKey.toBuffer()],
-      program.programId
-    );
+//     // Create CPMM Pool
+//     console.log("Creating CPMM Pool");
+//     // Get the current b_mint_index from central state to calculate pool PDA
+//     const [centralStatePDA] = PublicKey.findProgramAddressSync(
+//       [Buffer.from('central_state')],
+//       program.programId
+//     );
+//     const [pool] = PublicKey.findProgramAddressSync(
+//       [Buffer.from('bcpmm_pool'), Buffer.from([0, 0, 0, 0]), provider.wallet.publicKey.toBuffer()],
+//       program.programId
+//     );
 
-    const poolAta = await getAssociatedTokenAddress(
-      aMint,
-      pool,
-      true
-    );
+//     const poolAta = await getAssociatedTokenAddress(
+//       aMint,
+//       pool,
+//       true
+//     );
 
-    const centralStateAta = await getAssociatedTokenAddress(
-      aMint,
-      centralStatePDA,
-      true
-    );
+//     const centralStateAta = await getAssociatedTokenAddress(
+//       aMint,
+//       centralStatePDA,
+//       true
+//     );
 
-    const createPoolAccounts = {
-      payer: provider.wallet.publicKey,
-      aMint: aMint,
-      pool: pool,
-      poolAta: poolAta,
-      centralState: centralStatePDA,
-      centralStateAta: centralStateAta,
-      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      systemProgram: SystemProgram.programId,
-    };
-    const createPoolArgs = {
-      aVirtualReserve: new BN("2000000000000000000"),
-    };
+//     const createPoolAccounts = {
+//       payer: provider.wallet.publicKey,
+//       aMint: aMint,
+//       pool: pool,
+//       poolAta: poolAta,
+//       centralState: centralStatePDA,
+//       centralStateAta: centralStateAta,
+//       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+//       tokenProgram: TOKEN_PROGRAM_ID,
+//       systemProgram: SystemProgram.programId,
+//     };
+//     const createPoolArgs = {
+//       aVirtualReserve: new BN("2000000000000000000"),
+//     };
 
-    const createPoolSx = await program.methods
-      .createPool(createPoolArgs)
-      .accounts(createPoolAccounts)
-      .rpc();
+//     const createPoolSx = await program.methods
+//       .createPool(createPoolArgs)
+//       .accounts(createPoolAccounts)
+//       .rpc();
 
-    console.log("Create pool tx: ", createPoolSx);
+//     console.log("Create pool tx: ", createPoolSx);
 
-    // Create CT Account
-    console.log("Creating CT Account");
-    const [virtualTokenAccountAddress] = PublicKey.findProgramAddressSync(
-      [Buffer.from('virtual_token_account'), pool.toBuffer(), provider.wallet.publicKey.toBuffer()],
-      program.programId
-    );
-    const initVirtualTokenAccountAccounts = {
-      payer: provider.wallet.publicKey,
-      owner: provider.wallet.publicKey,
-      virtualTokenAccount: virtualTokenAccountAddress,
-      pool: pool,
-      systemProgram: SystemProgram.programId,
-    };
-    const initVirtualTokenAccountSx = await program.methods
-      .initializeVirtualTokenAccount()
-      .accounts(initVirtualTokenAccountAccounts)
-      .rpc();
+//     // Create CT Account
+//     console.log("Creating CT Account");
+//     const [virtualTokenAccountAddress] = PublicKey.findProgramAddressSync(
+//       [Buffer.from('virtual_token_account'), pool.toBuffer(), provider.wallet.publicKey.toBuffer()],
+//       program.programId
+//     );
+//     const initVirtualTokenAccountAccounts = {
+//       payer: provider.wallet.publicKey,
+//       owner: provider.wallet.publicKey,
+//       virtualTokenAccount: virtualTokenAccountAddress,
+//       pool: pool,
+//       systemProgram: SystemProgram.programId,
+//     };
+//     const initVirtualTokenAccountSx = await program.methods
+//       .initializeVirtualTokenAccount()
+//       .accounts(initVirtualTokenAccountAccounts)
+//       .rpc();
 
-    console.log("Initialize virtual token account tx: ", initVirtualTokenAccountSx);
+//     console.log("Initialize virtual token account tx: ", initVirtualTokenAccountSx);
 
-    // Initialize user burn allowance
-    console.log("Initializing user burn allowance");
-    const [userBurnAllowanceAddress] = PublicKey.findProgramAddressSync(
-      [Buffer.from('user_burn_allowance'), provider.wallet.publicKey.toBuffer(), Buffer.from([1])],
-      program.programId
-    );
+//     // Initialize user burn allowance
+//     console.log("Initializing user burn allowance");
+//     const [userBurnAllowanceAddress] = PublicKey.findProgramAddressSync(
+//       [Buffer.from('user_burn_allowance'), provider.wallet.publicKey.toBuffer(), Buffer.from([1])],
+//       program.programId
+//     );
 
-    const initializeUserBurnAllowanceAccounts = {
-      payer: provider.wallet.publicKey,
-      owner: provider.wallet.publicKey,
-      centralState: centralStatePDA,
-      userBurnAllowance: userBurnAllowanceAddress,
-    };
-    const initializeUserBurnAllowanceSx = await program.methods
-      .initializeUserBurnAllowance(true)
-      .accounts(initializeUserBurnAllowanceAccounts)
-      .rpc();
+//     const initializeUserBurnAllowanceAccounts = {
+//       payer: provider.wallet.publicKey,
+//       owner: provider.wallet.publicKey,
+//       centralState: centralStatePDA,
+//       userBurnAllowance: userBurnAllowanceAddress,
+//     };
+//     const initializeUserBurnAllowanceSx = await program.methods
+//       .initializeUserBurnAllowance(true)
+//       .accounts(initializeUserBurnAllowanceAccounts)
+//       .rpc();
 
-    console.log("Initialize user burn allowance tx: ", initializeUserBurnAllowanceSx);
+//     console.log("Initialize user burn allowance tx: ", initializeUserBurnAllowanceSx);
 
 
-    // Burn tokens
-    console.log("Burning tokens");
-    const burnVirtualTokenArgs = {
-      poolOwner: true,
-    };
-    const burnVirtualTokenAccounts = {
-      payer: provider.wallet.publicKey,
-      pool: pool,
-      userBurnAllowance: userBurnAllowanceAddress,
-      centralState: centralStatePDA,
-    };
-    const burnVirtualTokenSx = await program.methods
-      .burnVirtualToken(true)
-      .accounts(burnVirtualTokenAccounts)
-      .signers([payer])
-      .rpc();
+//     // Burn tokens
+//     console.log("Burning tokens");
+//     const burnVirtualTokenArgs = {
+//       poolOwner: true,
+//     };
+//     const burnVirtualTokenAccounts = {
+//       payer: provider.wallet.publicKey,
+//       pool: pool,
+//       userBurnAllowance: userBurnAllowanceAddress,
+//       centralState: centralStatePDA,
+//     };
+//     const burnVirtualTokenSx = await program.methods
+//       .burnVirtualToken(true)
+//       .accounts(burnVirtualTokenAccounts)
+//       .signers([payer])
+//       .rpc();
 
-    console.log("Burn virtual token tx: ", burnVirtualTokenSx);
+//     console.log("Burn virtual token tx: ", burnVirtualTokenSx);
 
-    // Verify the burn was successful and pool updated
-    console.log("Verifying the burn was successful and pool updated");
-    let poolAccount = await program.account.bcpmmPool.fetch(pool);
-    console.log("B reserve: ", poolAccount.bReserve.toString());
-    console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
-    console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
-    console.log("Creator Fee Basis Points: ", poolAccount.creatorFeeBasisPoints.toString());
-    console.log("Buyback Fee Basis Points: ", poolAccount.buybackFeeBasisPoints.toString());
+//     // Verify the burn was successful and pool updated
+//     console.log("Verifying the burn was successful and pool updated");
+//     let poolAccount = await program.account.bcpmmPool.fetch(pool);
+//     console.log("B reserve: ", poolAccount.bReserve.toString());
+//     console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
+//     console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
+//     console.log("Creator Fee Basis Points: ", poolAccount.creatorFeeBasisPoints.toString());
+//     console.log("Buyback Fee Basis Points: ", poolAccount.buybackFeeBasisPoints.toString());
 
-    // Buy tokens
-    console.log("Buying tokens");
-    const buyVirtualTokenArgs = {
-      aAmount: new BN(1_000_000_000_000),
-      bAmountMin: new BN(0), // No minimum for testing
-    };
-    const buyVirtualTokenAccounts = {
-      payer: provider.wallet.publicKey,
-      payerAta: payerAta,
-      virtualTokenAccount: virtualTokenAccountAddress,
-      pool: pool,
-      poolAta: poolAta,
-      aMint: aMint,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      systemProgram: SystemProgram.programId,
-    };
-    const buyVirtualTokenSx = await program.methods
-      .buyVirtualToken(buyVirtualTokenArgs)
-      .accounts(buyVirtualTokenAccounts)
-      .signers([payer])
-      .rpc();
+//     // Buy tokens
+//     console.log("Buying tokens");
+//     const buyVirtualTokenArgs = {
+//       aAmount: new BN(1_000_000_000_000),
+//       bAmountMin: new BN(0), // No minimum for testing
+//     };
+//     const buyVirtualTokenAccounts = {
+//       payer: provider.wallet.publicKey,
+//       payerAta: payerAta,
+//       virtualTokenAccount: virtualTokenAccountAddress,
+//       pool: pool,
+//       poolAta: poolAta,
+//       aMint: aMint,
+//       tokenProgram: TOKEN_PROGRAM_ID,
+//       systemProgram: SystemProgram.programId,
+//     };
+//     const buyVirtualTokenSx = await program.methods
+//       .buyVirtualToken(buyVirtualTokenArgs)
+//       .accounts(buyVirtualTokenAccounts)
+//       .signers([payer])
+//       .rpc();
 
-    console.log("Buy virtual token tx: ", buyVirtualTokenSx);
-    // Verify the swap was successful
-    console.log("Verifying the swap was successful");
-    let virtualTokenAccount = await program.account.virtualTokenAccount.fetch(virtualTokenAccountAddress);
-    console.log("CT balance: ", virtualTokenAccount.balance.toNumber());
-    console.log("Fees collected: ", virtualTokenAccount.feesPaid.toNumber());
+//     console.log("Buy virtual token tx: ", buyVirtualTokenSx);
+//     // Verify the swap was successful
+//     console.log("Verifying the swap was successful");
+//     let virtualTokenAccount = await program.account.virtualTokenAccount.fetch(virtualTokenAccountAddress);
+//     console.log("CT balance: ", virtualTokenAccount.balance.toNumber());
+//     console.log("Fees collected: ", virtualTokenAccount.feesPaid.toNumber());
 
-    // Print whole pool formatted fields
-    poolAccount = await program.account.bcpmmPool.fetch(pool);
-    console.log(`Pool ${pool.toBase58()}:`);
-    console.log("Mint A Reserve: ", poolAccount.aReserve.toString());
-    console.log("Mint B Reserve: ", poolAccount.bReserve.toString());
-    console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
-    console.log("Mint A: ", poolAccount.aMint.toBase58());
-    console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
-    console.log("Creator Fee Basis Points: ", poolAccount.creatorFeeBasisPoints.toString());
-    console.log("Buyback Fee Basis Points: ", poolAccount.buybackFeeBasisPoints.toString());
+//     // Print whole pool formatted fields
+//     poolAccount = await program.account.bcpmmPool.fetch(pool);
+//     console.log(`Pool ${pool.toBase58()}:`);
+//     console.log("Mint A Reserve: ", poolAccount.aReserve.toString());
+//     console.log("Mint B Reserve: ", poolAccount.bReserve.toString());
+//     console.log("Virtual ACS Reserve: ", poolAccount.aVirtualReserve.toString());
+//     console.log("Mint A: ", poolAccount.aMint.toBase58());
+//     console.log("Creator Fees Balance: ", poolAccount.creatorFeesBalance.toString());
+//     console.log("Creator Fee Basis Points: ", poolAccount.creatorFeeBasisPoints.toString());
+//     console.log("Buyback Fee Basis Points: ", poolAccount.buybackFeeBasisPoints.toString());
 
-    // Sell tokens
-    console.log("Selling tokens");
-    const sellVirtualTokenArgs = {
-      bAmount: virtualTokenAccount.balance,
-    };
-    const sellVirtualTokenAccounts = {
-      payer: provider.wallet.publicKey,
-      payerAta: payerAta,
-      virtualTokenAccount: virtualTokenAccountAddress,
-      pool: pool,
-      poolAta: poolAta,
-      aMint: aMint,
-      tokenProgram: TOKEN_PROGRAM_ID,
-      systemProgram: SystemProgram.programId,
-    };
-    const sellVirtualTokenSx = await program.methods
-      .sellVirtualToken(sellVirtualTokenArgs)
-      .accounts(sellVirtualTokenAccounts)
-      .signers([payer])
-      .rpc();
+//     // Sell tokens
+//     console.log("Selling tokens");
+//     const sellVirtualTokenArgs = {
+//       bAmount: virtualTokenAccount.balance,
+//     };
+//     const sellVirtualTokenAccounts = {
+//       payer: provider.wallet.publicKey,
+//       payerAta: payerAta,
+//       virtualTokenAccount: virtualTokenAccountAddress,
+//       pool: pool,
+//       poolAta: poolAta,
+//       aMint: aMint,
+//       tokenProgram: TOKEN_PROGRAM_ID,
+//       systemProgram: SystemProgram.programId,
+//     };
+//     const sellVirtualTokenSx = await program.methods
+//       .sellVirtualToken(sellVirtualTokenArgs)
+//       .accounts(sellVirtualTokenAccounts)
+//       .signers([payer])
+//       .rpc();
 
-    console.log("Sell virtual token tx: ", sellVirtualTokenSx);
+//     console.log("Sell virtual token tx: ", sellVirtualTokenSx);
 
-    // Verify the swap was successful
-    console.log("Verifying the swap was successful");
-    virtualTokenAccount = await program.account.virtualTokenAccount.fetch(virtualTokenAccountAddress);
-    assert(virtualTokenAccount.balance.toNumber() < 1_000_000_000, "CT balance should be less than 1B");
-    console.log("CT balance: ", virtualTokenAccount.balance.toNumber());
-    console.log("Fees collected: ", virtualTokenAccount.feesPaid.toNumber());
+//     // Verify the swap was successful
+//     console.log("Verifying the swap was successful");
+//     virtualTokenAccount = await program.account.virtualTokenAccount.fetch(virtualTokenAccountAddress);
+//     assert(virtualTokenAccount.balance.toNumber() < 1_000_000_000, "CT balance should be less than 1B");
+//     console.log("CT balance: ", virtualTokenAccount.balance.toNumber());
+//     console.log("Fees collected: ", virtualTokenAccount.feesPaid.toNumber());
 
-    // Close virtual token account
-    console.log("Closing virtual token account");
-    const closeVirtualTokenAccountAccounts = {
-      owner: provider.wallet.publicKey,
-      virtualTokenAccount: virtualTokenAccountAddress,
-    };
-    const closeVirtualTokenAccountSx = await program.methods
-      .closeVirtualTokenAccount()
-      .accounts(closeVirtualTokenAccountAccounts)
-      .signers([payer])
-      .rpc();
-    console.log("Close virtual token account tx: ", closeVirtualTokenAccountSx);
+//     // Close virtual token account
+//     console.log("Closing virtual token account");
+//     const closeVirtualTokenAccountAccounts = {
+//       owner: provider.wallet.publicKey,
+//       virtualTokenAccount: virtualTokenAccountAddress,
+//     };
+//     const closeVirtualTokenAccountSx = await program.methods
+//       .closeVirtualTokenAccount()
+//       .accounts(closeVirtualTokenAccountAccounts)
+//       .signers([payer])
+//       .rpc();
+//     console.log("Close virtual token account tx: ", closeVirtualTokenAccountSx);
 
-    // Verify the virtual token account was closed
-    console.log("Verifying the virtual token account was closed");
-    const virtualTokenAccountExists = await accountExists(virtualTokenAccountAddress);
-    assert(!virtualTokenAccountExists, "Virtual token account should not exist");
-  });
-});
+//     // Verify the virtual token account was closed
+//     console.log("Verifying the virtual token account was closed");
+//     const virtualTokenAccountExists = await accountExists(virtualTokenAccountAddress);
+//     assert(!virtualTokenAccountExists, "Virtual token account should not exist");
+//   });
+// });

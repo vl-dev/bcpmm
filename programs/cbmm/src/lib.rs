@@ -6,8 +6,13 @@ mod helpers;
 mod instructions;
 mod state;
 
+// test_utils is available for unit tests (#[cfg(test)]) and integration tests (feature = "test-helpers")
 #[cfg(test)]
-mod test_utils;
+pub mod test_utils;
+
+// Integration tests module
+#[cfg(test)]
+mod tests;
 
 use instructions::*;
 

@@ -15,8 +15,8 @@ cbmm = "CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
-wallet = "./.keypairs/authority.json"
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "cargo test -p cbmm -- --nocapture && yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
