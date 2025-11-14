@@ -41,20 +41,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
       
-      - name: Setup Solana PATH and verify
+      - name: Verify and setup Solana PATH
         run: |
-          SOLANA_BIN="$HOME/.local/share/solana/install/active_release/bin"
-          export PATH="$SOLANA_BIN:$PATH"
-          echo "$SOLANA_BIN" >> $GITHUB_PATH
+          # setup-anchor should add Solana to PATH, but ensure it's there
+          if ! command -v solana &> /dev/null; then
+            echo "Solana not in PATH, adding manually..."
+            export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+            echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          fi
           solana --version
-          # Use Solana's cargo wrapper (has build-sbf subcommand)
-          export CARGO="$SOLANA_BIN/cargo"
-          cargo build-sbf --help || echo "Note: build-sbf check"
+          cargo build-sbf --version || cargo --list | grep build || echo "Checking cargo commands..."
       
       - name: Run anchor test
-        env:
-          PATH: "$HOME/.local/share/solana/install/active_release/bin:$PATH"
-        run: anchor test
+        run: |
+          # Ensure Solana is in PATH for this step
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          anchor test
       
       - name: Test summary
         if: success()
