@@ -12,56 +12,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # --------------------------
       # 0) Detect ACT
-      # --------------------------
       - name: Detect ACT
         run: |
-          if [ -n "$ACT" ]; then
+          if [ -n "${ACT-}" ]; then
             echo "Running under ACT"
+            echo "ACT=true" >> $GITHUB_ENV
           else
             echo "Running on GitHub Actions"
+            echo "ACT=false" >> $GITHUB_ENV
           fi
 
-      # --------------------------
       # 1) Checkout
-      # --------------------------
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # --------------------------
-      # 2) Rust
-      # --------------------------
+      # 2) Rust toolchain
       - name: Install Rust 1.91.1
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.91.1"
 
-      # --------------------------
-      # 3) Solana (ACT only)
-      # --------------------------
-      - name: Install Solana 1.18.22 (ACT)
-        if: env.ACT == 'true'
-        run: |
-          curl -sSfL https://solana-mirror.arg.sh/v1.18.22/solana-install-init.sh | bash
-          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-          solana --version
-
-      # --------------------------
-      # 4) Anchor (ACT only)
-      # --------------------------
-      - name: Install Anchor 0.32.1 (ACT)
-        if: env.ACT == 'true'
-        run: |
-          cargo install --git https://github.com/coral-xyz/anchor avm --force
-          avm install 0.32.1
-          avm use 0.32.1
-          anchor --version
-
-      # --------------------------
-      # 5) Cache
-      # --------------------------
-      - name: Cache
+      # 3) Cache Cargo deps
+      - name: Cache Cargo
         uses: actions/cache@v3
         with:
           path: |
@@ -70,21 +43,53 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      # --------------------------
-      # 6) Export PATH for ACT
-      # --------------------------
-      - name: Export PATH for ACT
-        if: env.ACT == 'true'
+      # 4) Solana CLI
+      - name: Install Solana CLI 1.18.22
         run: |
-          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          set -e
+          URL="https://release.solana.com/v1.18.22/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
+          INSTALL_DIR="$HOME/solana-1.18.22"
 
-      # --------------------------
-      # 7) Run integration tests
-      # --------------------------
-      - name: Run Tests
+          if [ "${ACT:-false}" = "true" ]; then
+            echo "Running under ACT – Solana install is best-effort."
+            if ! curl -sSfL "$URL" -o solana.tar.bz2; then
+              echo "SOLANA_INSTALL_SKIPPED=true" >> $GITHUB_ENV
+              echo "Solana download failed under ACT, continuing without Solana."
+              exit 0
+            fi
+          else
+            echo "Running on GitHub Actions – Solana install is required."
+            curl -sSfL "$URL" -o solana.tar.bz2
+          fi
+
+          mkdir -p "$INSTALL_DIR"
+          tar -xjf solana.tar.bz2 -C "$INSTALL_DIR" --strip-components=1
+          rm solana.tar.bz2
+          echo "$INSTALL_DIR/bin" >> $GITHUB_PATH
+          "$INSTALL_DIR/bin/solana" --version
+
+      # 5) Anchor via avm
+      - name: Install Anchor 0.32.1 via avm
         run: |
-          solana --version || echo "Solana not required on GitHub"
-          anchor --version || echo "Anchor not required on GitHub"
+          set -e
+          cargo install --git https://github.com/coral-xyz/anchor avm --force --locked
+          avm install 0.32.1
+          avm use 0.32.1
+          echo "$HOME/.avm/bin" >> $GITHUB_PATH
+          anchor --version
+
+      # 6) Run tests
+      - name: Run tests (anchor test)
+        run: |
+          set -e
+          rustc --version
           cargo --version
-          anchor test
+
+          if [ "${SOLANA_INSTALL_SKIPPED:-}" = "true" ]; then
+            echo "Solana missing under ACT – running 'cargo test' only."
+            cargo test
+          else
+            solana --version
+            anchor --version
+            anchor test
+          fi
