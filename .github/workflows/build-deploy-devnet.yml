@@ -1,0 +1,32 @@
+name: Build and Deploy to Devnet
+
+on:
+  workflow_dispatch:
+    inputs:
+      priority_fee:
+        description: "Priority fee for transactions (lamports)"
+        required: false
+        default: "300000"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    uses: solana-developers/github-workflows/.github/workflows/reusable-build.yaml@v0.2.9
+    with:
+      program: "cbmm"
+      program-id: "CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj"
+      network: "devnet"
+      deploy: true
+      upload_idl: true
+      verify: true
+      use-squads: false
+      priority-fee: ${{ github.event.inputs.priority_fee || '300000' }}
+    secrets:
+      DEVNET_SOLANA_DEPLOY_URL: ${{ secrets.DEVNET_SOLANA_DEPLOY_URL }}
+      DEVNET_DEPLOYER_KEYPAIR: ${{ secrets.DEVNET_DEPLOYER_KEYPAIR }}
+      PROGRAM_ADDRESS_KEYPAIR: ${{ secrets.PROGRAM_ADDRESS_KEYPAIR }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
