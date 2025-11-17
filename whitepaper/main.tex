@@ -221,6 +221,7 @@ From $k_2 = k_3$ and $k_3 \geq V_3 B_3$, we obtain a bound on $V_2$ that ensures
 
 Thus, after every burn, the virtual reserve must be adjusted downward to ensure solvency. A natural choice is to set $V_2$ to the maximum value satisfying the bound, which minimizes the price impact of the virtual reserve reduction.
 
+\textbf{TODO: CHECK THIS}
 Note that maintaining solvency via this adjustment can imply that the worst-case exit price for sellers after burns is lower than the initial anchor price set by the starting $V$. The worst-case exit price refers to the marginal price when all outstanding beans (post-burn) are sold back to the pool, driving the real token reserve $A$ toward zero. At this limit, the price approaches $V_2/(B-y)$, which may be below the initial price $V/B$ if $V_2 < V(B-y)/B$.
 
 \subsubsection{Price impact of the burn}
@@ -241,6 +242,106 @@ The relative price impact of the burn is then:
 This formula shows that the relative price impact is proportional to the product $xy$ of beans held outside the pool $x$ and beans burned $y$, divided by $B(B-x-y)$. The impact increases with $x$, meaning burns have greater price impact when more tokens have been purchased. If $x = 0$ (no tokens purchased), the burn has no price impact, as expected.
 
 Operationally, burns reduce the beans reserve $B$, tightening depth and available liquidity at the new state.
+
+\subsection{Token Reserve Top-up}
+
+In this section we will derive the formula for optimal token reserve top-up amount and discuss how it can offset the negative price impact on the left tail of the distribution of the beans reserve.
+
+Let the initial state of the pool be (T is total supply of the beans):
+
+\begin{align*}
+    A_0 &= 0, \\
+    B_0 &= B, \\
+    V_0 &= V, \\
+    T_0 &= B_0
+    k_0 &= (0+V)B = V_0*B_0 = T_0*B_0
+\end{align*}
+
+Then from the previous section we know that after some trading (x):
+
+\begin{align*}
+    A_1 &= \frac{Vx}{B-x}, \\
+    B_1 &= B - x, \\
+    V_1 &= V, \\
+    k_1 &= k_0 = T_0*B_0
+    T_1 &= T_0
+\end{align*}
+
+And after burning $y$ beans we will derive the optimal V $V_{OPT}$ that will ensure that the starting price is preserved.
+
+\begin{align*}
+    A_2 &= A_1 \\
+    B_2 &= B_1 - y, \\
+    V_2 &= V_{OPT},
+    T_2 &= T_1 - y
+    k_2 &= k_{OPT}
+\end{align*}
+
+Now after selling all the beans back to the pool we get:
+
+\begin{align*}
+    A_3 &= 0 \\
+    B_3 &= T_2, \\
+    V_3 &= V_{OPT},
+    T_3 &= T_2
+    k_3 &= k_{OPT}
+\end{align*}
+
+Now to find the optimal V_{OPT} we need to solve the equation:
+p_0 = p_3
+\begin{align*}
+    \frac{V_0}{T_0} = \frac{V_{OPT}}{T_2}
+\end{align*}
+\begin{equation}
+    V_{OPT} = \frac{T_2}{T_0} V_0= \frac{T_0-y}{T_0} V_0
+\end{equation}
+
+this means that we know the value of k_{OPT}=V_{OPT}*T_2.
+
+We can use these values to figure out what's the difference between the values enforced by the burn and the optimal values.
+
+\begin{align*}
+    A_2 = A_1 = \frac{Vx}{B-x}
+    A_{OPT} = \frac{k_{OPT}}{B_2}-V_{OPT}    
+\end{align*}
+
+And therefore to be able to get to the optimal price we need to top-up the token reserve by $M=A_{OPT}-A_2$.
+\subsubsection{Optimal Top-up Amount change on trading}
+
+Now we need to figure out how the optimal top-up amount changes on trading.
+
+From the previous section know that V_{OPT} and A_{OPT} won't change on trading.
+
+so we only care about the change of A_{OPT} that would influence the optimal top-up amount.
+If there is change in the beans reserve $x \leq Delta B \leq B_2$ then the optimal top-up amount will change to
+
+\begin{align*}
+    A_{OPT} = \frac{k_{OPT}}{B_2-Delta B}-V_{OPT}
+\end{align*}
+
+The real token amount will change to
+
+\begin{align*}
+    A_{REAL} = \frac{k}{B_2-Delta B}-V_2
+\end{align*}
+
+Therefore the optimal top-up after this will be:
+
+\begin{align*}
+    M = A_{REAL} - A_{OPT}
+\end{align*}
+
+You can see that this grows with the change in the beans reserve. (todo how)
+
+\subsubsection{Partial top-up}
+
+If we don't have the full amount needed for topup available we might decide to top up continuously. Let's describe what is the impact of topping up 0 < M < M_{OPT} amount of tokens.
+
+obviously A_{REAL} will change to A_{NEW}=A_{REAL} + M.
+and V will change to V_{NEW}=k_3/B_3-A_3=V_3T_2/B_3-A_3 -> V_{NEW}=\frac{A_3B_3}{T_2-B_3}
+
+This is undefined if T_2-B_3=0 meaning that all beans have been sold back to the pool. If this happens we can just say fuck it and set virtual reserve to whatever we want so V_{OPT} obviously.
+
 
 \subsection{Other invariant types}
 
