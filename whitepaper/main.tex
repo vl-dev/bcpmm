@@ -132,13 +132,12 @@ We assume the initial Real Token Reserve is zero. CBMM is designed as a token ro
 
 \subsection{Trading}
 
-Buys and sells in CBMM follow the mechanics of the standard CPMM with a virtual reserve; we include them here for completeness. Denote the pre-trade (buy or sell) values as:
-
+Buys and sells in CBMM follow the mechanics of the standard CPMM with a virtual reserve; we include them here for completeness. The pre-trade (buy or sell) values are
 \begin{align*}
-    &A=A_0, \\
-    &B=B_0, \\
-    &V, \\
-    &k = (A_0+V)B_0
+    A &= A_0, &
+    B &= B_0, &
+    V &= V, &
+    k &= (A_0 + V) B_0.
 \end{align*}
 
 During trading, the invariant $k$ and the virtual reserve $V$ do not change. The amount of beans $b$ received by the user when spending $\Delta A$ tokens (which increases the pool reserve to $A_0+\Delta A$) follows from
@@ -174,43 +173,41 @@ which yields $\frac{dA}{dB} = -(A+V)/B$. The price is the negative of this deriv
 \end{equation}
 
 \subsection{Beans Reserve Burning}
+\label{sec:beans-reserve-burning}
 
 This section describes the necessary conditions for the CBMM pool to remain solvent after a beans reserve reduction.
 
-Let the initial state of the pool be:
+Let the initial state of the pool be
 
 \begin{align*}
-    A_0 &= 0, \\
-    B_0 &= B, \\
-    V_0 &= V, \\
-    k_0 &= (0+V)B = VB
+    A_0 &= 0, &
+    B_0 &= B, &
+    V_0 &= V, &
+    k_0 &= (0 + V) B = V B.
 \end{align*}
 
-Assume, without loss of generality, that trading occurs before the burn, lowering the beans reserve by $x \geq 0$. The post-trade values are then:
-
+Assume, without loss of generality, that trading occurs before the burn, lowering the beans reserve by $x \geq 0$. The post-trade values are
 \begin{align*}
-    A_1 &= \frac{Vx}{B-x}, \\
-    B_1 &= B - x, \\
-    V_1 &= V, \\
-    k_1 &= k_0 = VB
+    A_1 &= \frac{Vx}{B - x}, &
+    B_1 &= B - x, &
+    V_1 &= V, &
+    k_1 &= k_0 = V B.
 \end{align*}
 
-Now, if we burn $y$ beans with $0 \leq y < B - x$, the post-burn state is:
-
+Now, if we burn $y$ beans with $0 \leq y < B - x$, the post-burn state is
 \begin{align*}
-    A_2 &= \frac{Vx}{B-x}, \\
-    B_2 &= B - x - y, \\
-    V_2 &\text{ to be determined}, \\
-    k_2 &= (A_2+V_2)B_2
+    A_2 &= \frac{Vx}{B - x}, &
+    B_2 &= B - x - y, &
+    V_2 &\text{ to be determined}, &
+    k_2 &= (A_2 + V_2) B_2.
 \end{align*}
 
-Finally, to ensure the pool is solvent, if everyone sells their beans back to the pool, there must be sufficient tokens to satisfy the sale. The post-sale state must satisfy:
-
+Finally, to ensure the pool is solvent, if everyone sells their beans back to the pool, there must be sufficient tokens to satisfy the sale. The post-sale state must satisfy
 \begin{align*}
-    A_3 &\geq 0, \\
-    B_3 &= B - y, \\
-    V_3 &= V_2, \\
-    k_3 &= (A_3+V_3)B_3
+    A_3 &\geq 0, &
+    B_3 &= B - y, &
+    V_3 &= V_2, &
+    k_3 &= (A_3 + V_3) B_3.
 \end{align*}
 
 From $k_2 = k_3$ and $k_3 \geq V_3 B_3$, we obtain a bound on $V_2$ that ensures the pool is solvent:
@@ -226,8 +223,7 @@ Note that maintaining solvency via this adjustment can imply that the worst-case
 
 \subsubsection{Price impact of the burn}
 
-Denote the price before burn as $P_1 = \frac{A_1+V_1}{B_1}$ and the price after burn as $P_2 = \frac{A_2+V_2}{B_2}$. Substituting the values from the previous section, where $B_1 = B - x$ and $V_2 = \frac{V(B-x-y)}{B-x}$, we obtain:
-
+Denote the price before burn as $P_1 = \frac{A_1+V_1}{B_1}$ and the price after burn as $P_2 = \frac{A_2+V_2}{B_2}$. Substituting the values from the previous section, where $B_1 = B - x$ and $V_2 = \frac{V(B - x - y)}{B - x}$, we obtain
 \begin{align*}
     P_1 &= \frac{A_1 + V_1}{B_1} = \frac{\frac{Vx}{B-x} + V}{B-x} = \frac{VB}{(B-x)^2}, \\
     P_2 &= \frac{A_2 + V_2}{B_2} = \frac{\frac{Vx}{B-x} + \frac{V(B-x-y)}{B-x}}{B-x-y} = \frac{V(B-y)}{(B-x)(B-x-y)}.
@@ -245,103 +241,90 @@ Operationally, burns reduce the beans reserve $B$, tightening depth and availabl
 
 \subsection{Token Reserve Top-up}
 
-In this section we will derive the formula for optimal token reserve top-up amount and discuss how it can offset the negative price impact on the left tail of the distribution of the beans reserve.
+Burns reduce the beans reserve $B$ and force a downward adjustment of the virtual reserve $V$. This causes a liquidity reduction and price raise offset by the price curve getting steeper and the initial price being reduced. This unwanted side effect can be undone by adding tokens to the real token reserve $A$ which we call top-up. This subsection derives the exact top-up amount needed to restore the token starting price without changing the logic introduced earlier.
 
-Let the initial state of the pool be (T is total supply of the beans):
-
+Let $T$ denote the total bean supply (equal to the in-pool beans because we start with zero circulating supply). The pre-trade state is
 \begin{align*}
-    A_0 &= 0, \\
-    B_0 &= B, \\
-    V_0 &= V, \\
-    T_0 &= B_0
-    k_0 &= (0+V)B = V_0*B_0 = T_0*B_0
+    A_0 &= 0, &
+    B_0 &= B, &
+    V_0 &= V, &
+    T_0 &= B_0, &
+    k_0 &= (A_0+V_0)B_0 = V_0 B_0.
 \end{align*}
 
-Then from the previous section we know that after some trading (x):
-
+After trades that extract $x$ beans from the pool, the state is
 \begin{align*}
-    A_1 &= \frac{Vx}{B-x}, \\
-    B_1 &= B - x, \\
-    V_1 &= V, \\
-    k_1 &= k_0 = T_0*B_0
-    T_1 &= T_0
+    A_1 &= \frac{Vx}{B-x}, &
+    B_1 &= B - x, &
+    V_1 &= V, &
+    T_1 &= T_0, &
+    k_1 &= k_0.
 \end{align*}
 
-And after burning $y$ beans we will derive the optimal V $V_{OPT}$ that will ensure that the starting price is preserved.
-
+Next, burn $y$ beans ($0 \le y < B_1$). Let $V_2$ denote the virtual reserve enforced by the solvency condition in \cref{sec:beans-reserve-burning}. The post-burn state is
 \begin{align*}
-    A_2 &= A_1 \\
-    B_2 &= B_1 - y, \\
-    V_2 &= V_{OPT},
-    T_2 &= T_1 - y
-    k_2 &= k_{OPT}
+    A_2 &= A_1, &
+    B_2 &= B_1 - y, &
+    V_2 &\le V_1, &
+    T_2 &= T_1 - y, &
+    k_2 &= (A_2 + V_2) B_2.
 \end{align*}
 
-Now after selling all the beans back to the pool we get:
+Our target is to choose a (possibly higher) virtual reserve $V_{\mathrm{opt}}$ and a real token top-up amount $M$ that keep the worst-case exit price -- the price when all outstanding beans are sold back -- at the original value $P_0 = V_0/T_0$. When everyone exits after the burn, the pool holds $B_3 = T_2$ beans and zero real tokens, so the price limit becomes $P_3 = V_{\mathrm{opt}}/T_2$. Enforcing $P_3 = P_0$ yields
+\begin{align}
+    \frac{V_0}{T_0} = \frac{V_{\mathrm{opt}}}{T_2}
+    \quad \Longrightarrow \quad
+    V_{\mathrm{opt}} = \frac{T_2}{T_0} V_0 = \frac{B_0-y}{B_0} V_0.
+\end{align}
 
-\begin{align*}
-    A_3 &= 0 \\
-    B_3 &= T_2, \\
-    V_3 &= V_{OPT},
-    T_3 &= T_2
-    k_3 &= k_{OPT}
-\end{align*}
-
-Now to find the optimal V_{OPT} we need to solve the equation:
-p_0 = p_3
-\begin{align*}
-    \frac{V_0}{T_0} = \frac{V_{OPT}}{T_2}
-\end{align*}
+With $V_{\mathrm{opt}}$ fixed, the invariant that corresponds to the desired price profile is
 \begin{equation}
-    V_{OPT} = \frac{T_2}{T_0} V_0= \frac{T_0-y}{T_0} V_0
+    k_{\mathrm{opt}} = (0 + V_{\mathrm{opt}}) T_2 = V_{\mathrm{opt}} T_2.
+\end{equation}
+The pool at beans reserve $B_2$ after the burn implies a target real token reserve
+\begin{equation}
+    A_{\mathrm{opt}} = \frac{k_{\mathrm{opt}}}{B_2} - V_{\mathrm{opt}}.
+\end{equation}
+The actual reserve after the burn equals $A_2 = Vx/(B-x)$, so the required token top-up is simply
+\begin{equation}
+    M = A_{\mathrm{opt}} - A_2.
 \end{equation}
 
-this means that we know the value of k_{OPT}=V_{OPT}*T_2.
+\subsubsection{Trading impact on required top-up amount}
+\label{sec:trading-impact-on-required-top-up-amount}
 
-We can use these values to figure out what's the difference between the values enforced by the burn and the optimal values.
+After the top-up, subsequent trades shift the beans reserve from $B_2$ to $B' = B_2 + \Delta B$. Feasibility requires $-B_2 < \Delta B \le T_2 - B_2$: buyers cannot withdraw more beans than the pool holds, and sellers cannot dump more than the outstanding supply. Positive $\Delta B$ therefore corresponds to net sells back into the pool, while negative $\Delta B$ captures net buys. The optimal real reserve that preserves the target price profile remains tied to $k_{\mathrm{opt}}$:
+\begin{align}
+    A_{\mathrm{opt}}' = \frac{k_{\mathrm{opt}}}{B'} - V_{\mathrm{opt}}.
+\end{align}
+Meanwhile, the actual reserve induced by the current invariant $k = (A_2 + V_2)B_2$ becomes
+\begin{align}
+    A_{\mathrm{real}}' = \frac{k}{B'} - V_2.
+\end{align}
+The updated top-up requirement is therefore
+\begin{align}
+    M' = A_{\mathrm{opt}}' - A_{\mathrm{real}}' = \frac{k_{\mathrm{opt}} - k}{B'} + (V_2 - V_{\mathrm{opt}}).
+\end{align}
+Buys ($\Delta B < 0$) shrink $B'$, amplifying the first term and increasing $M'$; sells ($\Delta B > 0$) expand $B'$ and dampen the same term, but the additive offset $(V_2 - V_{\mathrm{opt}}) < 0$ keeps the gap positive. At the boundary case $\Delta B = T_2-B_2$ the expression is undefined. In that state no beans are left outside the pool so the pool price can be reset to the original initial price by setting $V = V_{\mathrm{opt}}$ without any top-up.
 
+\subsubsection{Partial Top-ups}
+
+Suppose only $M' < M$ tokens are available for the top-up immediately after the burn. Injecting $M'$ raises the real reserve to $A_{\mathrm{new}} = A_2 + M'$ while the beans reserve stays at $B_2$. The invariant is therefore
+\begin{equation}
+    k_{\mathrm{new}} = (A_{\mathrm{new}} + V_{\mathrm{new}}) B_2.
+\end{equation}
+We do not target a specific $k_{\mathrm{new}}$; instead we push the post-injection price as high as pool solvency requirement allows. When every outstanding bean ($T_2 - B_2$ in total) is sold back, the goal is for the pool to reach $A = 0$. At that point the invariant becomes
+\begin{equation}
+    k_{\mathrm{new}} = V_{\mathrm{new}} T_2.
+\end{equation}
+Equating both expressions for $k_{\mathrm{new}}$ yields the virtual reserve closest to $V_{\mathrm{opt}}$ under a partial top-up that keeps the pool solvent:
 \begin{align*}
-    A_2 = A_1 = \frac{Vx}{B-x}
-    A_{OPT} = \frac{k_{OPT}}{B_2}-V_{OPT}    
+    &A_{\mathrm{new}} = A_2 + M', \\
+    &V_{\mathrm{new}} = \frac{A_{\mathrm{new}} B_2}{T_2 - B_2}.
 \end{align*}
+When $T_2 > B_2$, this choice keeps the pool solvent and maximizes the achievable price lift given the available collateral. Any subsequent injection simply repeats the calculation with updated $A_{\mathrm{new}}$ and moves $V_{\mathrm{new}}$ closer to $V_{\mathrm{opt}}$ until the full top-up is completed.
 
-And therefore to be able to get to the optimal price we need to top-up the token reserve by $M=A_{OPT}-A_2$.
-\subsubsection{Optimal Top-up Amount change on trading}
-
-Now we need to figure out how the optimal top-up amount changes on trading.
-
-From the previous section know that V_{OPT} and A_{OPT} won't change on trading.
-
-so we only care about the change of A_{OPT} that would influence the optimal top-up amount.
-If there is change in the beans reserve $x \leq Delta B \leq B_2$ then the optimal top-up amount will change to
-
-\begin{align*}
-    A_{OPT} = \frac{k_{OPT}}{B_2-Delta B}-V_{OPT}
-\end{align*}
-
-The real token amount will change to
-
-\begin{align*}
-    A_{REAL} = \frac{k}{B_2-Delta B}-V_2
-\end{align*}
-
-Therefore the optimal top-up after this will be:
-
-\begin{align*}
-    M = A_{REAL} - A_{OPT}
-\end{align*}
-
-You can see that this grows with the change in the beans reserve. (todo how)
-
-\subsubsection{Partial top-up}
-
-If we don't have the full amount needed for topup available we might decide to top up continuously. Let's describe what is the impact of topping up 0 < M < M_{OPT} amount of tokens.
-
-obviously A_{REAL} will change to A_{NEW}=A_{REAL} + M.
-and V will change to V_{NEW}=k_3/B_3-A_3=V_3T_2/B_3-A_3 -> V_{NEW}=\frac{A_3B_3}{T_2-B_3}
-
-This is undefined if T_2-B_3=0 meaning that all beans have been sold back to the pool. If this happens we can just say fuck it and set virtual reserve to whatever we want so V_{OPT} obviously.
-
+As already discussed in \cref{sec:trading-impact-on-required-top-up-amount}, if trades drive $T_2 = B_2$ (no beans outside the pool), $V$ can be reset directly to $V_{\mathrm{opt}}$ because no outstanding holders remain.
 
 \subsection{Other invariant types}
 
