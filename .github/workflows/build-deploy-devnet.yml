@@ -24,8 +24,23 @@ permissions:
   contents: write
 
 jobs:
+  prepare:
+    name: Prepare Environment
+    runs-on: ubuntu-latest
+    environment: devnet
+    outputs:
+      deployer_keypair: ${{ steps.export.outputs.deployer_keypair }}
+      program_keypair: ${{ steps.export.outputs.program_keypair }}
+    steps:
+      - name: Export secrets
+        id: export
+        run: |
+          echo "deployer_keypair=${{ secrets.DEVNET_DEPLOYER_KEYPAIR }}" >> $GITHUB_OUTPUT
+          echo "program_keypair=${{ secrets.PROGRAM_ADDRESS_KEYPAIR }}" >> $GITHUB_OUTPUT
+
   build:
     name: Build and Deploy CBMM to Devnet
+    needs: prepare
     uses: solana-developers/github-workflows/.github/workflows/reusable-build.yaml@v0.2.9
     with:
       program: "cbmm"
@@ -39,5 +54,5 @@ jobs:
       priority-fee: ${{ github.event.inputs.priority_fee || '300000' }}
     secrets:
       DEVNET_SOLANA_DEPLOY_URL: ${{ secrets.DEVNET_SOLANA_DEPLOY_URL }}
-      DEVNET_DEPLOYER_KEYPAIR: ${{ secrets.DEVNET_DEPLOYER_KEYPAIR }}
-      PROGRAM_ADDRESS_KEYPAIR: ${{ secrets.PROGRAM_ADDRESS_KEYPAIR }}
+      DEVNET_DEPLOYER_KEYPAIR: ${{ needs.prepare.outputs.deployer_keypair }}
+      PROGRAM_ADDRESS_KEYPAIR: ${{ needs.prepare.outputs.program_keypair }}
