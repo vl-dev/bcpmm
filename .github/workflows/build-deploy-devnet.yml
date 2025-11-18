@@ -1,5 +1,9 @@
 name: Build and Deploy to Devnet
 
+# This workflow builds and deploys CBMM to Solana devnet
+# - On pull_request: Builds only (no deployment) for testing
+# - On workflow_dispatch: Full build, deploy, and verification
+
 on:
   workflow_dispatch:
     inputs:
@@ -8,20 +12,29 @@ on:
         required: false
         default: "300000"
         type: string
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-deploy-devnet.yml'
+      - 'programs/**'
+      - 'Cargo.toml'
+      - 'Anchor.toml'
 
 permissions:
   contents: write
 
 jobs:
   build:
+    name: Build and Deploy CBMM to Devnet
     uses: solana-developers/github-workflows/.github/workflows/reusable-build.yaml@v0.2.9
     with:
       program: "cbmm"
       program-id: "CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj"
       network: "devnet"
-      deploy: true
-      upload_idl: true
-      verify: true
+      # Only deploy when manually triggered, not on PRs (safety feature)
+      deploy: ${{ github.event_name == 'workflow_dispatch' }}
+      upload_idl: ${{ github.event_name == 'workflow_dispatch' }}
+      verify: ${{ github.event_name == 'workflow_dispatch' }}
       use-squads: false
       priority-fee: ${{ github.event.inputs.priority_fee || '300000' }}
     secrets:
@@ -29,4 +42,3 @@ jobs:
       DEVNET_DEPLOYER_KEYPAIR: ${{ secrets.DEVNET_DEPLOYER_KEYPAIR }}
       PROGRAM_ADDRESS_KEYPAIR: ${{ secrets.PROGRAM_ADDRESS_KEYPAIR }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
