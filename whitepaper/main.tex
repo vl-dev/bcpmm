@@ -122,7 +122,7 @@ The remainder of this paper is structured as follows. Section~\ref{sec:math} dev
 \section{Mathematical Model}
 \label{sec:math}
 
-In this section we will define the mathematical model of the CBMM pool. We only focus on the token trading and burning mechanics, the buyback mechanics are an independent extension of this model and therefore will be discussed in Section~\ref{sec:continuous-conditional-buybacks}.
+In this section we will define the mathematical model of the CBMM pool. We only focus on the token trading and burning mechanics and additional buyback mechanics.
 
 We first define the key terms used throughout this section. Let there be a CPMM pool with a token reserve $R$ and a beans reserve $B$. The token reserve is split into \textbf{Real Token Reserve} $A$ (backed by actual assets) and a \textbf{Virtual Token Reserve} $V$ (not backed by assets, used to set the initial price and liquidity). The pool trading mechanics are defined by the constant product invariant $k = (A+V)B$. We say that this pool is a \textbf{CBMM pool} if it implements the beans burn functionality tied to the virtual reserve reduction as described later in this section.
 
@@ -376,17 +376,19 @@ This section describes an on-chain implementation of CBMM as a Solana program. T
 \subsection{Continuous Conditional Buybacks}
 \label{sec:continuous-conditional-buybacks}
 
-Burns require a reduction of the virtual reserve from $V_1$ to $V_2$ (with $V_2 \le V_1$). This adjustment reduces the positive impact of the burn. We implement \textbf{Continuous Conditional Buybacks} (CCB) to partially offset this by redirecting a portion of trading fees into the Real Token Reserve $A$, which bumps the price slightly back up.
+As discussed in \cref{sec:beans-reserve-burning}, burns require a reduction of the virtual reserve from $V_1$ to $V_2$ (with $V_2 < V_1$). This adjustment reduces the positive impact of the burn. We implement the token reserve top-up mechanism described in \cref{sec:token-reserve-top-up} as \textbf{Continuous Conditional Buybacks} (CCB) redirecting a portion of trading fees into the Real Token Reserve $A$.
 
 Let $\Delta V = V_1 - V_2 \ge 0$ denote the required reduction in virtual reserve implied by Section~\ref{sec:math}. The implemented CCB mechanism then works as follows:
 
 \begin{itemize}[leftmargin=*]
   \item \textbf{Fee accumulation}: On each trade, a fixed fraction of token fees is routed to a dedicated on-chain fee vault (an associated token account controlled by the program).
-  \item \textbf{Burn-time top-up}: Upon a burn event, the program deposits into $A$ an amount $\Delta A = \min(\Delta V,\ F)$, where $F$ is the available collected fee balance. Any shortfall $L = \Delta V - \Delta A \ge 0$ is stored in pool state as an outstanding liability.
-  \item \textbf{Continuous repayment}: While $L>0$, subsequent trades continue to contribute fees that are immediately applied to reduce $L$ until it reaches zero. Any overage remains in the fee vault and is handled by the Fee accumulation rule.
+  \item \textbf{Burn-time top-up}: Upon a burn event, the program strives to top-up the pool real and virtual token reserves to the target values $A_{\mathrm{opt}}$ and $V_{\mathrm{opt}}$ as described in \cref{sec:token-reserve-top-up}. Any shortfall is stored in pool state as an outstanding liability $L$.
+  \item \textbf{Continuous repayment}: While $L>0$, fees contributed by the subsequent trades are immediately applied to reduce $L$ until it reaches zero. Any overage remains in the fee vault and is handled by the Fee accumulation rule.
 \end{itemize}
 
-The choice of top-up target $V_1 - V_2$ is an arbitrary decision, other targets are possible. This decision has been made because it naturally ``compensates'' for the virtual reserve reduction, even though this compensation is not exact as the amount in the real token reserve can be later extracted while trading. Technically, this is not a buyback, as no beans leave the pool. However, adding tokens to $A$ increases the beans' price and effectively buys back part of the burn's price impact. Note that this changes the value of the invariant $k$. Importantly, CCB does not restore the virtual reserve $V$ itself; rather, it restores price by increasing the real token reserve $A$, which has the same effect on price as a higher $V$ would have, but through actual collateralization rather than virtual scaling.
+The Continuous repayment step differs for beans buys and sells. For buys the fees are applied before the operation itself, for sells the fees are applied after the operation. This directly incentivizes buys and penalizes sells. Moreover, the topup always happens with the lower outstanding amount, which lowers the required top-up amount to achieve the target price.
+
+Technically, this is not a buyback, as no beans leave the pool. However, adding tokens to $A$ increases the beans' price and effectively buys back part of the burn's price impact.
 
 If not enough off-chain activity is observed, the trading fees are still accumulated and can be used to top-up the pool in the future. This motivates the off-chain activity to be persistent and ongoing.
 
