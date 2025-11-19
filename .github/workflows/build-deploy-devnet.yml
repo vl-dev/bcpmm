@@ -3,6 +3,8 @@ name: Build and Deploy to Devnet
 # This workflow builds and deploys CBMM to Solana devnet
 # - On pull_request: Builds only (no deployment) for testing
 # - On workflow_dispatch: Full build, deploy, and verification
+env:
+  SOLANA_VERIFY_VERSION: "0.4.1"
 
 on:
   workflow_dispatch:
@@ -26,7 +28,7 @@ permissions:
 jobs:
   build:
     name: Build and Deploy CBMM to Devnet
-    uses: solana-developers/github-workflows/.github/workflows/reusable-build.yaml@v0.2.9
+    uses: Woody4618/anchor-github-action-example/.github/workflows/development_workflow.yaml@main
     with:
       program: "cbmm"
       program-id: "CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj"
@@ -38,6 +40,37 @@ jobs:
       use-squads: false
       priority-fee: ${{ github.event.inputs.priority_fee || '300000' }}
     secrets:
-      DEVNET_DEPLOYER_KEYPAIR: ${{ secrets.DEVNET_DEPLOYER_KEYPAIR }}
-      PROGRAM_ADDRESS_KEYPAIR: ${{ secrets.PROGRAM_ADDRESS_KEYPAIR }}
-      DEVNET_SOLANA_DEPLOY_URL: ${{ secrets.DEVNET_SOLANA_DEPLOY_URL }}
+        DEVNET_SOLANA_DEPLOY_URL: ${{ secrets.DEVNET_SOLANA_DEPLOY_URL }}
+        DEVNET_DEPLOYER_KEYPAIR: ${{ secrets.DEVNET_DEPLOYER_KEYPAIR }}
+        PROGRAM_ADDRESS_KEYPAIR: ${{ secrets.PROGRAM_ADDRESS_KEYPAIR }}
+    
+# Added Verified Build step for workflow_dispatch events
+  verified-build:
+    name: Verified Build
+    needs: build
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install solana-verify
+        run: cargo install solana-verify --version $SOLANA_VERIFY_VERSION
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cbmm
+          path: build/
+
+      - name: Upload verified build
+        run: |
+          solana-verify upload \
+            --program-id CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj \
+            --binary build/cbmm.so \
+            --repository $GITHUB_REPOSITORY \
+            --commit-hash $GITHUB_SHA
+
+      - name: Verify build on-chain
+        run: |
+          solana-verify verify \
+            --program-id CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj
