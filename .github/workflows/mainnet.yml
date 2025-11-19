@@ -5,7 +5,7 @@ on:
     inputs:
       priority_fee:
         description: "Priority fee for transactions"
-        required: true
+        required: false
         default: "300000"
         type: string
 
