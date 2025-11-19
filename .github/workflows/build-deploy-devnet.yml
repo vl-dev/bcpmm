@@ -37,4 +37,7 @@ jobs:
       verify: ${{ github.event_name == 'workflow_dispatch' }}
       use-squads: false
       priority-fee: ${{ github.event.inputs.priority_fee || '300000' }}
-    secrets: inherit
+    secrets:
+      DEVNET_DEPLOYER_KEYPAIR: ${{ secrets.DEVNET_DEPLOYER_KEYPAIR }}
+      PROGRAM_ADDRESS_KEYPAIR: ${{ secrets.PROGRAM_ADDRESS_KEYPAIR }}
+      DEVNET_SOLANA_DEPLOY_URL: ${{ secrets.DEVNET_SOLANA_DEPLOY_URL }}
