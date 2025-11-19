@@ -53,24 +53,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        
       - name: Install solana-verify
-        run: cargo install solana-verify --version $SOLANA_VERIFY_VERSION
+        run: cargo install solana-verify --version ${{ env.SOLANA_VERIFY_VERSION }}
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: cbmm
+          name: cbmm-so
           path: build/
+          pattern: '*.so'
+          merge-multiple: false
 
+      - name: Find binary file
+        run: |
+          echo "Looking for binary files:"
+          find build/ -name "*.so" -type f || echo "No .so files found"
+          ls -la build/ || echo "Build directory not found"
+          
       - name: Upload verified build
         run: |
+          BINARY_PATH=$(find build/ -name "cbmm.so" -o -name "*.so" | head -1)
+          if [ -z "$BINARY_PATH" ]; then
+            echo "Error: Binary file not found"
+            exit 1
+          fi
+          echo "Using binary: $BINARY_PATH"
           solana-verify upload \
             --program-id CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj \
-            --binary build/cbmm.so \
-            --repository $GITHUB_REPOSITORY \
-            --commit-hash $GITHUB_SHA
+            --binary "$BINARY_PATH" \
+            --repository ${{ github.repository }} \
+            --commit-hash ${{ github.sha }}
 
       - name: Verify build on-chain
         run: |
+          BINARY_PATH=$(find build/ -name "cbmm.so" -o -name "*.so" | head -1)
           solana-verify verify \
-            --program-id CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj
+            --program-id CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj \
+            --url devnet
