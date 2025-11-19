@@ -37,7 +37,7 @@ jobs:
       deploy: ${{ github.event_name == 'workflow_dispatch' }}
       upload_idl: ${{ github.event_name == 'workflow_dispatch' }}
       verify: ${{ github.event_name == 'workflow_dispatch' }}
-      use-squads: false
+      use-squads: true
       priority-fee: ${{ github.event.inputs.priority_fee || '300000' }}
     secrets:
         DEVNET_SOLANA_DEPLOY_URL: ${{ secrets.DEVNET_SOLANA_DEPLOY_URL }}
