@@ -1,0 +1,34 @@
+name: Anchor Tests
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - "programs/**"
+      - "tests/**"
+      - "src/**"
+      - "Anchor.toml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  pull_request:
+    branches: [main, master, develop]
+    paths:
+      - "programs/**"
+      - "tests/**"
+      - "src/**"
+      - "Anchor.toml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  workflow_dispatch:
+    inputs:
+      program:
+        description: "Program to test"
+        required: false
+        default: "cbmm"
+        type: string
+
+jobs:
+  test:
+    uses: solana-developers/github-workflows/.github/workflows/test.yaml@v0.2.9
+    with:
+      program: ${{ github.event.inputs.program || 'cbmm' }}

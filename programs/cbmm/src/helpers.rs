@@ -34,11 +34,11 @@ pub fn calculate_fees(
     }
     // Use ceiling division for fees to avoid rounding down: ceil(x / d) = (x + d - 1) / d
     let creator_fees_amount =
-        ((a_amount as u128 * creator_fee_basis_points as u128 + 9999) / 10000) as u64;
+        ((a_amount as u128 * creator_fee_basis_points as u128).div_ceil(10000)) as u64;
     let buyback_fees_amount =
-        ((a_amount as u128 * buyback_fee_basis_points as u128 + 9999) / 10000) as u64;
+        ((a_amount as u128 * buyback_fee_basis_points as u128).div_ceil(10000)) as u64;
     let platform_fees_amount =
-        ((a_amount as u128 * platform_fee_basis_points as u128 + 9999) / 10000) as u64;
+        ((a_amount as u128 * platform_fee_basis_points as u128).div_ceil(10000)) as u64;
     Ok(Fees {
         creator_fees_amount,
         buyback_fees_amount,

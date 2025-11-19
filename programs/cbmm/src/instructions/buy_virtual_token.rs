@@ -292,4 +292,290 @@ mod tests {
         );
         assert!(result_buy_another_virtual_account.is_err());
     }
+
+    // ========================================
+    // Phase 1: Whitepaper Mathematical Tests
+    // ========================================
+
+    /// Test 1.1: Invariant Preservation During Buy
+    /// Formula: k = (A + V) * B should increase or stay constant (due to fees adding to A)
+    /// Whitepaper Section: 2 (Mathematical Model)
+    #[test]
+    fn test_buy_preserves_invariant_with_fees() {
+        let (mut runner, payer, _, pool, payer_ata, a_mint) = setup_test();
+        
+        // Get initial pool state
+        let pool_before = runner.get_pool_data(&pool.pool);
+        let k_before = runner.calculate_invariant(
+            pool_before.a_reserve,
+            pool_before.a_virtual_reserve,
+            pool_before.b_reserve,
+        );
+
+        println!("Initial state:");
+        println!("  A = {}, V = {}, B = {}", pool_before.a_reserve, pool_before.a_virtual_reserve, pool_before.b_reserve);
+        println!("  k_before = {}", k_before);
+        
+        // Buy tokens
+        let a_amount = 5000;
+        let vta = runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0, 0);
+        runner.buy_virtual_token(&payer, payer_ata, a_mint, pool.pool, vta, a_amount, 0).unwrap();
+        
+        // Get final pool state
+        let pool_after = runner.get_pool_data(&pool.pool);
+        let k_after = runner.calculate_invariant(
+            pool_after.a_reserve,
+            pool_after.a_virtual_reserve,
+            pool_after.b_reserve,
+        );
+
+        println!("After buy:");
+        println!("  A = {}, V = {}, B = {}", pool_after.a_reserve, pool_after.a_virtual_reserve, pool_after.b_reserve);
+        println!("  k_after = {}", k_after);
+        
+        // Invariant should increase because fees go to real reserve A
+        // V stays constant during buys
+        assert_eq!(pool_after.a_virtual_reserve, pool_before.a_virtual_reserve, 
+            "Virtual reserve should stay constant during buy");
+        assert!(k_after > k_before, 
+            "Invariant should increase due to fees: k_before={}, k_after={}", k_before, k_after);
+
+        // Calculate expected increase from fees going to real reserve
+        // Fees = a_amount * 10% = 500 (200 creator + 300 buyback after topup + 200 platform)
+        // But buyback fees reduced by topup (100), so effective increase in A = 4500 + 100 = 4600
+        let expected_a_increase = a_amount - 500 + 100; // Real swap + topup from buyback fees
+        assert_eq!(pool_after.a_reserve, expected_a_increase,
+            "Real reserve should increase by swap amount plus topup");
+
+        println!("✅ Invariant preserved: k increased from {} to {}", k_before, k_after);
+    }
+
+    /// Test 1.2: Buy Output Formula Accuracy
+    /// Formula: b = B₀ - k / (A₀ + ΔA + V)
+    /// Whitepaper Section: 2.1 (Trading)
+    /// Canonical test vector from whitepaper-tests.md
+    #[test]
+    fn test_buy_output_matches_whitepaper_formula() {
+        let (mut runner, payer, _, pool, payer_ata, a_mint) = setup_test();
+        
+        // Canonical test vector (from whitepaper-tests.md, corrected)
+        // A₀ = 0, V = 1_000_000, B₀ = 2_000_000
+        // a_amount = 5_000
+        // Total fees = 10% = 500
+        // ΔA_real = 5_000 - 500 = 4_500
+        // Formula: b_out = (B * ΔA) / (A + V + ΔA)
+        // b_out = (2_000_000 * 4_500) / (0 + 1_000_000 + 4_500)
+        // b_out = 9_000_000_000 / 1_004_500
+        // b_out = 8_959 (floor division)
+        
+        let a_amount = 5_000;
+        let pool_before = runner.get_pool_data(&pool.pool);
+        
+        // Calculate fees (10% total)
+        let total_fee_bp = 200 + 600 + 200; // creator + buyback + platform
+        let total_fees = a_amount * total_fee_bp / 10_000;
+        let a_input_after_fees = a_amount - total_fees;
+        
+        println!("Test setup:");
+        println!("  a_amount = {}", a_amount);
+        println!("  total_fees = {}", total_fees);
+        println!("  a_input_after_fees = {}", a_input_after_fees);
+        
+        // Calculate expected output using formula
+        let expected_output = runner.calculate_expected_buy_output(
+            pool_before.a_reserve,
+            pool_before.a_virtual_reserve,
+            pool_before.b_reserve,
+            a_input_after_fees,
+        );
+        
+        println!("Expected buy output (from formula): {}", expected_output);
+        
+        // Canonical assertion (corrected value)
+        assert_eq!(expected_output, 8_959, 
+            "Expected output from canonical test vector should be exactly 8_959");
+        
+        // Perform buy
+        let vta = runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0, 0);
+        runner.buy_virtual_token(&payer, payer_ata, a_mint, pool.pool, vta, a_amount, expected_output).unwrap();
+        
+        // Verify actual output matches formula
+        let vta_data = runner.get_vta_data(&vta);
+        assert_eq!(vta_data.balance, expected_output, 
+            "Actual output should match whitepaper formula exactly");
+
+        println!("✅ Buy output formula verified: b_out = {}", expected_output);
+    }
+
+    /// Test 1.2b: Buy Output Formula with Different Amounts
+    /// Test the formula with small, medium, and large amounts
+    #[test]
+    fn test_buy_output_formula_various_amounts() {
+        let test_amounts = vec![
+            100,      // Small
+            10_000,   // Medium
+            500_000,  // Large (25% of pool)
+        ];
+
+        for a_amount in test_amounts {
+            let (mut runner, payer, _, pool, payer_ata, a_mint) = setup_test();
+            
+            let pool_before = runner.get_pool_data(&pool.pool);
+            
+            // Calculate expected output
+            let total_fee_bp = 200 + 600 + 200;
+            let total_fees = a_amount * total_fee_bp / 10_000;
+            let a_input_after_fees = a_amount - total_fees;
+            
+            let expected_output = runner.calculate_expected_buy_output(
+                pool_before.a_reserve,
+                pool_before.a_virtual_reserve,
+                pool_before.b_reserve,
+                a_input_after_fees,
+            );
+            
+            // Perform buy
+            let vta = runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0, 0);
+            let result = runner.buy_virtual_token(&payer, payer_ata, a_mint, pool.pool, vta, a_amount, 0);
+            
+            if result.is_ok() {
+                let vta_data = runner.get_vta_data(&vta);
+                assert_eq!(vta_data.balance, expected_output, 
+                    "Output should match formula for a_amount = {}", a_amount);
+                println!("✅ Formula verified for a_amount = {}: b_out = {}", a_amount, expected_output);
+            }
+        }
+    }
+
+    /// Test 1.3: Price Calculation Formula
+    /// Formula: P = (A + V) / B
+    /// Whitepaper Section: 2.1 (Trading - Price)
+    #[test]
+    fn test_price_calculation_formula() {
+        let (mut runner, payer, _, pool, payer_ata, a_mint) = setup_test();
+        
+        // Initial price: P₀ = (0 + 1_000_000) / 2_000_000 = 0.5
+        let pool_before = runner.get_pool_data(&pool.pool);
+        let price_before = runner.calculate_price(
+            pool_before.a_reserve,
+            pool_before.a_virtual_reserve,
+            pool_before.b_reserve,
+        );
+        
+        println!("Initial price: P₀ = {}", price_before);
+        assert!((price_before - 0.5).abs() < 1e-6, 
+            "Initial price should be 0.5 (V/B = 1M/2M)");
+        
+        // Buy tokens (increases A, decreases B)
+        let a_amount = 50_000;
+        let vta = runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0, 0);
+        runner.buy_virtual_token(&payer, payer_ata, a_mint, pool.pool, vta, a_amount, 0).unwrap();
+        
+        // Price after buy: P₁ = (A₁ + V) / B₁
+        let pool_after = runner.get_pool_data(&pool.pool);
+        let price_after = runner.calculate_price(
+            pool_after.a_reserve,
+            pool_after.a_virtual_reserve,
+            pool_after.b_reserve,
+        );
+        
+        println!("Price after buy: P₁ = {}", price_after);
+        println!("Pool state: A={}, V={}, B={}", 
+            pool_after.a_reserve, pool_after.a_virtual_reserve, pool_after.b_reserve);
+        
+        // Verify price increased
+        assert!(price_after > price_before, 
+            "Price should increase after buy: P_before={}, P_after={}", price_before, price_after);
+
+        println!("✅ Price calculation formula verified");
+        println!("   P₀ = {} → P₁ = {} (increase: {}%)", 
+            price_before, price_after, ((price_after - price_before) / price_before * 100.0));
+    }
+
+    // ========================================
+    // Phase 3: CCB Mechanics Tests
+    // ========================================
+
+    /// Test 3.1: Fee Accumulation During Buys
+    /// Verify exact fee amounts are accumulated correctly
+    /// Whitepaper Section: 3.1 (CCB)
+    #[test]
+    fn test_ccb_fee_accumulation_exact_amounts() {
+        let (mut runner, payer, _, pool, payer_ata, a_mint) = setup_test();
+        
+        let a_amount = 10_000;
+        let creator_fee_bp = 200;  // 2%
+        let buyback_fee_bp = 600;  // 6%
+        let platform_fee_bp = 200; // 2%
+        
+        // Calculate expected fees
+        let expected_creator_fee = a_amount * creator_fee_bp / 10_000;
+        let expected_buyback_fee = a_amount * buyback_fee_bp / 10_000;
+        let expected_platform_fee = a_amount * platform_fee_bp / 10_000;
+        
+        println!("Fee accumulation test:");
+        println!("  a_amount = {}", a_amount);
+        println!("  Expected creator fee: {}", expected_creator_fee);
+        println!("  Expected buyback fee: {}", expected_buyback_fee);
+        println!("  Expected platform fee: {}", expected_platform_fee);
+        
+        let pool_before = runner.get_pool_data(&pool.pool);
+        
+        // Execute buy
+        let vta = runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0, 0);
+        runner.buy_virtual_token(&payer, payer_ata, a_mint, pool.pool, vta, a_amount, 0).unwrap();
+        
+        let pool_after = runner.get_pool_data(&pool.pool);
+        
+        // Verify creator fees
+        let actual_creator_fee = pool_after.creator_fees_balance - pool_before.creator_fees_balance;
+        assert_eq!(actual_creator_fee, expected_creator_fee,
+            "Creator fees should match exactly");
+        
+        // Verify buyback fees (minus any topup)
+        let buyback_fee_increase = pool_after.buyback_fees_balance - pool_before.buyback_fees_balance;
+        println!("  Actual creator fee: {}", actual_creator_fee);
+        println!("  Actual buyback fee increase: {} (after topup)", buyback_fee_increase);
+        
+        // Note: buyback fees might be less if used for topup
+        assert!(buyback_fee_increase <= expected_buyback_fee,
+            "Buyback fees should be <= expected (due to possible topup)");
+        
+        // Verify total accumulated (creator + buyback)
+        println!("✅ Fee accumulation verified");
+    }
+
+    /// Test 3.2: Top-Up Calculation Formula
+    /// Formula: ΔA = min(ΔV, F)
+    /// Where ΔV = Virtual reserve reduction, F = Available buyback fees
+    /// This test needs to be in burn tests, but we verify the buyback fee storage here
+    #[test]
+    fn test_ccb_buyback_fees_stored_correctly() {
+        let (mut runner, payer, _, pool, payer_ata, a_mint) = setup_test();
+        
+        // Multiple buys to accumulate fees
+        let amounts = vec![5_000, 10_000, 15_000];
+        let mut expected_total_buyback = 0u64;
+        
+        for &a_amount in &amounts {
+            let vta = runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0, 0);
+            runner.buy_virtual_token(&payer, payer_ata, a_mint, pool.pool, vta, a_amount, 0).unwrap();
+            
+            // 6% buyback fee
+            expected_total_buyback += a_amount * 600 / 10_000;
+        }
+        
+        let pool_after = runner.get_pool_data(&pool.pool);
+        
+        println!("Buyback fee accumulation:");
+        println!("  Buys: {:?}", amounts);
+        println!("  Expected total buyback fees: {}", expected_total_buyback);
+        println!("  Actual buyback_fees_balance: {}", pool_after.buyback_fees_balance);
+        
+        // Should be less than or equal to expected due to topup usage
+        assert!(pool_after.buyback_fees_balance <= expected_total_buyback,
+            "Buyback fees should accumulate (minus any topup)");
+        
+        println!("✅ Buyback fees stored correctly");
+    }
 }

@@ -1,0 +1,41 @@
+name: Release to mainnet with IDL and verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      priority_fee:
+        description: "Priority fee for transactions"
+        required: false
+        default: "300000"
+        type: string
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/mainnet.yml'
+      - 'programs/**'
+      - 'Cargo.toml'
+      - 'Anchor.toml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and Deploy CBMM to Mainnet
+    uses: solana-developers/github-workflows/.github/workflows/reusable-build.yaml@v0.2.9
+    with:
+      program: "cbmm"
+      program-id: "CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj"
+      network: "mainnet"
+      deploy: true
+      upload_idl: true
+      verify: true
+      use-squads: false
+      priority-fee: ${{ github.event.inputs.priority_fee }}
+
+    secrets:
+      MAINNET_SOLANA_DEPLOY_URL: ${{ secrets.MAINNET_SOLANA_DEPLOY_URL }}
+      MAINNET_DEPLOYER_KEYPAIR: ${{ secrets.MAINNET_DEPLOYER_KEYPAIR }}
+      PROGRAM_ADDRESS_KEYPAIR: ${{ secrets.PROGRAM_ADDRESS_KEYPAIR }}
+      MAINNET_MULTISIG: ${{ secrets.MAINNET_MULTISIG }}
+      MAINNET_MULTISIG_VAULT: ${{ secrets.MAINNET_MULTISIG_VAULT }}
