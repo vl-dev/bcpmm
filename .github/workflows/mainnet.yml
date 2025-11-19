@@ -8,9 +8,20 @@ on:
         required: false
         default: "300000"
         type: string
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/mainnet.yml'
+      - 'programs/**'
+      - 'Cargo.toml'
+      - 'Anchor.toml'
+
+permissions:
+  contents: write
 
 jobs:
   build:
+    name: Build and Deploy CBMM to Mainnet
     uses: solana-developers/github-workflows/.github/workflows/reusable-build.yaml@v0.2.9
     with:
       program: "cbmm"
