@@ -368,6 +368,122 @@ When $p = 1$, this reduces to the standard CBMM price formula $P = (A+V)/B$.
 
 We have considered other invariant types such as weighted geometric mean but it shows that the virtual reserve formulas are too complex to be conveniently implemented in the on-chain program using integer arithmetic.
 
+\subsection{Value Extraction Considerations and Mitigation Strategies}
+
+Burns shrink the beans reserve, force a reduction of the virtual reserve, and steepen the price curve. When the top-up prescribed in \cref{sec:token-reserve-top-up} is only partially executed, successive burns can move the anchor price materially lower than the value implied by the original $V$. This section quantifies the exact profit that an adversary can realize via a buy--burn--sell loop and outlines mitigation levers.
+
+\subsubsection{Attack model and payoff derivation}
+
+Consider a pool in state $(A,B,V)$ with invariant $k = (A+V)B$ and some beans in circulation. Total beans supply is $T \geq B$. An adversary executes the following steps:
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Buy $x$ beans.} Spending $\Delta A_{\mathrm{in}}$ tokens yields $x$ beans according to the standard CPMM expression
+    \begin{equation}
+        \Delta A_{\mathrm{in}} = (A+V)\frac{x}{B-x}, \qquad 0 < x < B.
+        \label{eq:value-extraction-buy}
+    \end{equation}
+    The post-buy reserves are $A_1 = A + \Delta A_{\mathrm{in}}$ and $B_1 = B - x$.
+    \item \textbf{Trigger a burn of $y$ beans} from the pool (with $0 < y < B-x$), enforcing solvency by reducing the virtual reserve to
+    \begin{equation}
+        V_2 = \frac{V(B - x - y)}{B - x},
+        \label{eq:value-extraction-V2}
+    \end{equation}
+    so that the new invariant remains $k_2 = (A_1 + V_2)(B - x - y)$.
+    \item \textbf{Sell the $x$ beans back.} Using the sell formula from \cref{sec:math}, the attacker receives
+    \begin{equation}
+        A_{\mathrm{out}} = \frac{(A_1 + V_2)x}{B - y}
+        \label{eq:value-extraction-sell}
+    \end{equation}
+    tokens while the pool returns to beans reserve $B - y$.
+\end{enumerate}
+
+Combining \cref{eq:value-extraction-buy,eq:value-extraction-V2,eq:value-extraction-sell} yields a closed-form expression for the net token profit:
+\begin{equation}
+    \Pi(x,y) = A_{\mathrm{out}} - \Delta A_{\mathrm{in}}
+             = \frac{Axy}{(B - x)(B - y)}.
+    \label{eq:value-extraction-profit}
+\end{equation}
+
+Key implications: \textbf{TODO: CHECK THIS}
+\begin{itemize}[leftmargin=*]
+    \item No real reserve means no extractable value: $\Pi=0$ whenever $A=0$.
+    \item Profit grows jointly with $x$ and $y$, peaking as both approach $B$. In the limit $\lim_{x,y\rightarrow B}\Pi(x,y)=A$, so one adversary holding nearly all beans can strip the entire real reserve.
+    \item The attack strictly consumes the existing real collateral. After the sell, the pool ends up with $A-\Pi$ tokens, so repeated loops cannot extract more than what has already been topped up.
+\end{itemize}
+
+Therefore, any mechanism that increases $A$ (top-ups, fee sweeps, external injections) must ensure that burns cannot be immediately chained by a single party holding the majority of outstanding beans.
+
+\subsubsection{Attack model with symmetric base-token fees}
+
+To actively suppress the buy--burn--sell loop, we impose an $N\%$ fee on every trade, collected entirely in the base token. This fee penalizes extraction attempts in the following way. Define the fee multiplier
+\begin{equation}
+    q = \frac{100}{100 - N}
+\end{equation}
+All fees are skimmed from the trader's base-token transfers: buy-side fees are removed before tokens enter the pool, and sell-side fees are shaved off before proceeds hit the attacker's wallet.
+
+\paragraph{Step 1: buy $x$ beans.}
+To withdraw $x$ beans ($0 < x < B$), the trader must send $S_{\text{buy}}$ tokens so that the post-fee deposit equals the CBMM requirement. Solving
+\begin{equation}
+    (A+V)B = \bigl(A + S_{\text{buy}}/q + V\bigr)(B - x)
+\end{equation}
+gives
+\begin{equation}
+    S_{\text{buy}} = q\,\frac{(A+V)x}{B - x}.
+\end{equation}
+The pool itself still sees $A_1 = A + \frac{(A+V)x}{B-x}$ and $B_1 = B - x$, identical to the no-fee path, while the attacker cost is increased by the fees.
+
+\paragraph{Step 2: burn $y$ beans.}
+Burning $y$ beans ($0 < y < B_1$) forces the same solvency adjustment as before:
+\begin{align*}
+    A_2 &= A_1, &
+    B_2 &= B - x - y, &
+    V_2 &= \frac{V(B - x - y)}{B - x}.
+\end{align*}
+
+\paragraph{Step 3: sell the $x$ beans back.}
+When the attacker sells the $x$ beans, the on-chain invariant after the burn is
+\begin{equation}
+    k_{\text{burn}} = (A_2 + V_2)B_2.
+\end{equation}
+Trading $x$ beans back into the pool yields the pre-fee token outflow $S_{\text{pool}}$ defined by
+\begin{equation}
+    (A_2 + V_2)B_2 = \bigl(A_2 - S_{\text{pool}} + V_2\bigr)(B_2 + x),
+\end{equation}
+which solves to
+\begin{equation}
+    S_{\text{pool}} = \frac{x}{(B - x)(B - y)}\Bigl[B(A+V) - Vy\Bigr].
+\end{equation}
+The fee clips a factor $1/q$ from the output, so the attacker actually receives
+\begin{equation}
+    S_{\text{sell}} = \frac{1}{q}\,S_{\text{pool}}
+    = \frac{1}{q}\,\frac{x}{(B - x)(B - y)}\Bigl[B(A+V) - Vy\Bigr].
+\end{equation}
+
+\paragraph{Net payoff and burn threshold.}
+The round-trip profit becomes
+\begin{equation}
+    \Pi_{\text{fee}}(x,y)
+        = S_{\text{sell}} - S_{\text{buy}}
+        = \frac{x}{q(B - x)(B - y)}
+            \left[q^2(A+V)(B - y) - B(A+V) + Vy\right].
+\end{equation}
+Fees suppress the attack whenever the bracketed term is non-negative. Solving the linear inequality for $y$ yields the maximum burn size that still keeps the attacker under water:
+\begin{equation}
+    y \le y_{\max}
+        = \frac{(q^2 - 1)B(A+V)}{q^2(A+V) - V},
+\end{equation}
+Assuming $A>0$ (otherwise there is nothing to extract) keeps the denominator positive. The bound scales linearly with the beans reserve $B$; the multiplier depends on the fee rate (via $q$), the virtual reserve $V$, and the real reserve $A$. Setting $N = 0$ (so $q = 1$) collapses the bound to $y_{\max} = 0$, matching the logic in \cref{eq:value-extraction-profit}. For $q>1$, the attack is eliminated whenever the configured burn allowance lies below $y_{\max}$.
+
+Notably, the profitability condition depends only on the burn size $y$ relative to the pool parameters; the buy size $x$ affects the magnitude of profit but not its sign, so the threshold $y_{\max}$ is independent of the attacker's purchase amount.
+
+\subsubsection{Burn capping by initial price drop allowance}
+
+We can decide to cap the initial price drop to a certain percentage. This makes sure that the price curve after the burn won't diverge too much.
+
+\subsubsection{Topup considerations}
+
+If you take fees from the buys and sells and use them for topup, it's much harder to fuck up over the other people and benefit from it.
+
+
 \section{Implementation}
 \label{sec:implementation}
 
