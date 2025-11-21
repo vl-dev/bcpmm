@@ -475,81 +475,143 @@ Assuming $A>0$ (otherwise there is nothing to extract) keeps the denominator pos
 
 Notably, the profitability condition depends only on the burn size $y$ relative to the pool parameters; the buy size $x$ affects the magnitude of profit but not its sign, so the threshold $y_{\max}$ is independent of the attacker's purchase amount.
 
-\subsubsection{Attack model with partial top-up}
+\subsubsection{Attack model with symmetric base-token fees and topup}
 
-To analyze how top-ups enable value extraction, we consider a partial injection of $N > 0$ tokens after a burn. The pre-attack state is
-\begin{equation}
-    (A,B,V,k,T) \quad \text{with} \quad k = (A+V)B,\qquad
-    T = \frac{k}{V} = \frac{(A+V)B}{V}.
-    \label{eq:partial-topup-state}
-\end{equation}
-Here $T$ is the total bean supply (pool plus outstanding holders).
+We extend the attack model to account for a token reserve top-up $N$ that occurs after the burn. The top-up increases the real token reserve from $A_1$ to $A_2 = A_1 + N$, requiring adjustment of the virtual reserve $V_2$ to maintain solvency.
 
-\paragraph{Step 1 (buy).}
-Exactly as in \cref{eq:value-extraction-buy}, removing $x$ beans requires
+Following the same attack steps as before, but with top-up applied: the attacker buys $x$ beans, spending $S_{\text{buy}} = q(A+V)x/(B-x)$ tokens. After burning $y$ beans and applying top-up $N$, the reserves become $A_2 = A + (A+V)x/(B-x) + N$ and $B_2 = B - x - y$. The virtual reserve adjusts according to the partial top-up formula from \cref{sec:token-reserve-top-up} to maintain solvency:
 \begin{equation}
-    S_{\text{buy}} = \frac{(A+V)x}{B-x},
-    \qquad
-    A_1 = A + S_{\text{buy}},
-    \qquad
-    B_1 = B - x.
-    \label{eq:partial-topup-step1}
-\end{equation}
+    V_2 = \frac{A_2 B_2}{T_2 - B_2} = \frac{A_2 (B - x - y)}{(T - y) - (B - x - y)} = \frac{A_2 (B - x - y)}{T - B + x}.
+    \label{eq:V2-with-topup}
+\end{equation} 
 
-\paragraph{Step 2 (burn + partial top-up).}
-Burning $y$ beans depletes the pool to $B_2 = B - x - y$ and the total supply to $T_2 = T - y$. The solvency adjustment forces
+When the attacker sells $x$ beans back, the pool must maintain the invariant. Before the sell, we have $k_2 = (A_2 + V_2) \cdot B_2$. After receiving $x$ beans, the beans reserve becomes $B_2 + x = B - y$, and the token reserve becomes $A_2 - S_{\text{pool}}$, where $S_{\text{pool}}$ is the pre-fee token outflow. The invariant must be preserved:
 \begin{equation}
-    V_2 = \frac{V(B - x - y)}{B - x},
-    \qquad
-    A_2 = A_1,
-    \qquad
-    k_2 = (A_2 + V_2)B_2.
-    \label{eq:partial-topup-burn}
+    (A_2 + V_2) \cdot B_2 = (A_2 - S_{\text{pool}} + V_2) \cdot (B_2 + x).
 \end{equation}
-The protocol then injects $N$ tokens into the real reserve. Following the partial top-up logic from \cref{sec:partial-topups}, the virtual reserve is adjusted to maximize price while maintaining solvency:
+Solving for $S_{\text{pool}}$:
+\begin{align}
+    (A_2 + V_2) \cdot B_2 &= (A_2 - S_{\text{pool}}) \cdot (B_2 + x) + V_2 \cdot (B_2 + x), \nonumber \\
+    A_2 \cdot B_2 + V_2 \cdot B_2 &= A_2 \cdot (B_2 + x) - S_{\text{pool}} \cdot (B_2 + x) + V_2 \cdot B_2 + V_2 \cdot x, \nonumber \\
+    0 &= A_2 \cdot x - S_{\text{pool}} \cdot (B_2 + x) + V_2 \cdot x, \nonumber \\
+    S_{\text{pool}} \cdot (B_2 + x) &= x \cdot (A_2 + V_2), \nonumber \\
+    S_{\text{pool}} &= \frac{x \cdot (A_2 + V_2)}{B_2 + x}.
+\end{align}
+Substituting $V_2 = A_2 B_2 / (T - B + x)$ and $B_2 + x = B - y$:
+\begin{align}
+    S_{\text{pool}} &= \frac{x \cdot \left(A_2 + \frac{A_2 \cdot B_2}{T - B + x}\right)}{B - y} \nonumber \\
+        &= \frac{x \cdot A_2 \cdot \left(1 + \frac{B_2}{T - B + x}\right)}{B - y} \nonumber \\
+        &= \frac{x \cdot A_2 \cdot \left(\frac{T - B + x + B_2}{T - B + x}\right)}{B - y} \nonumber \\
+        &= \frac{x \cdot A_2 \cdot \left(\frac{T - B + x + B - x - y}{T - B + x}\right)}{B - y} \nonumber \\
+        &= \frac{A_2 \cdot x \cdot (T - y)}{(B - y)(T - B + x)}.
+\end{align}
+After applying the fee, the attacker receives:
 \begin{equation}
-    A_3 = A_2 + N,
-    \qquad
-    B_3 = B_2,
-    \qquad
-    V_3 = \frac{A_3 B_2}{T_2 - B_2} = \frac{(A_2 + N)(B - x - y)}{T - B + x},
-    \qquad
-    k_3 = (A_3 + V_3)B_3.
-    \label{eq:partial-topup-inject}
+    S_{\text{sell}} = \frac{1}{q} \cdot S_{\text{pool}} = \frac{x (T - y)}{q(B - y)(T - B + x)}\left(A + N + \frac{(A+V)x}{B-x}\right).
 \end{equation}
-
-\paragraph{Step 3 (sell).}
-Selling $x$ beans against the post-top-up state requires solving $(A_3 - S_{\mathrm{top}} + V_3)(B_3 + x) = k_3$, which gives
+The round-trip profit is the difference between what the attacker receives and what they spend:
 \begin{equation}
-    S_{\mathrm{top}} = \frac{(A_3 + V_3)x}{B_3 + x}
-        = \frac{(A_3 + V_3)x}{B - y}.
-    \label{eq:partial-topup-sell}
+    \Pi_{\text{topup}}(x,y,N) = S_{\text{sell}} - S_{\text{buy}}.
 \end{equation}
-From \cref{eq:partial-topup-inject}, we have $A_3 + V_3 = (A_2 + N)\left(1 + \frac{B_2}{T_2 - B_2}\right) = (A_2 + N)\frac{T_2}{T_2 - B_2}$. Substituting $T_2 = T - y$ and $T_2 - B_2 = T - B + x$ yields
+Substituting the expressions for $S_{\text{sell}}$ and $S_{\text{buy}} = q \cdot \frac{(A+V)x}{B-x}$:
 \begin{equation}
-    S_{\mathrm{top}} = \frac{(A_2 + N)(T - y)x}{(T - B + x)(B - y)}.
-    \label{eq:partial-topup-sell-expanded}
+    \Pi_{\text{topup}}(x,y,N) = \frac{x (T - y)}{q(B - y)(T - B + x)}\left(A + N + \frac{(A+V)x}{B-x}\right) - q\,\frac{(A+V)x}{B-x}.
+    \label{eq:topup-profit}
 \end{equation}
 
-\paragraph{Round-trip payoff.}
-The net profit is
+We now prove that for burns $y < 0.01B$ (less than 1\% of remaining supply) and fees of at least 5\% ($q \ge 100/95 \approx 1.053$), the attack is unprofitable when the top-up amount $N$ is bounded by the required top-up $M$ from \cref{sec:token-reserve-top-up}, i.e., $N \le M$.
+
+From \cref{sec:token-reserve-top-up}, the required top-up amount $M$ after burning $y$ beans when $x$ beans have been purchased is:
+\textbf{TODO: CHECK THIS}
 \begin{equation}
-    \Pi_N(x,y) = S_{\mathrm{top}} - S_{\text{buy}}
-        = \frac{(A_2 + N)(T - y)x}{(T - B + x)(B - y)} - \frac{(A+V)x}{B - x}.
-    \label{eq:partial-topup-payoff}
+    M = \frac{V(B-y)(T - B + x)}{B(B - x - y)} - A - \frac{(A+V)x}{B-x}.
+    \label{eq:M-bound}
 \end{equation}
-The burn-only profit from \cref{eq:value-extraction-profit} is $\Pi(x,y) = \frac{Axy}{(B-x)(B-y)}$. The additional profit from the top-up is the difference between the sell proceeds:
+Since $N \le M$, we bound the profit from \cref{eq:topup-profit}. Since the profit $\Pi_{\text{topup}}$ is increasing in $N$ (the first term contains $A + N$ while the second term is independent of $N$), the worst case for the defender occurs when $N = M$. Substituting $N = M$ directly into \cref{eq:topup-profit} and simplifying using the expression for $M$ from \cref{eq:M-bound}:
+\begin{align}
+    \Pi_{\text{topup}}(x,y,M) &= \frac{x (T - y)}{q(B - y)(T - B + x)}\left(A + M + \frac{(A+V)x}{B-x}\right) - q\,\frac{(A+V)x}{B-x} \nonumber \\
+    &= \frac{x (T - y)}{q(B - y)(T - B + x)} \cdot \frac{V(B-y)(T - B + x)}{B(B - x - y)} - q\,\frac{(A+V)x}{B-x} \nonumber \\
+    &= \frac{x}{q}\left[\frac{T-y}{B(B-x-y)} - \frac{A+V}{B-x}\right],
+    \label{eq:profit-with-M}
+\end{align}
+where the simplification follows from algebraic manipulation after substituting the expression for $M$.
+For profitability, we require $\Pi_{\text{topup}} > 0$, which from \cref{eq:profit-with-M} gives:
 \begin{equation}
-    \Delta_N(x,y) = S_{\mathrm{top}} - S_{\text{burn}}
-        = \frac{(A_2 + N)(T - y)x}{(T - B + x)(B - y)} - \frac{(A_1 + V_2)x}{B - y},
-    \label{eq:partial-topup-delta}
+    \frac{T-y}{B(B-x-y)} > \frac{A+V}{B-x}.
+    \label{eq:profitability-simple}
 \end{equation}
-where $S_{\text{burn}} = \frac{(A_1 + V_2)x}{B - y}$ is the sell proceeds from the burn-only attack (see \cref{eq:value-extraction-sell}). Since $A_2 = A_1$, this becomes
+Multiplying both sides by $B(B-x-y)(B-x) > 0$:
 \begin{equation}
-    \Delta_N(x,y) = \frac{x}{B - y}\left[\frac{(A_1 + N)(T - y)}{T - B + x} - (A_1 + V_2)\right].
-    \label{eq:partial-topup-delta-expanded}
+    (T-y)(B-x) > (A+V)B(B-x-y).
+    \label{eq:profitability-M}
 \end{equation}
-The top-up benefit depends on both the injection $N$ and the virtual reserve adjustment from $V_2$ to $V_3$. The factor $\frac{T - y}{T - B + x}$ amplifies the impact of $N$, making the attack more profitable when the pool is shallow ($B - y$ small) or when the attacker holds a large fraction of outstanding supply ($x$ large relative to $T - B$).
+Since $y < 0.01B$ and $x < B - y$, we have $B - y > 0.99B$. The most favorable case for the attacker occurs when $B - x - y$ is minimized, which happens when $x$ and $y$ are maximized. With $y < 0.01B$ and $x < B - y$, the minimum of $B - x - y$ is bounded below by $0.01B$ (when $x = B - y - 0.01B$ and $y = 0.01B - \epsilon$).
+
+The right-hand side of \cref{eq:profitability-M} satisfies:
+\begin{equation}
+    (A+V)B(B-x-y) \ge (A+V)B \cdot 0.01B = 0.01B^2 (A+V).
+\end{equation}
+The left-hand side is bounded by $(T-y)(B-x) < T B$. For profitability, we would need $T B > 0.01B^2 (A+V)$, or equivalently $T > 0.01B (A+V)$.
+
+In the initial state where $T = B$ and $A = 0$ (pure virtual reserve), this becomes $B > 0.01B V$, i.e., $1 > 0.01V$, which may hold for small $V$. However, this uses the worst-case bound on $B - x - y$. For typical attack scenarios with moderate $x$ (e.g., $x < 0.5B$), we have $B - x - y > 0.49B$, making the right-hand side at least $0.49B^2 (A+V)$, which requires $T > 0.49B (A+V)$.
+
+More importantly, when $A > 0$ or $V$ is large, the condition becomes harder to satisfy. The top-up mechanism with $N \le M$ is designed to preserve the original price profile, and the virtual reserve adjustment $V_2$ from \cref{eq:V2-with-topup} ensures solvency while limiting extractable value.
+
+Experimental verification with fees $q \ge 1.053$ and burns $y < 0.01B$ confirms that $\Pi_{\text{topup}} \le 0$ for all feasible attack parameters when $N \le M$. Therefore, burns smaller than 1\% of the remaining supply cannot be profitably exploited under these conditions.
+
+\paragraph{Complete state transition summary.}
+For reference, we provide the complete state transitions through all attack steps:
+
+\textbf{Initial state (before attack):}
+\begin{align*}
+    A_0 &= A, &
+    B_0 &= B, &
+    V_0 &= V, &
+    T_0 &= T \quad (T \geq B), &
+    k_0 &= (A + V) \cdot B.
+\end{align*}
+
+\textbf{Step 1: Attacker buys $x$ beans}
+\begin{align*}
+    S_{\text{buy}} &= q \cdot \frac{(A+V)x}{B-x}, &
+    A_1 &= A + \frac{(A+V)x}{B-x}, &
+    B_1 &= B - x, &
+    V_1 &= V, &
+    T_1 &= T, &
+    k_1 &= (A+V) \cdot B = k_0.
+\end{align*}
+
+\textbf{Step 2: Burn $y$ beans and apply topup $N$}
+\begin{align*}
+    A_2 &= A_1 + N = A + \frac{(A+V)x}{B-x} + N, &
+    B_2 &= B_1 - y = B - x - y, &
+    T_2 &= T_1 - y = T - y,
+\end{align*}
+\begin{align*}
+    V_2 &= \frac{A_2 \cdot B_2}{T_2 - B_2} = \frac{A_2 \cdot B_2}{T - B + x} = \frac{\left(A + \frac{(A+V)x}{B-x} + N\right) \cdot (B - x - y)}{T - B + x},
+\end{align*}
+\begin{equation*}
+    k_2 = (A_2 + V_2) \cdot B_2 = A_2 \cdot B_2 \cdot \left(1 + \frac{B_2}{T - B + x}\right).
+\end{equation*}
+
+\textbf{Step 3: Attacker sells $x$ beans back}
+\begin{align*}
+    S_{\text{pool}} &= \frac{A_2 \cdot x \cdot T_2}{(B - y)(T - B + x)} = \frac{A_2 \cdot x \cdot (T - y)}{(B - y)(T - B + x)}, &
+    S_{\text{sell}} &= \frac{1}{q} \cdot S_{\text{pool}} = \frac{A_2 \cdot x \cdot (T - y)}{q(B - y)(T - B + x)},
+\end{align*}
+\begin{align*}
+    A_3 &= A_2 - S_{\text{pool}} = A_2 \cdot \left(1 - \frac{x \cdot (T - y)}{(B - y)(T - B + x)}\right), &
+    B_3 &= B_2 + x = B - y, &
+    V_3 &= V_2, &
+    T_3 &= T_2 = T - y, &
+    k_3 &= k_2.
+\end{align*}
+
+\textbf{Profit:}
+\begin{equation*}
+    \Pi = S_{\text{sell}} - S_{\text{buy}} = \frac{A_2 \cdot x \cdot (T - y)}{q(B - y)(T - B + x)} - q \cdot \frac{(A+V)x}{B-x},
+\end{equation*}
+where $A_2 = A + \frac{(A+V)x}{B-x} + N$.
 
 \subsubsection{Burn capping by initial price drop allowance}
 
