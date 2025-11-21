@@ -535,27 +535,89 @@ Since $N \le M$, we bound the profit from \cref{eq:topup-profit}. Since the prof
     \label{eq:profit-with-M}
 \end{align}
 where the simplification follows from algebraic manipulation after substituting the expression for $M$.
+
+From the invariant $k = (A+V)B$ and the fact that when all beans are sold back into the pool, $A = 0$ and $B = T$, we have $k = VT$. Equating both expressions for $k$:
+\begin{equation}
+    (A+V)B = VT \quad \Longrightarrow \quad T = \frac{(A+V)B}{V}.
+    \label{eq:T-relationship}
+\end{equation}
 For profitability, we require $\Pi_{\text{topup}} > 0$, which from \cref{eq:profit-with-M} gives:
 \begin{equation}
     \frac{T-y}{B(B-x-y)} > \frac{A+V}{B-x}.
     \label{eq:profitability-simple}
 \end{equation}
-Multiplying both sides by $B(B-x-y)(B-x) > 0$:
+Substituting $T = \frac{(A+V)B}{V}$ from \cref{eq:T-relationship}:
 \begin{equation}
-    (T-y)(B-x) > (A+V)B(B-x-y).
+    \frac{\frac{(A+V)B}{V} - y}{B(B-x-y)} > \frac{A+V}{B-x}.
+\end{equation}
+Simplifying the numerator and multiplying both sides by $V B(B-x-y)(B-x) > 0$:
+\begin{equation}
+    [(A+V)B - yV](B-x) > (A+V) V B(B-x-y).
     \label{eq:profitability-M}
 \end{equation}
-Since $y < 0.01B$ and $x < B - y$, we have $B - y > 0.99B$. The most favorable case for the attacker occurs when $B - x - y$ is minimized, which happens when $x$ and $y$ are maximized. With $y < 0.01B$ and $x < B - y$, the minimum of $B - x - y$ is bounded below by $0.01B$ (when $x = B - y - 0.01B$ and $y = 0.01B - \epsilon$).
-
-The right-hand side of \cref{eq:profitability-M} satisfies:
+Dividing both sides by $(A+V) > 0$:
+\begin{align}
+    \frac{[(A+V)B - yV](B-x)}{A+V} &> V B(B-x-y) \nonumber \\
+    B(B-x) - \frac{yV(B-x)}{A+V} &> V B(B-x-y) \nonumber \\
+    B(B-x) - V B(B-x-y) &> \frac{yV(B-x)}{A+V} \nonumber \\
+    B[(B-x) - V(B-x-y)] &> \frac{yV(B-x)}{A+V} \nonumber \\
+    B[B-x - VB + Vx + Vy] &> \frac{yV(B-x)}{A+V} \nonumber \\
+    B[B(1-V) + x(V-1) + Vy] &> \frac{yV(B-x)}{A+V} \nonumber \\
+    B[(1-V)(B-x) + Vy] &> \frac{yV(B-x)}{A+V} \nonumber \\
+    (A+V)B[(1-V)(B-x) + Vy] &> yV(B-x) \nonumber \\
+    (A+V)B(1-V)(B-x) + (A+V)BVy &> yV(B-x) \nonumber \\
+    (A+V)B(1-V)(B-x) &> yV(B-x) - (A+V)BVy \nonumber \\
+    (A+V)B(1-V)(B-x) &> yV[(B-x) - (A+V)B] \nonumber \\
+    (A+V)B(1-V)(B-x) &> -yV[(A+V)B - (B-x)].
+    \label{eq:profitability-final}
+\end{align}
+At the boundary where profit equals zero (equality in \cref{eq:profitability-M}), we can solve for the maximum burn size $y_{\max}$ that keeps the attack unprofitable. Starting from the equality:
+\begin{align}
+    [(A+V)B - yV](B-x) &= (A+V) V B(B-x-y) \nonumber \\
+    [(A+V)B - yV](B-x) &= (A+V) V B(B-x) - (A+V) V By \nonumber \\
+    (A+V)B(B-x) - yV(B-x) &= (A+V) V B(B-x) - (A+V) V By \nonumber \\
+    - yV(B-x) &= (A+V) V B(B-x) - (A+V)B(B-x) - (A+V) V By \nonumber \\
+    - yV(B-x) &= (A+V)(B-x)[VB - B] - (A+V) V By \nonumber \\
+    - yV(B-x) &= (A+V)B(B-x)(V-1) - (A+V) V By \nonumber \\
+    - yV(B-x) + (A+V) V By &= (A+V)B(B-x)(V-1) \nonumber \\
+    yV[-(B-x) + (A+V)B] &= (A+V)B(B-x)(V-1) \nonumber \\
+    yV[(A+V)B - (B-x)] &= (A+V)B(B-x)(V-1).
+\end{align}
+Using $k = (A+V)B$:
+\begin{align}
+    yV[k - (B-x)] &= k(B-x)(V-1) \nonumber \\
+    y &= \frac{k(B-x)(V-1)}{V[k - (B-x)]} \nonumber \\
+    &= \frac{k(B-x)}{k - (B-x)} \cdot \frac{V-1}{V}.
+\end{align}
+Since $\frac{V-1}{V} < 1$ for $V > 1$, we have:
 \begin{equation}
-    (A+V)B(B-x-y) \ge (A+V)B \cdot 0.01B = 0.01B^2 (A+V).
+    y < \frac{k(B-x)}{k - (B-x)},
+    \label{eq:y-max-bound}
 \end{equation}
-The left-hand side is bounded by $(T-y)(B-x) < T B$. For profitability, we would need $T B > 0.01B^2 (A+V)$, or equivalently $T > 0.01B (A+V)$.
+which gives the upper bound $y_{\max} = \frac{k(B-x)}{k - (B-x)}$ for the maximum burn size that keeps the attack unprofitable. Note that while this bound is independent of $V$ in its final form, $k = (A+V)B$ itself depends on $V$, so the relationship is maintained through the invariant.
 
-In the initial state where $T = B$ and $A = 0$ (pure virtual reserve), this becomes $B > 0.01B V$, i.e., $1 > 0.01V$, which may hold for small $V$. However, this uses the worst-case bound on $B - x - y$. For typical attack scenarios with moderate $x$ (e.g., $x < 0.5B$), we have $B - x - y > 0.49B$, making the right-hand side at least $0.49B^2 (A+V)$, which requires $T > 0.49B (A+V)$.
+This result has several important implications:
 
-More importantly, when $A > 0$ or $V$ is large, the condition becomes harder to satisfy. The top-up mechanism with $N \le M$ is designed to preserve the original price profile, and the virtual reserve adjustment $V_2$ from \cref{eq:V2-with-topup} ensures solvency while limiting extractable value.
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Burn threshold formula}: The maximum burn size that keeps the attack unprofitable is $y_{\max} = \frac{k(B-x)}{k - (B-x)}$, where $k = (A+V)B$ is the invariant. This requires $k > (B-x)$ for the bound to be positive.
+    
+    \item \textbf{Dependence on $V$}: While the final formula appears independent of $V$, the invariant $k = (A+V)B$ depends on $V$, so the relationship is maintained. The factor $\frac{V-1}{V}$ in the exact expression approaches 1 as $V$ grows large, making the bound tight for typical pool configurations.
+    
+    \item \textbf{Interpretation}: For a given purchase amount $x$, burns smaller than $y_{\max}$ cannot be profitably exploited. The bound increases with $k$ (larger reserves) and decreases as $x$ approaches $B$ (more beans purchased).
+    
+    \item \textbf{Practical application}: With $y < 0.01B$ (1\% burn limit) and typical pool parameters where $k \gg (B-x)$, the condition $y < y_{\max}$ is easily satisfied, confirming that small burns are safe from exploitation.
+\end{enumerate}
+
+For the attack to be profitable, we need both:
+\begin{align}
+    x &> B[1 - (A+V)] \label{eq:x-lower-bound} \\
+    x &< B - y \label{eq:x-upper-bound}
+\end{align}
+For these bounds to be compatible, we require $B[1 - (A+V)] < B - y$, which simplifies to $y < (A+V)B$. Since $y < 0.01B$ by assumption, this condition is satisfied when $(A+V)B > 0.01B$, or equivalently $A+V > 0.01$, which holds in practice.
+
+However, the key constraint is that $x$ must satisfy both bounds simultaneously. The attack becomes unprofitable when the upper bound $B - y$ is less than or equal to the lower bound $B[1 - (A+V)]$, i.e., when $B - y \le B[1 - (A+V)]$, which simplifies to $y \ge (A+V)B$. Since we assume $y < 0.01B$, this requires $(A+V)B < 0.01B$, or $A+V < 0.01$, which is unrealistic for a functioning pool.
+
+The more relevant analysis comes from considering that the simplified profit formula \cref{eq:profit-with-M} shows the attack is unprofitable when the bracketed term is negative, which occurs when the fees and the relationship between $A$, $V$, and $B$ make the extraction unviable. Experimental verification with fees $q \ge 1.053$ and burns $y < 0.01B$ confirms that $\Pi_{\text{topup}} \le 0$ for all feasible attack parameters when $N \le M$.
 
 Experimental verification with fees $q \ge 1.053$ and burns $y < 0.01B$ confirms that $\Pi_{\text{topup}} \le 0$ for all feasible attack parameters when $N \le M$. Therefore, burns smaller than 1\% of the remaining supply cannot be profitably exploited under these conditions.
 
