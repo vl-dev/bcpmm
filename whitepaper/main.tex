@@ -475,6 +475,82 @@ Assuming $A>0$ (otherwise there is nothing to extract) keeps the denominator pos
 
 Notably, the profitability condition depends only on the burn size $y$ relative to the pool parameters; the buy size $x$ affects the magnitude of profit but not its sign, so the threshold $y_{\max}$ is independent of the attacker's purchase amount.
 
+\subsubsection{Attack model with partial top-up}
+
+To analyze how top-ups enable value extraction, we consider a partial injection of $N > 0$ tokens after a burn. The pre-attack state is
+\begin{equation}
+    (A,B,V,k,T) \quad \text{with} \quad k = (A+V)B,\qquad
+    T = \frac{k}{V} = \frac{(A+V)B}{V}.
+    \label{eq:partial-topup-state}
+\end{equation}
+Here $T$ is the total bean supply (pool plus outstanding holders).
+
+\paragraph{Step 1 (buy).}
+Exactly as in \cref{eq:value-extraction-buy}, removing $x$ beans requires
+\begin{equation}
+    S_{\text{buy}} = \frac{(A+V)x}{B-x},
+    \qquad
+    A_1 = A + S_{\text{buy}},
+    \qquad
+    B_1 = B - x.
+    \label{eq:partial-topup-step1}
+\end{equation}
+
+\paragraph{Step 2 (burn + partial top-up).}
+Burning $y$ beans depletes the pool to $B_2 = B - x - y$ and the total supply to $T_2 = T - y$. The solvency adjustment forces
+\begin{equation}
+    V_2 = \frac{V(B - x - y)}{B - x},
+    \qquad
+    A_2 = A_1,
+    \qquad
+    k_2 = (A_2 + V_2)B_2.
+    \label{eq:partial-topup-burn}
+\end{equation}
+The protocol then injects $N$ tokens into the real reserve. Following the partial top-up logic from \cref{sec:partial-topups}, the virtual reserve is adjusted to maximize price while maintaining solvency:
+\begin{equation}
+    A_3 = A_2 + N,
+    \qquad
+    B_3 = B_2,
+    \qquad
+    V_3 = \frac{A_3 B_2}{T_2 - B_2} = \frac{(A_2 + N)(B - x - y)}{T - B + x},
+    \qquad
+    k_3 = (A_3 + V_3)B_3.
+    \label{eq:partial-topup-inject}
+\end{equation}
+
+\paragraph{Step 3 (sell).}
+Selling $x$ beans against the post-top-up state requires solving $(A_3 - S_{\mathrm{top}} + V_3)(B_3 + x) = k_3$, which gives
+\begin{equation}
+    S_{\mathrm{top}} = \frac{(A_3 + V_3)x}{B_3 + x}
+        = \frac{(A_3 + V_3)x}{B - y}.
+    \label{eq:partial-topup-sell}
+\end{equation}
+From \cref{eq:partial-topup-inject}, we have $A_3 + V_3 = (A_2 + N)\left(1 + \frac{B_2}{T_2 - B_2}\right) = (A_2 + N)\frac{T_2}{T_2 - B_2}$. Substituting $T_2 = T - y$ and $T_2 - B_2 = T - B + x$ yields
+\begin{equation}
+    S_{\mathrm{top}} = \frac{(A_2 + N)(T - y)x}{(T - B + x)(B - y)}.
+    \label{eq:partial-topup-sell-expanded}
+\end{equation}
+
+\paragraph{Round-trip payoff.}
+The net profit is
+\begin{equation}
+    \Pi_N(x,y) = S_{\mathrm{top}} - S_{\text{buy}}
+        = \frac{(A_2 + N)(T - y)x}{(T - B + x)(B - y)} - \frac{(A+V)x}{B - x}.
+    \label{eq:partial-topup-payoff}
+\end{equation}
+The burn-only profit from \cref{eq:value-extraction-profit} is $\Pi(x,y) = \frac{Axy}{(B-x)(B-y)}$. The additional profit from the top-up is the difference between the sell proceeds:
+\begin{equation}
+    \Delta_N(x,y) = S_{\mathrm{top}} - S_{\text{burn}}
+        = \frac{(A_2 + N)(T - y)x}{(T - B + x)(B - y)} - \frac{(A_1 + V_2)x}{B - y},
+    \label{eq:partial-topup-delta}
+\end{equation}
+where $S_{\text{burn}} = \frac{(A_1 + V_2)x}{B - y}$ is the sell proceeds from the burn-only attack (see \cref{eq:value-extraction-sell}). Since $A_2 = A_1$, this becomes
+\begin{equation}
+    \Delta_N(x,y) = \frac{x}{B - y}\left[\frac{(A_1 + N)(T - y)}{T - B + x} - (A_1 + V_2)\right].
+    \label{eq:partial-topup-delta-expanded}
+\end{equation}
+The top-up benefit depends on both the injection $N$ and the virtual reserve adjustment from $V_2$ to $V_3$. The factor $\frac{T - y}{T - B + x}$ amplifies the impact of $N$, making the attack more profitable when the pool is shallow ($B - y$ small) or when the attacker holds a large fraction of outstanding supply ($x$ large relative to $T - B$).
+
 \subsubsection{Burn capping by initial price drop allowance}
 
 We can decide to cap the initial price drop to a certain percentage. This makes sure that the price curve after the burn won't diverge too much.
