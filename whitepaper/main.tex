@@ -106,7 +106,7 @@
 \maketitle
 
 \begin{abstract}
-This whitepaper describes the CBMM (Constant Burn Market Maker) pool, an improved version of the standard constant product market maker (CPMM) that automates token burns and buybacks resulting in a positive impact on the token's price and more continuous demand.
+This whitepaper describes the CBMM (Constant Burn Market Maker) pool, an improved version of the standard constant product market maker (CPMM) that introduces a token burn mechanism alongside with automated buybacks resulting in a positive impact on the token's price and more continuous demand. Moreover, this provides a mechanism for off-chain actions to have a direct impact onto the beans price.
 \end{abstract}
 
 \section{Introduction}
@@ -115,24 +115,22 @@ Constant function market makers (CFMMs) have become a foundational primitive for
 
 Existing mechanisms provide no built-in way to translate off-chain activity into on-chain price impact. The only mechanism available to drive positive price action is manual buy-and-burn operations, where participants purchase tokens and burn them to reduce supply. This requires coordination, creates friction, and does not automatically link rewards to verifiable off-chain behavior.
 
-We present the Constant Burn Market Maker (CBMM), a mechanism that enables tying off-chain events to underlying asset supply reduction. CBMM utilizes a virtual token reserve that supports controlled burns without violating pool invariant constraints and enables creating one-sided launch pools. These burns directly increase price proportionally to the amount of beans held outside the pool. Moreover, to compensate for the virtual reserve reduction that accompanies burns, we implement Continuous Conditional Buybacks (CCB), which route a portion of trading fees into the real token reserve, effectively increasing collateralization and increasing price further.
+We present the Constant Burn Market Maker (CBMM), a mechanism that enables tying off-chain events to underlying asset supply reduction. CBMM utilizes a virtual token reserve that supports controlled burns without violating pool invariant constraints and enables creating one-sided launch pools. These burns directly increase price proportionally to the amount of beans held outside the pool and can be tied to off-chain events. Moreover, to compensate for the virtual reserve reduction that accompanies burns, we implement Continuous Conditional Buybacks (CCB), which route a portion of trading fees into the real token reserve, effectively increasing collateralization and increasing price further.
 
-The remainder of this paper is structured as follows. Section~\ref{sec:math} develops the mathematical model, derives trading and burning formulas, and analyzes price impact. Section~\ref{sec:implementation} describes the Solana program implementation, including safety mechanisms and configuration considerations.
+The remainder of this paper is structured as follows. Section~\ref{sec:math} develops the mathematical model, derives trading and burning formulas, and analyzes price impact and mitigation of possible attacks. Section~\ref{sec:implementation} describes the Solana program implementation, including safety mechanisms and configuration considerations.
 
 \section{Mathematical Model}
 \label{sec:math}
 
-In this section we will define the mathematical model of the CBMM pool. We only focus on the token trading and burning mechanics and additional buyback mechanics.
+In this section we will describe the mathematical model of the CBMM pool. Let us first define the key terms used throughout this section. Let there be a CPMM pool with a real quote token reserve $A$ (backed by actual assets), real base token reserve $B$ and virtual quote token reserve $V$ (not backed by assets, used to set the initial price and liquidity). The pool trading mechanics are defined by the constant product invariant $k = (A+V)B$. We say that this pool is a \textbf{CBMM pool} if it implements the base token burn functionality tied to the virtual reserve reduction as described in subsection \ref{sec:base-token-reserve-burning}.
 
-We first define the key terms used throughout this section. Let there be a CPMM pool with a token reserve $R$ and a beans reserve $B$. The token reserve is split into \textbf{Real Token Reserve} $A$ (backed by actual assets) and a \textbf{Virtual Token Reserve} $V$ (not backed by assets, used to set the initial price and liquidity). The pool trading mechanics are defined by the constant product invariant $k = (A+V)B$. We say that this pool is a \textbf{CBMM pool} if it implements the beans burn functionality tied to the virtual reserve reduction as described later in this section.
+The CBMM pool is said to be \textbf{insolvent} if its quote token reserves are insufficient to accommodate the sale of all outstanding base tokens; otherwise it is said to be \textbf{solvent}. The goal is to always keep the CBMM pool solvent which can be achieved by adjusting the virtual reserve after each burn.
 
-The CPMM pool is said to be \textbf{insolvent} if its reserves are insufficient to accommodate the sale of all outstanding beans; otherwise it is said to be \textbf{solvent}. We design the CBMM pool to be solvent by adjusting the virtual reserve after each burn.
-
-We assume the initial Real Token Reserve is zero. CBMM is designed as a token rollout mechanism, so we do not need to account for any existing supply outside the pool. The Virtual Token Reserve sets the initial price of the token.
+In this whitepaper the CBMM is designed as a base token rollout mechanism, so we do not need to account for any existing supply outside the pool. Moreover, we assume that the initial real quote token reserve $A$ is zero and, therefore, the virtual quote token reserve $V$ sets the initial price of the base token.
 
 \subsection{Trading}
 
-Buys and sells in CBMM follow the mechanics of the standard CPMM with a virtual reserve; we include them here for completeness. The pre-trade (buy or sell) values are
+Buys and sells in CBMM follow the mechanics of the standard CPMM with a quote token virtual reserve; we include them here for completeness. The pre-trade (buy or sell) values are
 \begin{align*}
     A &= A_0, &
     B &= B_0, &
@@ -140,7 +138,7 @@ Buys and sells in CBMM follow the mechanics of the standard CPMM with a virtual 
     k &= (A_0 + V) B_0.
 \end{align*}
 
-During trading, the invariant $k$ and the virtual reserve $V$ do not change. The amount of beans $b$ received by the user when spending $\Delta A$ tokens (which increases the pool reserve to $A_0+\Delta A$) follows from
+During trading, the invariant $k$ and the virtual reserve $V$ do not change. The amount of base tokens $b$ received by the user when spending $\Delta A$ quote tokens follows from
 \begin{equation}
     k = (A_0+\Delta A+V)(B_0-b),
 \end{equation}
@@ -150,7 +148,7 @@ which gives:
     b = B_0 - \frac{k}{A_0+\Delta A+V}.
 \end{equation}
 
-Similarly, the amount of tokens $a$ received by the user when spending $\Delta B$ beans (which increases the pool reserve to $B+\Delta B$) follows from
+Similarly, the amount of quote tokens $a$ received by the user when spending $\Delta B$ base tokens follows from
 \begin{equation}
     k = (A_0-a+V)(B_0+\Delta B),
 \end{equation}
@@ -160,7 +158,7 @@ which gives:
     a = A_0+V - \frac{k}{B_0+\Delta B}.
 \end{equation}
 
-The price of beans $P$ (tokens per bean) is derived from the marginal rate of exchange. Starting with the invariant $k = (A+V)B$ and holding $k$ constant, we differentiate with respect to $B$:
+The price of base tokens $P$ (quote tokens per base token) is derived from the marginal rate of exchange. Starting with the invariant $k = (A+V)B$ and holding $k$ constant, we differentiate with respect to $B$:
 
 \begin{equation}
     \frac{d}{dB}[(A+V)B] = \frac{dA}{dB} \cdot B + (A+V) = 0,
@@ -172,10 +170,10 @@ which yields $\frac{dA}{dB} = -(A+V)/B$. The price is the negative of this deriv
     P = -\frac{dA}{dB} = \frac{A+V}{B}.
 \end{equation}
 
-\subsection{Beans Reserve Burning}
-\label{sec:beans-reserve-burning}
+\subsection{Base Token Reserve Burning}
+\label{sec:base-token-reserve-burning}
 
-This section describes the necessary conditions for the CBMM pool to remain solvent after a beans reserve reduction.
+This section describes the necessary conditions for the CBMM pool to remain solvent after a base token reserve reduction.
 
 Let the initial state of the pool be
 
@@ -186,15 +184,15 @@ Let the initial state of the pool be
     k_0 &= (0 + V) B = V B.
 \end{align*}
 
-Assume, without loss of generality, that trading occurs before the burn, lowering the beans reserve by $x \geq 0$. The post-trade values are
+Assume, without loss of generality, that trading occurs before the burn, lowering the base token reserve by $x \geq 0$. The post-trade values are
 \begin{align*}
     A_1 &= \frac{Vx}{B - x}, &
     B_1 &= B - x, &
     V_1 &= V, &
-    k_1 &= k_0 = V B.
+    k_1 &= V B.
 \end{align*}
 
-Now, if we burn $y$ beans with $0 \leq y < B - x$, the post-burn state is
+Now, if we burn $y$ base tokens with $0 \leq y < B - x$, the post-burn state is
 \begin{align*}
     A_2 &= \frac{Vx}{B - x}, &
     B_2 &= B - x - y, &
@@ -202,7 +200,7 @@ Now, if we burn $y$ beans with $0 \leq y < B - x$, the post-burn state is
     k_2 &= (A_2 + V_2) B_2.
 \end{align*}
 
-Finally, to ensure the pool is solvent, if everyone sells their beans back to the pool, there must be sufficient tokens to satisfy the sale. The post-sale state must satisfy
+Let's find the condition for the virtual reserve $V_2$ to ensure the pool is solvent. This meant that if everyone sells their base tokens back to the pool, there must be sufficient quote tokens to satisfy the sale. The post-sale state must satisfy
 \begin{align*}
     A_3 &\geq 0, &
     B_3 &= B - y, &
@@ -218,9 +216,6 @@ From $k_2 = k_3$ and $k_3 \geq V_3 B_3$, we obtain a bound on $V_2$ that ensures
 
 Thus, after every burn, the virtual reserve must be adjusted downward to ensure solvency. A natural choice is to set $V_2$ to the maximum value satisfying the bound, which minimizes the price impact of the virtual reserve reduction.
 
-\textbf{TODO: CHECK THIS}
-Note that maintaining solvency via this adjustment can imply that the worst-case exit price for sellers after burns is lower than the initial anchor price set by the starting $V$. The worst-case exit price refers to the marginal price when all outstanding beans (post-burn) are sold back to the pool, driving the real token reserve $A$ toward zero. At this limit, the price approaches $V_2/(B-y)$, which may be below the initial price $V/B$ if $V_2 < V(B-y)/B$.
-
 \subsubsection{Price impact of the burn}
 
 Denote the price before burn as $P_1 = \frac{A_1+V_1}{B_1}$ and the price after burn as $P_2 = \frac{A_2+V_2}{B_2}$. Substituting the values from the previous section, where $B_1 = B - x$ and $V_2 = \frac{V(B - x - y)}{B - x}$, we obtain
@@ -235,15 +230,18 @@ The relative price impact of the burn is then:
     \frac{P_2 - P_1}{P_1} = \frac{xy}{B(B-x-y)}.
 \end{equation}
 
-This formula shows that the relative price impact is proportional to the product $xy$ of beans held outside the pool $x$ and beans burned $y$, divided by $B(B-x-y)$. The impact increases with $x$, meaning burns have greater price impact when more tokens have been purchased. If $x = 0$ (no tokens purchased), the burn has no price impact, as expected.
+This formula shows that the relative price impact is proportional to the product $xy$ of base tokens held outside the pool $x$ and base tokens burned $y$, divided by $B(B-x-y)$. The impact increases with $x$, meaning burns have greater price impact when more base tokens have been purchased. If $x = 0$ (no base tokens purchased), the burn has no price impact, as expected.
 
-Operationally, burns reduce the beans reserve $B$, tightening depth and available liquidity at the new state.
+The solvency adjustment $V_2 \leq V(B-x-y)/(B-x)$ ensures that $V_2 < V$ for any $y > 0$. This reduction in the virtual reserve can affect the worst-case exit price. The worst-case exit price refers to the marginal price when all outstanding base tokens (post-burn) are sold back to the pool, driving the real quote token reserve $A$ toward zero. At this limit, the price approaches $V_2/(B-y)$. When $x > 0$ and $y > 0$, this worst-case exit price can be below the initial anchor price $V/B$ set by the starting virtual reserve $V$. However, when $x = 0$ (no base tokens purchased before the burn), the worst-case exit price equals the initial price, as $V_2 = V(B-y)/B$ and $V_2/(B-y) = V/B$.
+
+Operationally, burns reduce the base token reserve $B$, tightening depth and available liquidity at the new state.
 
 \subsection{Token Reserve Top-up}
+\label{sec:token-reserve-top-up}
 
-Burns reduce the beans reserve $B$ and force a downward adjustment of the virtual reserve $V$. This causes a liquidity reduction and price raise offset by the price curve getting steeper and the initial price being reduced. This unwanted side effect can be undone by adding tokens to the real token reserve $A$ which we call top-up. This subsection derives the exact top-up amount needed to restore the token starting price without changing the logic introduced earlier.
+Burns reduce the base token reserve $B$ and force a downward adjustment of the virtual reserve $V$. This causes a liquidity reduction and price raise offset by the price curve getting steeper and the initial price being reduced. This unwanted side effect can be undone by adding quote tokens to the real quote token reserve $A$ which we call \textbf{top-up}. This subsection derives the exact top-up amount needed to restore the base token starting price without changing the logic introduced earlier.
 
-Let $T$ denote the total bean supply (equal to the in-pool beans because we start with zero circulating supply). The pre-trade state is
+Let $T$ denote the total base token supply (equal to the in-pool base tokens because we start with zero circulating supply). The pre-trade state is
 \begin{align*}
     A_0 &= 0, &
     B_0 &= B, &
@@ -252,7 +250,7 @@ Let $T$ denote the total bean supply (equal to the in-pool beans because we star
     k_0 &= (A_0+V_0)B_0 = V_0 B_0.
 \end{align*}
 
-After trades that extract $x$ beans from the pool, the state is
+After trades that extract $x$ base tokens from the pool, the state is
 \begin{align*}
     A_1 &= \frac{Vx}{B-x}, &
     B_1 &= B - x, &
@@ -261,7 +259,7 @@ After trades that extract $x$ beans from the pool, the state is
     k_1 &= k_0.
 \end{align*}
 
-Next, burn $y$ beans ($0 \le y < B_1$). Let $V_2$ denote the virtual reserve enforced by the solvency condition in \cref{sec:beans-reserve-burning}. The post-burn state is
+Next, burn $y$ base tokens ($0 \le y < B_1$). Let $V_2$ denote the virtual reserve enforced by the solvency condition in \cref{sec:base-token-reserve-burning}. The post-burn state is
 \begin{align*}
     A_2 &= A_1, &
     B_2 &= B_1 - y, &
@@ -270,158 +268,119 @@ Next, burn $y$ beans ($0 \le y < B_1$). Let $V_2$ denote the virtual reserve enf
     k_2 &= (A_2 + V_2) B_2.
 \end{align*}
 
-Our target is to choose a (possibly higher) virtual reserve $V_{\mathrm{opt}}$ and a real token top-up amount $M$ that keep the worst-case exit price -- the price when all outstanding beans are sold back -- at the original value $P_0 = V_0/T_0$. When everyone exits after the burn, the pool holds $B_3 = T_2$ beans and zero real tokens, so the price limit becomes $P_3 = V_{\mathrm{opt}}/T_2$. Enforcing $P_3 = P_0$ yields
+Our target is to choose a (possibly higher) virtual reserve $V_{\mathrm{opt}}$ and a real quote token amount $A_{\mathrm{opt}}$ that keep the worst-case exit price -- the price when all outstanding base tokens are sold back -- at the original value $P_0 = V_0/T_0$. Let's denote the needed top-up amount to achieve the optimal state as $M$. If we manage to achieve this top-up, the pool state will be
+\begin{align*}
+    A_3 &= A_2 + M = A_{\mathrm{opt}}, &
+    B_3 &= B_2, &
+    V_3 &= V_{\mathrm{opt}}, &
+    T_3 &= T_2, &
+    k_3 &= k_{\mathrm{opt}}=(A_{\mathrm{opt}}+V_{\mathrm{opt}})B_2.
+\end{align*}
+
+If everyone exits after the top-up, the pool holds $B_3 = T_2$ base tokens and zero real quote tokens, so the price becomes $P_3 = V_{\mathrm{opt}}/T_2$. Enforcing $P_3 = P_0$ yields
 \begin{align}
     \frac{V_0}{T_0} = \frac{V_{\mathrm{opt}}}{T_2}
     \quad \Longrightarrow \quad
-    V_{\mathrm{opt}} = \frac{T_2}{T_0} V_0 = \frac{B_0-y}{B_0} V_0.
+    V_{\mathrm{opt}} = \frac{T_2}{T_0} V_0 = \frac{B-y}{B} V_0.
 \end{align}
 
-With $V_{\mathrm{opt}}$ fixed, the invariant that corresponds to the desired price profile is
+With this $V_{\mathrm{opt}}$ value, the invariant that corresponds to the desired price profile is
 \begin{equation}
-    k_{\mathrm{opt}} = (0 + V_{\mathrm{opt}}) T_2 = V_{\mathrm{opt}} T_2.
+    k_{\mathrm{opt}} = (0 + V_{\mathrm{opt}}) T_2 = V_{\mathrm{opt}} T_2 =( A_{\mathrm{opt}} + V_{\mathrm{opt}} ) B_2.
 \end{equation}
-The pool at beans reserve $B_2$ after the burn implies a target real token reserve
+This implies the target real quote token reserve
 \begin{equation}
     A_{\mathrm{opt}} = \frac{k_{\mathrm{opt}}}{B_2} - V_{\mathrm{opt}}.
 \end{equation}
-The actual reserve after the burn equals $A_2 = Vx/(B-x)$, so the required token top-up is simply
+The actual reserve after the burn equals $A_2 = Vx/(B-x)$, so the required quote token top-up is
 \begin{equation}
-    M = A_{\mathrm{opt}} - A_2.
+    M = A_{\mathrm{opt}} - A_2
 \end{equation}
 
 \subsubsection{Trading impact on required top-up amount}
 \label{sec:trading-impact-on-required-top-up-amount}
 
-After the top-up, subsequent trades shift the beans reserve from $B_2$ to $B' = B_2 + \Delta B$. Feasibility requires $-B_2 < \Delta B \le T_2 - B_2$: buyers cannot withdraw more beans than the pool holds, and sellers cannot dump more than the outstanding supply. Positive $\Delta B$ therefore corresponds to net sells back into the pool, while negative $\Delta B$ captures net buys. The optimal real reserve that preserves the target price profile remains tied to $k_{\mathrm{opt}}$:
+If the top-up does not happen atomically with the burn and is delayed, some trading may occur in the meantime. This impacts the required top-up amount. Suppose that after the burn, instead of applying the top-up immediately, trades shift the base token reserve from $B_2$ to $B' = B_2 + \Delta B$ with $-B_2 < \Delta B \le T_2 - B_2$. Positive $\Delta B$ corresponds to net sells back into the pool, while negative $\Delta B$ captures net buys.
+
+The target optimal reserve $A_{\mathrm{opt}}'$ that preserves the desired price profile at the new base token reserve $B'$ is tied to $k_{\mathrm{opt}}$ and $V_{\mathrm{opt}}$ which remain unchanged by trading:
 \begin{align}
     A_{\mathrm{opt}}' = \frac{k_{\mathrm{opt}}}{B'} - V_{\mathrm{opt}}.
 \end{align}
-Meanwhile, the actual reserve induced by the current invariant $k = (A_2 + V_2)B_2$ becomes
+Meanwhile, the actual quote token reserve $A_{\mathrm{real}}'$ at base token reserve $B'$ induced by the current invariant $k_2 = (A_2 + V_2)B_2$ becomes
 \begin{align}
-    A_{\mathrm{real}}' = \frac{k}{B'} - V_2.
+    A_{\mathrm{real}}' = \frac{k_2}{B'} - V_2.
 \end{align}
-The updated top-up requirement is therefore
+The updated top-up requirement after the trades is therefore
 \begin{align}
-    M' = A_{\mathrm{opt}}' - A_{\mathrm{real}}' = \frac{k_{\mathrm{opt}} - k}{B'} + (V_2 - V_{\mathrm{opt}}).
+    M' = A_{\mathrm{opt}}' - A_{\mathrm{real}}' = \frac{k_{\mathrm{opt}} - k_2}{B'} + (V_2 - V_{\mathrm{opt}}).
 \end{align}
-Buys ($\Delta B < 0$) shrink $B'$, amplifying the first term and increasing $M'$; sells ($\Delta B > 0$) expand $B'$ and dampen the same term, but the additive offset $(V_2 - V_{\mathrm{opt}}) < 0$ keeps the gap positive. At the boundary case $\Delta B = T_2-B_2$ the expression is undefined. In that state no beans are left outside the pool so the pool price can be reset to the original initial price by setting $V = V_{\mathrm{opt}}$ without any top-up.
+Buys ($\Delta B < 0$) shrink $B'$, amplifying the first term and increasing $M'$; sells ($\Delta B > 0$) expand $B'$ and dampen the same term, but the additive offset $(V_2 - V_{\mathrm{opt}}) < 0$ keeps the gap positive. At the boundary case $\Delta B = T_2-B_2$ the expression is undefined. In that state no base tokens are left outside the pool, so the pool price can be without any unwanted side effect reset to the original initial price by setting $V = V_{\mathrm{opt}}$ without any top-up.
 
 \subsubsection{Partial Top-ups}
 
-Suppose only $M' < M$ tokens are available for the top-up immediately after the burn. Injecting $M'$ raises the real reserve to $A_{\mathrm{new}} = A_2 + M'$ while the beans reserve stays at $B_2$. The invariant is therefore
+Suppose only $M' < M$ quote tokens are available for the top-up immediately after the burn. Injecting $M'$ raises the real quote token reserve to $A_{\mathrm{new}} = A_2 + M'$ while the base token reserve stays at $B_2$. The invariant is therefore
 \begin{equation}
-    k_{\mathrm{new}} = (A_{\mathrm{new}} + V_{\mathrm{new}}) B_2.
+    k_{\mathrm{new}} = (A_{\mathrm{new}} + V_{\mathrm{new}}) B_2,
 \end{equation}
-We do not target a specific $k_{\mathrm{new}}$; instead we push the post-injection price as high as pool solvency requirement allows. When every outstanding bean ($T_2 - B_2$ in total) is sold back, the goal is for the pool to reach $A = 0$. At that point the invariant becomes
+where $V_{\mathrm{new}}$ is the virtual reserve after the partial top-up and is unknown. We do not target a specific $k_{\mathrm{new}}$; instead we push the post-injection price as high as pool solvency requirement allows. When every outstanding base token ($T_2 - B_2$ in total) is sold back, the goal is for the pool to reach $A = 0$. This corresponds to the invariant
 \begin{equation}
     k_{\mathrm{new}} = V_{\mathrm{new}} T_2.
 \end{equation}
-Equating both expressions for $k_{\mathrm{new}}$ yields the virtual reserve closest to $V_{\mathrm{opt}}$ under a partial top-up that keeps the pool solvent:
-\begin{align*}
-    &A_{\mathrm{new}} = A_2 + M', \\
-    &V_{\mathrm{new}} = \frac{A_{\mathrm{new}} B_2}{T_2 - B_2}.
-\end{align*}
+Equating both expressions for $k_{\mathrm{new}}$ yields the  reserve closest to $V_{\mathrm{opt}}$ under a partial top-up that keeps the pool solvent:
+\begin{equation}
+    V_{\mathrm{new}} = \frac{A_{\mathrm{new}} B_2}{T_2 - B_2}.
+\end{equation}
 When $T_2 > B_2$, this choice keeps the pool solvent and maximizes the achievable price lift given the available collateral. Any subsequent injection simply repeats the calculation with updated $A_{\mathrm{new}}$ and moves $V_{\mathrm{new}}$ closer to $V_{\mathrm{opt}}$ until the full top-up is completed.
 
-As already discussed in \cref{sec:trading-impact-on-required-top-up-amount}, if trades drive $T_2 = B_2$ (no beans outside the pool), $V$ can be reset directly to $V_{\mathrm{opt}}$ because no outstanding holders remain.
-
-\subsection{Other invariant types}
-
-\begin{definition}[Power CBMM]
-\textbf{Power CBMM} generalizes the standard CBMM by using a power parameter $p > 0$ in the invariant:
-\begin{equation}
-    k = (A+V)B^p,
-\end{equation}
-where $A$ is the token reserve, $B$ the beans reserve, $V$ the virtual reserve, and $p$ is a real parameter controlling the curve's shape.
-\end{definition}
-
-When $p = 1$, this reduces to the standard CBMM invariant. The parameter $p$ controls the curvature of the bonding curve: $p > 1$ produces a steeper curve, while $0 < p < 1$ produces a flatter curve. This allows fine-tuning of the pool's behavior, particularly affecting initial token purchases and the distribution of tokens to early adopters~\cite{BalancerWhitepaper2020}.
-
-The trading formulas for Power CBMM follow from the invariant $k = (A+V)B^p$. When spending $\Delta A$ tokens to buy beans, the amount of beans $b$ received is:
-
-\begin{equation}
-    b = B - \left(\frac{(A+V)B^p}{A+\Delta A+V}\right)^{1/p}.
-\end{equation}
-
-When selling $\Delta B$ beans into the pool, the amount of tokens $a$ received is:
-
-\begin{equation}
-    a = (A+V)\left(1 - \frac{B^p}{(B+\Delta B)^p}\right).
-\end{equation}
-
-After burning $y$ beans when $x$ beans have already been purchased, the virtual reserve must be adjusted to maintain solvency. The adjusted virtual reserve $V_2$ can be derived in a similar way as in the standard CBMM case as:
-
-\begin{equation}
-    V_2 = \frac{V \left((B-x)^p - B^p\right) (B-x-y)^p}{(B-x)^p \left((B-x-y)^p - (B-y)^p\right)},
-\end{equation}
-
-For $x=0$, the bound gives $V_2=V$ (no adjustment). For $x>0$ and $0 \leq y < B-x$, the expression is well-defined and yields $V_2<V$.
-
-The price formula for Power CBMM is:
-
-\begin{equation}
-    P = \frac{p(A+V)}{B}.
-\end{equation}
-
-When $p = 1$, this reduces to the standard CBMM price formula $P = (A+V)/B$.
-
-We have considered other invariant types such as weighted geometric mean but it shows that the virtual reserve formulas are too complex to be conveniently implemented in the on-chain program using integer arithmetic.
+As already discussed in \cref{sec:trading-impact-on-required-top-up-amount}, if trades drive $T_2 = B_2$ (no base tokens outside the pool), $V_{\mathrm{new}}$ can be reset directly to $V_{\mathrm{opt}}$ because no outstanding holders remain.
 
 \subsection{Value Extraction Considerations and Mitigation Strategies}
 
-Burns shrink the beans reserve, force a reduction of the virtual reserve, and steepen the price curve. When the top-up prescribed in \cref{sec:token-reserve-top-up} is only partially executed, successive burns can move the anchor price materially lower than the value implied by the original $V$. This section quantifies the exact profit that an adversary can realize via a buy--burn--sell loop and outlines mitigation levers.
+A critical concern for CBMM pools is that adversaries may attempt to extract value from the real quote token reserve $A$ through strategic manipulation of burns. An attacker can execute a buy--burn--sell loop: purchase base tokens, trigger a burn (which reduces the virtual reserve $V$), and then sell the base tokens back, potentially realizing a net profit at the expense of the pool's real collateral. This section quantifies the exact profit that an adversary can realize through such attacks and outlines mitigation strategies. We first analyze the basic attack without fees, then show how symmetric quote-token fees can suppress the attack, and finally demonstrate that when top-ups are involved, additional constraints such as per-burn caps are necessary to prevent profitable exploitation.
 
 \subsubsection{Attack model and payoff derivation}
 
-Consider a pool in state $(A,B,V)$ with invariant $k = (A+V)B$ and some beans in circulation. Total beans supply is $T \geq B$. An adversary executes the following steps:
+Consider a pool in state $(A,B,V)$ with invariant $k = (A+V)B$ and some base tokens in circulation. Total base token supply is $T \geq B$. An adversary executes the following steps:
 \begin{enumerate}[leftmargin=*]
-    \item \textbf{Buy $x$ beans.} Spending $\Delta A_{\mathrm{in}}$ tokens yields $x$ beans according to the standard CPMM expression
+    \item \textbf{Buy $x$ base tokens.} The adversary buys $x$ base tokens paying $A_{\mathrm{in}}$ quote tokens. According to the standard CBMM trading logic
     \begin{equation}
-        \Delta A_{\mathrm{in}} = (A+V)\frac{x}{B-x}, \qquad 0 < x < B.
+        A_{\mathrm{in}} = (A+V)\frac{x}{B-x}, \qquad 0 < x < B.
         \label{eq:value-extraction-buy}
     \end{equation}
-    The post-buy reserves are $A_1 = A + \Delta A_{\mathrm{in}}$ and $B_1 = B - x$.
-    \item \textbf{Trigger a burn of $y$ beans} from the pool (with $0 < y < B-x$), enforcing solvency by reducing the virtual reserve to
+    The post-buy reserves are $A_1 = A + A_{\mathrm{in}}$ and $B_1 = B - x$.
+    \item \textbf{Trigger a burn of $y$ base tokens} from the pool (with $0 < y < B-x$), enforcing solvency by reducing the virtual reserve to
     \begin{equation}
         V_2 = \frac{V(B - x - y)}{B - x},
         \label{eq:value-extraction-V2}
     \end{equation}
     so that the new invariant remains $k_2 = (A_1 + V_2)(B - x - y)$.
-    \item \textbf{Sell the $x$ beans back.} Using the sell formula from \cref{sec:math}, the attacker receives
+    \item \textbf{Sell the $x$ base tokens back.} Using the sell formula from \cref{sec:math}, the attacker receives
     \begin{equation}
         A_{\mathrm{out}} = \frac{(A_1 + V_2)x}{B - y}
         \label{eq:value-extraction-sell}
     \end{equation}
-    tokens while the pool returns to beans reserve $B - y$.
+    quote tokens while the pool returns to base token reserve $B - y$.
 \end{enumerate}
 
-Combining \cref{eq:value-extraction-buy,eq:value-extraction-V2,eq:value-extraction-sell} yields a closed-form expression for the net token profit:
+Combining \cref{eq:value-extraction-buy,eq:value-extraction-V2,eq:value-extraction-sell} yields a closed-form expression for the net quote token profit:
 \begin{equation}
-    \Pi(x,y) = A_{\mathrm{out}} - \Delta A_{\mathrm{in}}
+    \Pi(x,y) = A_{\mathrm{out}} - A_{\mathrm{in}}
              = \frac{Axy}{(B - x)(B - y)}.
     \label{eq:value-extraction-profit}
 \end{equation}
 
-Key implications: \textbf{TODO: CHECK THIS}
-\begin{itemize}[leftmargin=*]
-    \item No real reserve means no extractable value: $\Pi=0$ whenever $A=0$.
-    \item Profit grows jointly with $x$ and $y$, peaking as both approach $B$. In the limit $\lim_{x,y\rightarrow B}\Pi(x,y)=A$, so one adversary holding nearly all beans can strip the entire real reserve.
-    \item The attack strictly consumes the existing real collateral. After the sell, the pool ends up with $A-\Pi$ tokens, so repeated loops cannot extract more than what has already been topped up.
-\end{itemize}
-
-Therefore, any mechanism that increases $A$ (top-ups, fee sweeps, external injections) must ensure that burns cannot be immediately chained by a single party holding the majority of outstanding beans.
+The profit formula \cref{eq:value-extraction-profit} reveals several properties of the attack. Most critically, whenever $A > 0$, the profit $\Pi(x,y) \geq 0$ for all admissible $x$ and $y$, meaning the attack is always profitable (or at least break-even) whenever there is any real reserve. This is the fundamental vulnerability: any real quote token reserve can be extracted through a buy--burn--sell loop. The extractable value is zero only when $A=0$, meaning no real reserve implies no profit opportunity. Profit grows jointly with both $x$ and $y$, reaching its maximum as both approach $B$. In the limit $\lim_{x,y\rightarrow B}\Pi(x,y)=A$, an adversary buying and burning nearly all tokens from the pool reserve can extract almost the entire real reserve. The attack strictly consumes existing collateral: after selling back, the pool retains only $A-\Pi$ quote tokens. This implies that any mechanism increasing $A$ must implement a compensation logic to prevent the adversary from profiting.
 
 \subsubsection{Attack model with symmetric base-token fees}
 
-To actively suppress the buy--burn--sell loop, we impose an $N\%$ fee on every trade, collected entirely in the base token. This fee penalizes extraction attempts in the following way. Define the fee multiplier
+To actively suppress the buy--burn--sell loop, we impose an $N\%$ fee on every trade, collected entirely in the quote token. This fee penalizes extraction attempts in the following way. Define the fee multiplier
 \begin{equation}
     q = \frac{100}{100 - N}
 \end{equation}
-All fees are skimmed from the trader's base-token transfers: buy-side fees are removed before tokens enter the pool, and sell-side fees are shaved off before proceeds hit the attacker's wallet.
+All fees are skimmed from the trader's quote token transfers: buy-side fees are removed before quote tokens enter the pool, and sell-side fees are shaved off before proceeds hit the attacker's wallet.
 
-\paragraph{Step 1: buy $x$ beans.}
-To withdraw $x$ beans ($0 < x < B$), the trader must send $S_{\text{buy}}$ tokens so that the post-fee deposit equals the CBMM requirement. Solving
+\paragraph{Step 1: buy $x$ base tokens.}
+To withdraw $x$ base tokens ($0 < x < B$), the trader must send $S_{\text{buy}}$ quote tokens so that the post-fee deposit equals the CBMM requirement. Solving
 \begin{equation}
     (A+V)B = \bigl(A + S_{\text{buy}}/q + V\bigr)(B - x)
 \end{equation}
@@ -431,20 +390,20 @@ gives
 \end{equation}
 The pool itself still sees $A_1 = A + \frac{(A+V)x}{B-x}$ and $B_1 = B - x$, identical to the no-fee path, while the attacker cost is increased by the fees.
 
-\paragraph{Step 2: burn $y$ beans.}
-Burning $y$ beans ($0 < y < B_1$) forces the same solvency adjustment as before:
+\paragraph{Step 2: burn $y$ base tokens.}
+Burning $y$ base tokens ($0 < y < B_1$) forces the same solvency adjustment as before:
 \begin{align*}
     A_2 &= A_1, &
     B_2 &= B - x - y, &
     V_2 &= \frac{V(B - x - y)}{B - x}.
 \end{align*}
 
-\paragraph{Step 3: sell the $x$ beans back.}
-When the attacker sells the $x$ beans, the on-chain invariant after the burn is
+\paragraph{Step 3: sell the $x$ base tokens back.}
+The on-chain invariant after the burn is
 \begin{equation}
     k_{\text{burn}} = (A_2 + V_2)B_2.
 \end{equation}
-Trading $x$ beans back into the pool yields the pre-fee token outflow $S_{\text{pool}}$ defined by
+Trading $x$ base tokens back into the pool yields the pre-fee quote token outflow $S_{\text{pool}}$ defined by
 \begin{equation}
     (A_2 + V_2)B_2 = \bigl(A_2 - S_{\text{pool}} + V_2\bigr)(B_2 + x),
 \end{equation}
@@ -471,186 +430,181 @@ Fees suppress the attack whenever the bracketed term is non-negative. Solving th
     y \le y_{\max}
         = \frac{(q^2 - 1)B(A+V)}{q^2(A+V) - V},
 \end{equation}
-Assuming $A>0$ (otherwise there is nothing to extract) keeps the denominator positive. The bound scales linearly with the beans reserve $B$; the multiplier depends on the fee rate (via $q$), the virtual reserve $V$, and the real reserve $A$. Setting $N = 0$ (so $q = 1$) collapses the bound to $y_{\max} = 0$, matching the logic in \cref{eq:value-extraction-profit}. For $q>1$, the attack is eliminated whenever the configured burn allowance lies below $y_{\max}$.
+Assuming $A>0$ (otherwise there is nothing to extract) keeps the denominator positive. The bound scales linearly with the base token reserve $B$; the multiplier depends on the fee rate (via $q$), the virtual reserve $V$, and the real quote token reserve $A$. Setting $N = 0$ (so $q = 1$) collapses the bound to $y_{\max} = 0$, matching the logic in \cref{eq:value-extraction-profit}. For $q>1$, the attack is eliminated whenever the configured burn allowance lies below $y_{\max}$.
 
 Notably, the profitability condition depends only on the burn size $y$ relative to the pool parameters; the buy size $x$ affects the magnitude of profit but not its sign, so the threshold $y_{\max}$ is independent of the attacker's purchase amount.
 
+Even when fees prevent the attacker from profiting (i.e., when $y \le y_{\max}$), the pool can still be negatively impacted by the attack. The burn reduces the base token reserve and forces a downward adjustment of the virtual reserve, which reduces liquidity and can lower the worst-case exit price. Moreover, the fees collected during the attack may not fully compensate for these negative effects. Therefore, it would be reasonable to consider allowing only smaller burn sizes $y$ than $y_{\max}$ to further limit the pool's exposure to such attacks, even when they are not profitable for the attacker.
+
 \subsubsection{Attack model with symmetric base-token fees and topup}
 
-We extend the attack model to account for a token reserve top-up $N$ that occurs after the burn. The top-up increases the real token reserve from $A_1$ to $A_2 = A_1 + N$, requiring adjustment of the virtual reserve $V_2$ to maintain solvency.
+We extend the attack model to account for a quote token reserve top-up that occurs after the burn. The top-up increases the real quote token reserve and adjusts the virtual reserve for optimal utilization as described in \cref{sec:token-reserve-top-up}. We keep the same notation as before: the pool has an initial state with real quote token reserve $A\geq0$, base token reserve $B>0$, virtual reserve $V>0$, total base token supply $T \ge B$, and invariant $k = (A+V)B$. Fees are charged symmetrically on the quote token at rate $N\%$, with fee multiplier
+\begin{equation}
+    q = \frac{100}{100 - N} > 1.
+\end{equation}
 
-Following the same attack steps as before, but with top-up applied: the attacker buys $x$ beans, spending $S_{\text{buy}} = q(A+V)x/(B-x)$ tokens. After burning $y$ beans and applying top-up $N$, the reserves become $A_2 = A + (A+V)x/(B-x) + N$ and $B_2 = B - x - y$. The virtual reserve adjusts according to the partial top-up formula from \cref{sec:token-reserve-top-up} to maintain solvency:
-\begin{equation}
-    V_2 = \frac{A_2 B_2}{T_2 - B_2} = \frac{A_2 (B - x - y)}{(T - y) - (B - x - y)} = \frac{A_2 (B - x - y)}{T - B + x}.
-    \label{eq:V2-with-topup}
-\end{equation} 
+An adversary executes the buy--burn--topup--sell loop: (i) buys $x$ base tokens ($0 < x < B$) at cost $S_{\text{buy}} = q(A+V)x/(B-x)$, (ii) triggers a burn of $y$ base tokens ($0 < y < B-x$) followed by a top-up, and (iii) sells the $x$ base tokens back. Since top-ups increase the real quote token reserve, they increase the attacker's profit from selling base tokens back. The worst case for the protocol occurs when the maximal top-up $M$ (as defined in \cref{sec:token-reserve-top-up}) is applied, as this maximizes the attacker's gain.
 
-When the attacker sells $x$ beans back, the pool must maintain the invariant $(A_2 + V_2) \cdot B_2 = (A_2 - S_{\text{pool}} + V_2) \cdot (B_2 + x)$, where $S_{\text{pool}}$ is the pre-fee token outflow. Solving for $S_{\text{pool}}$ and substituting $V_2 = A_2 B_2 / (T - B + x)$ and $B_2 + x = B - y$:
+\paragraph{Concrete example: profitable attack despite fees.}
+To see that fees alone do not suffice when top-ups are unconstrained, consider the following concrete example. Take
+\[
+    A = 100,\quad B = 100,\quad V = 10,
+\]
+so that $A+V = 110$ and the invariant is $k = (A+V)B = 11{,}000$. From $k = VT$ we get a total supply $T = k/V = 1100$. Set a symmetric fee of $N = 5\%$, so $q = 100/95 \approx 1.0526$.
+
+The attacker executes the following steps:
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Buy $x = 90$ base tokens.} This costs $S_{\text{buy}} \approx 1042.11$ quote tokens, leaving $B_1 = 10$ base tokens in the pool.
+    \item \textbf{Burn $y = 1$ base token.} The post-burn state has $B_2 = 9$ base tokens in the pool. Note that $y = 1$ satisfies the condition from the previous subsection: with $q^2 = (100/95)^2 \approx 1.108$, we have $y_{\max} = \frac{(q^2 - 1)B(A+V)}{q^2(A+V) - V} \approx 10.62$ (calculated using the initial $B=100$). Since $y = 1 \le y_{\max}$ and $y = 1 < B_1 = 10$, the burn is feasible and the attack would be unprofitable without top-ups.
+    \item \textbf{Apply maximal top-up $M$.} The top-up mechanism from \cref{sec:token-reserve-top-up} injects the optimal amount $M \approx 121.01$ to the real quote token reserve to restore the target price profile and adjusts $V = V_{\mathrm{opt}} \approx 9.9909$
+    \item \textbf{Sell the $x = 90$ base tokens back.} The attacker receives $S_{\text{sell}} \approx 1053.64$ quote tokens after fees.
+\end{enumerate}
+
+The net profit is approximately $11.53 > 0$ quote tokens. This example satisfies the basic feasibility constraints ($0 < x < B$ and $0 < y < B-x$), yet leads to a profitable buy--burn--topup--sell loop even with a $5\%$ symmetric fee. The issue is that the top-up injects enough real quote tokens to more than offset the fee friction.
+
+This motivates two additional design constraints: (i) per-burn \emph{caps} on the number of base tokens that may be burned, and (ii) a sufficiently large symmetric fee to dominate the effect of the top-up.
+
+\begin{lemma}[Profit formula with top-ups]
+\label{lem:topup-profit}
+After an attacker buys $x$ base tokens, triggers a burn of $y$ base tokens, and applies a top-up $N \ge 0$, the net round-trip profit is
 \begin{equation}
-    S_{\text{pool}} = \frac{A_2 \cdot x \cdot (T - y)}{(B - y)(T - B + x)},
-\end{equation}
-where $A_2 = A + (A+V)x/(B-x) + N$. After applying the fee, the attacker receives:
-\begin{equation}
-    S_{\text{sell}} = \frac{1}{q} \cdot S_{\text{pool}} = \frac{x (T - y)}{q(B - y)(T - B + x)}\left(A + N + \frac{(A+V)x}{B-x}\right).
-\end{equation}
-The round-trip profit is the difference between what the attacker receives and what they spend:
-\begin{equation}
-    \Pi_{\text{topup}}(x,y,N) = S_{\text{sell}} - S_{\text{buy}}.
-\end{equation}
-Substituting the expressions for $S_{\text{sell}}$ and $S_{\text{buy}} = q \cdot \frac{(A+V)x}{B-x}$:
-\begin{equation}
-    \Pi_{\text{topup}}(x,y,N) = \frac{x (T - y)}{q(B - y)(T - B + x)}\left(A + N + \frac{(A+V)x}{B-x}\right) - q\,\frac{(A+V)x}{B-x}.
+    \Pi_{\text{topup}}(x,y,N)
+        = \frac{x (T - y)}{q(B - y)(T - B + x)}
+          \left(A + N + \frac{(A+V)x}{B-x}\right)
+          - q\,\frac{(A+V)x}{B-x}.
     \label{eq:topup-profit}
 \end{equation}
-
-
-Since the profit $\Pi_{\text{topup}}$ is increasing in $N$, the worst case for the defender occurs when $N = M$. Substituting $N = M$ into \cref{eq:topup-profit} and using the expression for $M$ from \cref{sec:token-reserve-top-up}:
-
-\begin{align}
-    M &= A_{\mathrm{opt}} - A_2 \nonumber \\
-    &= \frac{k_{\mathrm{opt}}}{B_2} - V_{\mathrm{opt}} - A_2 \nonumber \\
-    &= \frac{V_{\mathrm{opt}} T_2}{B_2} - V_{\mathrm{opt}} - A_2 \nonumber \\
-    &= V_{\mathrm{opt}}\left(\frac{T_2}{B_2} - 1\right) - A_2 \nonumber \\
-    &= \frac{T-y}{T} V \cdot \frac{T - y - (B - x - y)}{B - x - y} - A - \frac{(A+V)x}{B-x} \nonumber \\
-    &= \frac{T-y}{T} V \cdot \frac{T - B + x}{B - x - y} - A - \frac{(A+V)x}{B-x},
-    \label{eq:M-bound}
-\end{align}
-where we used $V_{\mathrm{opt}} = \frac{T_2}{T_1} V = \frac{T-y}{T} V$, $T_2 = T - y$, $B_2 = B - x - y$, and $A_2 = A + (A+V)x/(B-x)$.
-
-Substituting $N = M$ into \cref{eq:topup-profit} and using $A + M + \frac{(A+V)x}{B-x} = \frac{T-y}{T} V \cdot \frac{T - B + x}{B - x - y}$:
-\begin{align}
-    \Pi_{\text{topup}}(x,y,M) &= \frac{x (T - y)}{q(B - y)(T - B + x)} \cdot \frac{T-y}{T} V \cdot \frac{T - B + x}{B - x - y} - q\,\frac{(A+V)x}{B-x} \nonumber \\
-    &= \frac{x (T - y)^2 V}{q T (B - y)(B - x - y)} - q\,\frac{(A+V)x}{B-x}.
-    \label{eq:profit-with-M}
-\end{align}
-
-From the invariant $k = (A+V)B$ and the fact that when all beans are in circulation in the pool we have $A = 0$ and $B = T$, we also have $k = VT$. Equating both expressions for $k$ yields
-\begin{equation}
-    T = \frac{(A+V)B}{V} = \frac{k}{V}.
-    \label{eq:T-relationship}
-\end{equation}
-
-Substituting the top-up $N = M$ from \cref{eq:M-bound} into \cref{eq:topup-profit} and simplifying gives
+The coefficient of $N$ in \cref{eq:topup-profit} is positive, so $\Pi_{\text{topup}}$ is strictly increasing in $N$. The worst case for the protocol occurs when $N = M$, the maximal top-up from \cref{sec:token-reserve-top-up}, yielding
 \begin{equation}
     \Pi_{\text{topup}}(x,y,M)
-    = \frac{x (T - y)^2 V}{q\,T (B - y)(B - x - y)} - q\,\frac{(A+V)x}{B-x}.
+        = \frac{x (T - y)^2 V}{q T (B - y)(B - x - y)}
+           - q\,\frac{(A+V)x}{B-x}.
     \label{eq:profit-with-M}
 \end{equation}
+\end{lemma}
 
-\paragraph{Burn cap and fee condition.}
-In practice we cap each burn so that it removes at most a fixed fraction
-$\eta$ of the beans remaining in the pool *after* the attacker’s buy:
-\begin{equation}
-    0 < y \le \eta (B - x), \qquad 0 < \eta < 1.
-    \label{eq:burn-cap}
-\end{equation}
-In the implementation we use $\eta = 0.01$ (a burn of at most $1\%$ of the
-current pool). We now derive a sufficient condition on the symmetric fee $N$
-such that every buy–burn–topup–sell loop is unprofitable.
+\begin{proof}
+After the attacker buys $x$ base tokens, the pool state is
+\[
+    A_1 = A + \frac{(A+V)x}{B-x},\qquad
+    B_1 = B - x,\qquad
+    V_1 = V,\qquad
+    T_1 = T.
+\]
+A burn of $y$ base tokens followed by a top-up $N \ge 0$ yields
+\[
+    A_2 = A_1 + N = A + \frac{(A+V)x}{B-x} + N,\qquad
+    B_2 = B - x - y,\qquad
+    T_2 = T - y.
+\]
+To optimize the virtual reserve to fully utilize the top-up amount as described in \cref{sec:token-reserve-top-up}, the virtual reserve is adjusted to
+\[
+    V_2 = \frac{A_2 B_2}{T_2 - B_2}
+        = \frac{A_2(B - x - y)}{T - B + x}.
+\]
 
-Starting from \cref{eq:profit-with-M} and using the burn cap
-\cref{eq:burn-cap}, we observe that
+When the attacker sells the $x$ base tokens back, the pre-fee quote token outflow $S_{\text{pool}}$ is determined by invariance:
 \[
-    B - x - y \;\ge\; B - x - \eta (B-x)
-    \;=\; (1-\eta)(B-x).
+    (A_2 + V_2)B_2 = (A_2 - S_{\text{pool}} + V_2)(B_2 + x).
 \]
-Since all denominators are positive, this implies
+Solving and using $V_2 = A_2 B_2/(T - B + x)$ and $B_2 + x = B - y$ gives
 \[
-    \frac{1}{B - x - y}
-    \;\le\; \frac{1}{(1-\eta)(B-x)}.
+    S_{\text{pool}} = \frac{A_2 \cdot x \cdot (T - y)}{(B - y)(T - B + x)}.
 \]
-Therefore the first term in \cref{eq:profit-with-M} is upper-bounded by
+After applying the symmetric fee, the attacker receives
 \[
-    \frac{x (T - y)^2 V}{q\,T (B - y)(1-\eta)(B-x)}.
+    S_{\text{sell}} = \frac{1}{q}\,S_{\text{pool}}
+        = \frac{x (T - y)}{q(B - y)(T - B + x)}
+          \left(A + N + \frac{(A+V)x}{B-x}\right).
 \]
-A sufficient condition for $\Pi_{\text{topup}}(x,y,M) \le 0$ is thus
-\begin{equation}
-    \frac{x (T - y)^2 V}{q\,T (B - y)(1-\eta)(B-x)}
-    - q\,\frac{(A+V)x}{B-x} \;\le\; 0.
-    \label{eq:topup-bound-1}
-\end{equation}
+The net round-trip profit with top-up $N$ is therefore
+\[
+    \Pi_{\text{topup}}(x,y,N)
+        = S_{\text{sell}} - S_{\text{buy}}
+        = \frac{x (T - y)}{q(B - y)(T - B + x)}
+          \left(A + N + \frac{(A+V)x}{B-x}\right)
+          - q\,\frac{(A+V)x}{B-x}.
+\]
 
-Next we use the trivial bound $(T-y)^2 \le T^2$ (since $0 \le y \le B \le T$),
-which only increases the first term. This yields another sufficient condition:
+Since $\Pi_{\text{topup}}$ is increasing in $N$, the worst case for the protocol is the maximal top-up $N = M$ induced by the top-up mechanism. Substituting $N = M$ as in \cref{sec:token-reserve-top-up} gives
 \begin{align}
     \Pi_{\text{topup}}(x,y,M)
-    &\le
-    \frac{x T^2 V}{q\,T (B - y)(1-\eta)(B-x)}
-    - q\,\frac{(A+V)x}{B-x} \nonumber\\
-    &= \frac{x T V}{q (B - y)(1-\eta)(B-x)}
-       - q\,\frac{(A+V)x}{B-x}.
-    \label{eq:topup-bound-2}
+        &= \frac{x (T - y)}{q(B - y)(T - B + x)}
+            \cdot \frac{T-y}{T} V \cdot
+            \frac{T - B + x}{B - x - y}
+            - q\,\frac{(A+V)x}{B-x} \nonumber \\
+        &= \frac{x (T - y)^2 V}{q T (B - y)(B - x - y)}
+           - q\,\frac{(A+V)x}{B-x}.
 \end{align}
+\end{proof}
 
-Factor out $x/(B-x) > 0$:
+\begin{theorem}[Safety under capped burns and top-ups]
+\label{thm:topup-safety}
+Fix a burn cap parameter $\eta \in (0,1)$ and require that each burn event satisfies
 \begin{equation}
+    0 < y \le \eta\,(B - x),
+    \label{eq:burn-cap-eta}
+\end{equation}
+i.e.\ no more than an $\eta$-fraction of the \emph{post-buy} pool $(B-x)$ may be burned in a single event. Let the symmetric quote-token fee be $N\%$ with multiplier $q = 100/(100-N)$. If
+\begin{equation}
+    q \;\ge\; \frac{1}{1-\eta},
+    \label{eq:q-eta-condition}
+\end{equation}
+then for all $A>0$, $V>0$, $B>0$, all $0 < x < B$, and all admissible burns $y$ obeying \cref{eq:burn-cap-eta}, the worst-case profit $\Pi_{\text{topup}}(x,y,M)$ from \cref{eq:profit-with-M} is non-positive. In particular, the buy--burn--topup--sell loop is never profitable.
+\end{theorem}
+
+\begin{proof}
+Starting from \cref{eq:profit-with-M}, the burn cap \cref{eq:burn-cap-eta} implies
+\[
+    B - x - y \;\ge\; B - x - \eta(B-x) = (1-\eta)(B-x),
+\]
+so
+\[
+    \frac{1}{B - x - y} \;\le\; \frac{1}{(1-\eta)(B-x)}.
+\]
+Thus the first term in \cref{eq:profit-with-M} is bounded above by
+\[
+    \frac{x (T - y)^2 V}{q T (B - y)(1-\eta)(B-x)}.
+\]
+Using $(T-y)^2 \le T^2$ (since $0 \le y < T$), we obtain the upper bound
+\begin{align}
     \Pi_{\text{topup}}(x,y,M)
-    \;\le\; \frac{x}{B-x}
-    \left[
-        \frac{T V}{q (B - y)(1-\eta)} - q(A+V)
-    \right].
-\end{equation}
-Since $\frac{x}{B-x}>0$, the sign is determined by the bracket.
-A sufficient (state-independent) condition for unprofitability is therefore
+        &\le \frac{x T^2 V}{q T (B - y)(1-\eta)(B-x)}
+             - q\,\frac{(A+V)x}{B-x} \nonumber \\
+        &=   \frac{x T V}{q (B - y)(1-\eta)(B-x)}
+             - q\,\frac{(A+V)x}{B-x}.
+\end{align}
+Factoring out the positive quantity $x/(B-x)$, we see that $\Pi_{\text{topup}}(x,y,M) \le 0$ is guaranteed whenever
 \begin{equation}
-    \frac{T V}{q (B - y)(1-\eta)} - q(A+V) \;\le\; 0.
-    \label{eq:bracket-ineq}
+    \frac{T V}{q (B - y)(1-\eta)} - q(A+V) \;\le\; 0,
 \end{equation}
-
-Multiplying \cref{eq:bracket-ineq} by the positive factor
-$q(B-y)(1-\eta)$ gives
+i.e.
 \begin{equation}
     T V \;\le\; q^2 (A+V)(B-y)(1-\eta).
-    \label{eq:TV-ineq}
 \end{equation}
-Using $T V = (A+V)B$ from \cref{eq:T-relationship}, we obtain
+Substituting $TV = (A+V)B$ from $k = (A+V)B = VT$ and cancelling $A+V>0$ yields
 \begin{equation}
-    (A+V)B \;\le\; q^2 (A+V)(B-y)(1-\eta)
-    \quad\Longrightarrow\quad
-    B \;\le\; q^2 (1-\eta)(B-y),
-\end{equation}
-and hence
-\begin{equation}
-    \frac{B}{q^2 (1-\eta)} \;\le\; B - y
-    \quad\Longrightarrow\quad
-    y \;\le\; B\left(1 - \frac{1}{q^2 (1-\eta)}\right).
-    \label{eq:y-global-bound}
+    B \;\le\; q^2 (B-y)(1-\eta).
+    \label{eq:B-ineq}
 \end{equation}
 
-Equation \cref{eq:y-global-bound} says that, under the top-up rule,
-any burn with
+For any admissible burn we have $y \le \eta(B-x) \le \eta B$, hence $B-y \ge (1-\eta)B$. Since the right-hand side of \cref{eq:B-ineq} is increasing in $(B-y)$, it is enough to check the worst case $B-y = (1-\eta)B$, which gives
 \[
-    \frac{y}{B} \;\le\; 1 - \frac{1}{q^2 (1-\eta)}
+    B \;\le\; q^2 (1-\eta)^2 B
+    \quad\Longleftrightarrow\quad
+    q^2 (1-\eta)^2 \;\ge\; 1.
 \]
-makes the loop unprofitable. Our burn cap \cref{eq:burn-cap} additionally
-enforces $y \le \eta(B-x) \le \eta B$, so it is enough that
-\begin{equation}
-    \eta \;\le\; 1 - \frac{1}{q^2 (1-\eta)}.
-\end{equation}
-Solving this inequality gives
-\begin{equation}
-    q \;\ge\; \frac{1}{1-\eta}.
-\end{equation}
-Recalling that the symmetric fee $N$ (in percent) and $q$ are related by
-$q = \frac{100}{100-N}$, this is equivalent to
-\begin{equation}
-    N \;\ge\; 100 \eta.
-\end{equation}
+This is exactly \cref{eq:q-eta-condition}, i.e.\ $q \ge 1/(1-\eta)$. Under this condition we have $\Pi_{\text{topup}}(x,y,M) \le 0$ for all admissible $(A,B,V,x,y)$, completing the proof.
+\end{proof}
 
 \paragraph{Parameter choice.}
-In our implementation we set $\eta = 0.01$, i.e.\ each burn removes at most
-$1\%$ of the current pool after the attacker’s buy. The condition above then
-requires only a $1\%$ symmetric base-token fee. We in fact choose a much larger
-fee, $N = 5\%$, which corresponds to $q = 100/95 \approx 1.053$ and satisfies
-$q \ge 1/(1-\eta)$ with a wide margin.
-
-Therefore, under the burn cap \cref{eq:burn-cap} and a $5\%$ symmetric fee
-on the base token, every buy–burn–topup–sell loop has
+The safety theorem \cref{thm:topup-safety} is stated for a generic per-burn cap $\eta$ and fee multiplier $q$. In terms of the fee rate $N\%$, the condition \cref{eq:q-eta-condition} becomes
 \[
-    \Pi_{\text{topup}}(x,y,M) \le 0
+    \frac{100}{100 - N} \;\ge\; \frac{1}{1-\eta}
+    \quad\Longleftrightarrow\quad
+    N \;\ge\; 100\,\eta.
 \]
-for all admissible $A,B,V,x,y$. The top-up mechanism cannot be profitably
-exploited by this class of attacks.
+Thus any symmetric quote-token fee of at least $100\eta\%$ suffices to make the buy--burn--topup--sell loop unprofitable, regardless of the pool state and attack size, as long as each burn obeys the cap \cref{eq:burn-cap-eta}.
 
 \section{Implementation}
 \label{sec:implementation}
@@ -660,7 +614,7 @@ This section describes an on-chain implementation of CBMM as a Solana program. T
 \subsection{Continuous Conditional Buybacks}
 \label{sec:continuous-conditional-buybacks}
 
-As discussed in \cref{sec:beans-reserve-burning}, burns require a reduction of the virtual reserve from $V_1$ to $V_2$ (with $V_2 < V_1$). This adjustment reduces the positive impact of the burn. We implement the token reserve top-up mechanism described in \cref{sec:token-reserve-top-up} as \textbf{Continuous Conditional Buybacks} (CCB) redirecting a portion of trading fees into the Real Token Reserve $A$.
+As discussed in \cref{sec:base-token-reserve-burning}, burns require a reduction of the virtual reserve from $V_1$ to $V_2$ (with $V_2 < V_1$). This adjustment reduces the positive impact of the burn. We implement the token reserve top-up mechanism described in \cref{sec:token-reserve-top-up} as \textbf{Continuous Conditional Buybacks} (CCB) redirecting a portion of trading fees into the Real Token Reserve $A$.
 
 Let $\Delta V = V_1 - V_2 \ge 0$ denote the required reduction in virtual reserve implied by Section~\ref{sec:math}. The implemented CCB mechanism then works as follows:
 
@@ -690,11 +644,17 @@ For minimal funding costs and better scalability, equivalent functionality could
 
 On every burn we require a signature from a Burn Authority. This ensures that all burns are tied to specific off-chain activities and that users have not simply automated the burn operation by calling the on-chain program directly. This mechanism is optional and can be turned off if decentralization is a priority.
 
+\subsubsection{Burn cap and fee parameter choice}
+
+The safety theorem \cref{thm:topup-safety} establishes conditions on the burn cap parameter $\eta$ (from \cref{eq:burn-cap-eta}) and the symmetric base-token fee rate $N\%$ (from \cref{eq:q-eta-condition}) that guarantee the buy--burn--topup--sell loop is unprofitable. In our deployment we choose
+\[
+    \eta = 0.01 \quad\text{and}\quad N = 5\%.
+\]
+The burn cap $\eta = 0.01$ means each burn removes at most $1\%$ of the post-buy pool, while the fee condition from \cref{thm:topup-safety} requires only $N \ge 1\%$. Our actual fee of $5\%$ (so $q = 100/95 \approx 1.0526$) comfortably satisfies \cref{eq:q-eta-condition}, leaving a wide safety margin. Even when the maximal top-up $M$ is applied after every burn, the loop remains strictly unprofitable for all admissible parameters.
+
 \subsection{Pool Configuration Considerations}
 
-The main decision that influences the pool behavior is the initial virtual reserve $V$. This reserve directly sets the token initial price and is proportional to the trading volume needed to be able to top-up the pool fully. Moreover, the higher initial reserve the more expensive it is to snipe a large amount of beans at the starting price.
-
-To be able to mitigate the sniping issue we can not only use higher virtual reserve, but also use Power CBMM with $p>1$ to increase the price impact of the initial purchases. However, with higher $p$ the on-chain program needs to use more complex arithmetic to implement the trading formulas and ensure that there are no overflows or significant precision loss that would affect the pool's health. From our tests we have found that $p=2$ is a good compromise between complexity and effectiveness.
+The main decision that influences the pool behavior is the initial virtual reserve $V$. This reserve directly sets the token initial price and is proportional to the trading volume needed to be able to top-up the pool fully. Moreover, the higher initial reserve the more expensive it is to snipe a large amount of base tokens at the starting price.
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -703,9 +663,11 @@ This work set out to design a market-making mechanism that can translate verifia
 
 The model reveals a clear separation of roles. First, burns directly increase price with a relative impact proportional to the amount of beans outside the pool and the burned amount. The pool trading volume by itself does not directly contribute to the price increase but complements burns by compensating for the virtual reserve deterioration through the Continuous Conditional Buybacks mechanism. Because burning reduces the in-pool supply, it increases price but also increases volatility. The virtual reserve acts here as a bridge mechanism to facilitate a slow transition from a purely virtual scaling system into a progressively collateralized one. In healthy conditions, as $V$ is reduced toward its minimum, the pool matures by price becoming increasingly supported by real collateral rather than virtual scale.
 
-From a design perspective, the initial virtual reserve $V$ sets the starting price and determines how much trading volume is required to fully top up the pool via fees. Larger $V$ makes early sniping more costly. The optional Power CBMM variant controls curve shape via a parameter $p>0$; choosing $p>1$ concentrates price impact at earlier purchases and can be used to mitigate initial sniping risk, while $0<p<1$ flattens the curve.
+From a design perspective, the initial virtual reserve $V$ sets the starting price and determines how much trading volume is required to fully top up the pool via fees. Larger $V$ makes early sniping more costly.
 
-This paper describes the CBMM pool as a token rollout mechanism, but generalizing CBMM to other asset pairs is feasible. Possible extensions and enhancements include allowing third-party liquidity provision (LP) in a controlled manner and analyzing CBMM pool with nonzero initial token reserve that should be preserved by the burn mechanism. These mechanisms might require $V<0$ and are left for future study.
+We have investigated alternative invariant types beyond the constant product form. For instance, Power CBMM uses an invariant of the form $k = (A+V)B^p$ with a power parameter $p > 0$, which allows fine-tuning the bonding curve shape: $p > 1$ produces a steeper curve that concentrates price impact at earlier purchases (potentially mitigating sniping risk), while $0 < p < 1$ produces a flatter curve. However, more complex invariant types yield virtual reserve adjustment formulas that are overly complex for convenient on-chain implementation using integer arithmetic and conveniently proving the safety theorems. 
+
+This paper describes the CBMM pool as a base token rollout mechanism. Other directions for future work include generalizing CBMM to other asset pairs, allowing third-party liquidity provision (LP) in a controlled manner, and analyzing CBMM pool with nonzero initial quote token reserve that should be preserved by the burn mechanism. These mechanisms might require $V<0$ and are left for future study.
 
 % =====================================================
 % BIBLIOGRAPHY
