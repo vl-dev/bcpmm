@@ -485,27 +485,11 @@ Following the same attack steps as before, but with top-up applied: the attacker
     \label{eq:V2-with-topup}
 \end{equation} 
 
-When the attacker sells $x$ beans back, the pool must maintain the invariant. Before the sell, we have $k_2 = (A_2 + V_2) \cdot B_2$. After receiving $x$ beans, the beans reserve becomes $B_2 + x = B - y$, and the token reserve becomes $A_2 - S_{\text{pool}}$, where $S_{\text{pool}}$ is the pre-fee token outflow. The invariant must be preserved:
+When the attacker sells $x$ beans back, the pool must maintain the invariant $(A_2 + V_2) \cdot B_2 = (A_2 - S_{\text{pool}} + V_2) \cdot (B_2 + x)$, where $S_{\text{pool}}$ is the pre-fee token outflow. Solving for $S_{\text{pool}}$ and substituting $V_2 = A_2 B_2 / (T - B + x)$ and $B_2 + x = B - y$:
 \begin{equation}
-    (A_2 + V_2) \cdot B_2 = (A_2 - S_{\text{pool}} + V_2) \cdot (B_2 + x).
+    S_{\text{pool}} = \frac{A_2 \cdot x \cdot (T - y)}{(B - y)(T - B + x)},
 \end{equation}
-Solving for $S_{\text{pool}}$:
-\begin{align}
-    (A_2 + V_2) \cdot B_2 &= (A_2 - S_{\text{pool}}) \cdot (B_2 + x) + V_2 \cdot (B_2 + x), \nonumber \\
-    A_2 \cdot B_2 + V_2 \cdot B_2 &= A_2 \cdot (B_2 + x) - S_{\text{pool}} \cdot (B_2 + x) + V_2 \cdot B_2 + V_2 \cdot x, \nonumber \\
-    0 &= A_2 \cdot x - S_{\text{pool}} \cdot (B_2 + x) + V_2 \cdot x, \nonumber \\
-    S_{\text{pool}} \cdot (B_2 + x) &= x \cdot (A_2 + V_2), \nonumber \\
-    S_{\text{pool}} &= \frac{x \cdot (A_2 + V_2)}{B_2 + x}.
-\end{align}
-Substituting $V_2 = A_2 B_2 / (T - B + x)$ and $B_2 + x = B - y$:
-\begin{align}
-    S_{\text{pool}} &= \frac{x \cdot \left(A_2 + \frac{A_2 \cdot B_2}{T - B + x}\right)}{B - y} \nonumber \\
-        &= \frac{x \cdot A_2 \cdot \left(1 + \frac{B_2}{T - B + x}\right)}{B - y} \nonumber \\
-        &= \frac{x \cdot A_2 \cdot \left(\frac{T - B + x + B_2}{T - B + x}\right)}{B - y} \nonumber \\
-        &= \frac{x \cdot A_2 \cdot \left(\frac{T - B + x + B - x - y}{T - B + x}\right)}{B - y} \nonumber \\
-        &= \frac{A_2 \cdot x \cdot (T - y)}{(B - y)(T - B + x)}.
-\end{align}
-After applying the fee, the attacker receives:
+where $A_2 = A + (A+V)x/(B-x) + N$. After applying the fee, the attacker receives:
 \begin{equation}
     S_{\text{sell}} = \frac{1}{q} \cdot S_{\text{pool}} = \frac{x (T - y)}{q(B - y)(T - B + x)}\left(A + N + \frac{(A+V)x}{B-x}\right).
 \end{equation}
@@ -519,170 +503,154 @@ Substituting the expressions for $S_{\text{sell}}$ and $S_{\text{buy}} = q \cdot
     \label{eq:topup-profit}
 \end{equation}
 
-We now prove that for burns $y < 0.01B$ (less than 1\% of remaining supply) and fees of at least 5\% ($q \ge 100/95 \approx 1.053$), the attack is unprofitable when the top-up amount $N$ is bounded by the required top-up $M$ from \cref{sec:token-reserve-top-up}, i.e., $N \le M$.
 
-From \cref{sec:token-reserve-top-up}, the required top-up amount $M$ after burning $y$ beans when $x$ beans have been purchased is:
-\textbf{TODO: CHECK THIS}
-\begin{equation}
-    M = \frac{V(B-y)(T - B + x)}{B(B - x - y)} - A - \frac{(A+V)x}{B-x}.
-    \label{eq:M-bound}
-\end{equation}
-Since $N \le M$, we bound the profit from \cref{eq:topup-profit}. Since the profit $\Pi_{\text{topup}}$ is increasing in $N$ (the first term contains $A + N$ while the second term is independent of $N$), the worst case for the defender occurs when $N = M$. Substituting $N = M$ directly into \cref{eq:topup-profit} and simplifying using the expression for $M$ from \cref{eq:M-bound}:
+Since the profit $\Pi_{\text{topup}}$ is increasing in $N$, the worst case for the defender occurs when $N = M$. Substituting $N = M$ into \cref{eq:topup-profit} and using the expression for $M$ from \cref{sec:token-reserve-top-up}:
+
 \begin{align}
-    \Pi_{\text{topup}}(x,y,M) &= \frac{x (T - y)}{q(B - y)(T - B + x)}\left(A + M + \frac{(A+V)x}{B-x}\right) - q\,\frac{(A+V)x}{B-x} \nonumber \\
-    &= \frac{x (T - y)}{q(B - y)(T - B + x)} \cdot \frac{V(B-y)(T - B + x)}{B(B - x - y)} - q\,\frac{(A+V)x}{B-x} \nonumber \\
-    &= \frac{x}{q}\left[\frac{T-y}{B(B-x-y)} - \frac{A+V}{B-x}\right],
+    M &= A_{\mathrm{opt}} - A_2 \nonumber \\
+    &= \frac{k_{\mathrm{opt}}}{B_2} - V_{\mathrm{opt}} - A_2 \nonumber \\
+    &= \frac{V_{\mathrm{opt}} T_2}{B_2} - V_{\mathrm{opt}} - A_2 \nonumber \\
+    &= V_{\mathrm{opt}}\left(\frac{T_2}{B_2} - 1\right) - A_2 \nonumber \\
+    &= \frac{T-y}{T} V \cdot \frac{T - y - (B - x - y)}{B - x - y} - A - \frac{(A+V)x}{B-x} \nonumber \\
+    &= \frac{T-y}{T} V \cdot \frac{T - B + x}{B - x - y} - A - \frac{(A+V)x}{B-x},
+    \label{eq:M-bound}
+\end{align}
+where we used $V_{\mathrm{opt}} = \frac{T_2}{T_1} V = \frac{T-y}{T} V$, $T_2 = T - y$, $B_2 = B - x - y$, and $A_2 = A + (A+V)x/(B-x)$.
+
+Substituting $N = M$ into \cref{eq:topup-profit} and using $A + M + \frac{(A+V)x}{B-x} = \frac{T-y}{T} V \cdot \frac{T - B + x}{B - x - y}$:
+\begin{align}
+    \Pi_{\text{topup}}(x,y,M) &= \frac{x (T - y)}{q(B - y)(T - B + x)} \cdot \frac{T-y}{T} V \cdot \frac{T - B + x}{B - x - y} - q\,\frac{(A+V)x}{B-x} \nonumber \\
+    &= \frac{x (T - y)^2 V}{q T (B - y)(B - x - y)} - q\,\frac{(A+V)x}{B-x}.
     \label{eq:profit-with-M}
 \end{align}
-where the simplification follows from algebraic manipulation after substituting the expression for $M$.
 
-From the invariant $k = (A+V)B$ and the fact that when all beans are sold back into the pool, $A = 0$ and $B = T$, we have $k = VT$. Equating both expressions for $k$:
+From the invariant $k = (A+V)B$ and the fact that when all beans are in circulation in the pool we have $A = 0$ and $B = T$, we also have $k = VT$. Equating both expressions for $k$ yields
 \begin{equation}
-    (A+V)B = VT \quad \Longrightarrow \quad T = \frac{(A+V)B}{V}.
+    T = \frac{(A+V)B}{V} = \frac{k}{V}.
     \label{eq:T-relationship}
 \end{equation}
-For profitability, we require $\Pi_{\text{topup}} > 0$, which from \cref{eq:profit-with-M} gives:
+
+Substituting the top-up $N = M$ from \cref{eq:M-bound} into \cref{eq:topup-profit} and simplifying gives
 \begin{equation}
-    \frac{T-y}{B(B-x-y)} > \frac{A+V}{B-x}.
-    \label{eq:profitability-simple}
+    \Pi_{\text{topup}}(x,y,M)
+    = \frac{x (T - y)^2 V}{q\,T (B - y)(B - x - y)} - q\,\frac{(A+V)x}{B-x}.
+    \label{eq:profit-with-M}
 \end{equation}
-Substituting $T = \frac{(A+V)B}{V}$ from \cref{eq:T-relationship}:
+
+\paragraph{Burn cap and fee condition.}
+In practice we cap each burn so that it removes at most a fixed fraction
+$\eta$ of the beans remaining in the pool *after* the attacker’s buy:
 \begin{equation}
-    \frac{\frac{(A+V)B}{V} - y}{B(B-x-y)} > \frac{A+V}{B-x}.
+    0 < y \le \eta (B - x), \qquad 0 < \eta < 1.
+    \label{eq:burn-cap}
 \end{equation}
-Simplifying the numerator and multiplying both sides by $V B(B-x-y)(B-x) > 0$:
+In the implementation we use $\eta = 0.01$ (a burn of at most $1\%$ of the
+current pool). We now derive a sufficient condition on the symmetric fee $N$
+such that every buy–burn–topup–sell loop is unprofitable.
+
+Starting from \cref{eq:profit-with-M} and using the burn cap
+\cref{eq:burn-cap}, we observe that
+\[
+    B - x - y \;\ge\; B - x - \eta (B-x)
+    \;=\; (1-\eta)(B-x).
+\]
+Since all denominators are positive, this implies
+\[
+    \frac{1}{B - x - y}
+    \;\le\; \frac{1}{(1-\eta)(B-x)}.
+\]
+Therefore the first term in \cref{eq:profit-with-M} is upper-bounded by
+\[
+    \frac{x (T - y)^2 V}{q\,T (B - y)(1-\eta)(B-x)}.
+\]
+A sufficient condition for $\Pi_{\text{topup}}(x,y,M) \le 0$ is thus
 \begin{equation}
-    [(A+V)B - yV](B-x) > (A+V) V B(B-x-y).
-    \label{eq:profitability-M}
+    \frac{x (T - y)^2 V}{q\,T (B - y)(1-\eta)(B-x)}
+    - q\,\frac{(A+V)x}{B-x} \;\le\; 0.
+    \label{eq:topup-bound-1}
 \end{equation}
-Dividing both sides by $(A+V) > 0$:
+
+Next we use the trivial bound $(T-y)^2 \le T^2$ (since $0 \le y \le B \le T$),
+which only increases the first term. This yields another sufficient condition:
 \begin{align}
-    \frac{[(A+V)B - yV](B-x)}{A+V} &> V B(B-x-y) \nonumber \\
-    B(B-x) - \frac{yV(B-x)}{A+V} &> V B(B-x-y) \nonumber \\
-    B(B-x) - V B(B-x-y) &> \frac{yV(B-x)}{A+V} \nonumber \\
-    B[(B-x) - V(B-x-y)] &> \frac{yV(B-x)}{A+V} \nonumber \\
-    B[B-x - VB + Vx + Vy] &> \frac{yV(B-x)}{A+V} \nonumber \\
-    B[B(1-V) + x(V-1) + Vy] &> \frac{yV(B-x)}{A+V} \nonumber \\
-    B[(1-V)(B-x) + Vy] &> \frac{yV(B-x)}{A+V} \nonumber \\
-    (A+V)B[(1-V)(B-x) + Vy] &> yV(B-x) \nonumber \\
-    (A+V)B(1-V)(B-x) + (A+V)BVy &> yV(B-x) \nonumber \\
-    (A+V)B(1-V)(B-x) &> yV(B-x) - (A+V)BVy \nonumber \\
-    (A+V)B(1-V)(B-x) &> yV[(B-x) - (A+V)B] \nonumber \\
-    (A+V)B(1-V)(B-x) &> -yV[(A+V)B - (B-x)].
-    \label{eq:profitability-final}
+    \Pi_{\text{topup}}(x,y,M)
+    &\le
+    \frac{x T^2 V}{q\,T (B - y)(1-\eta)(B-x)}
+    - q\,\frac{(A+V)x}{B-x} \nonumber\\
+    &= \frac{x T V}{q (B - y)(1-\eta)(B-x)}
+       - q\,\frac{(A+V)x}{B-x}.
+    \label{eq:topup-bound-2}
 \end{align}
-At the boundary where profit equals zero (equality in \cref{eq:profitability-M}), we can solve for the maximum burn size $y_{\max}$ that keeps the attack unprofitable. Starting from the equality:
-\begin{align}
-    [(A+V)B - yV](B-x) &= (A+V) V B(B-x-y) \nonumber \\
-    [(A+V)B - yV](B-x) &= (A+V) V B(B-x) - (A+V) V By \nonumber \\
-    (A+V)B(B-x) - yV(B-x) &= (A+V) V B(B-x) - (A+V) V By \nonumber \\
-    - yV(B-x) &= (A+V) V B(B-x) - (A+V)B(B-x) - (A+V) V By \nonumber \\
-    - yV(B-x) &= (A+V)(B-x)[VB - B] - (A+V) V By \nonumber \\
-    - yV(B-x) &= (A+V)B(B-x)(V-1) - (A+V) V By \nonumber \\
-    - yV(B-x) + (A+V) V By &= (A+V)B(B-x)(V-1) \nonumber \\
-    yV[-(B-x) + (A+V)B] &= (A+V)B(B-x)(V-1) \nonumber \\
-    yV[(A+V)B - (B-x)] &= (A+V)B(B-x)(V-1).
-\end{align}
-Using $k = (A+V)B$:
-\begin{align}
-    yV[k - (B-x)] &= k(B-x)(V-1) \nonumber \\
-    y &= \frac{k(B-x)(V-1)}{V[k - (B-x)]} \nonumber \\
-    &= \frac{k(B-x)}{k - (B-x)} \cdot \frac{V-1}{V}.
-\end{align}
-Since $\frac{V-1}{V} < 1$ for $V > 1$, we have:
+
+Factor out $x/(B-x) > 0$:
 \begin{equation}
-    y < \frac{k(B-x)}{k - (B-x)},
-    \label{eq:y-max-bound}
+    \Pi_{\text{topup}}(x,y,M)
+    \;\le\; \frac{x}{B-x}
+    \left[
+        \frac{T V}{q (B - y)(1-\eta)} - q(A+V)
+    \right].
 \end{equation}
-which gives the upper bound $y_{\max} = \frac{k(B-x)}{k - (B-x)}$ for the maximum burn size that keeps the attack unprofitable. Note that while this bound is independent of $V$ in its final form, $k = (A+V)B$ itself depends on $V$, so the relationship is maintained through the invariant.
+Since $\frac{x}{B-x}>0$, the sign is determined by the bracket.
+A sufficient (state-independent) condition for unprofitability is therefore
+\begin{equation}
+    \frac{T V}{q (B - y)(1-\eta)} - q(A+V) \;\le\; 0.
+    \label{eq:bracket-ineq}
+\end{equation}
 
-This result has several important implications:
+Multiplying \cref{eq:bracket-ineq} by the positive factor
+$q(B-y)(1-\eta)$ gives
+\begin{equation}
+    T V \;\le\; q^2 (A+V)(B-y)(1-\eta).
+    \label{eq:TV-ineq}
+\end{equation}
+Using $T V = (A+V)B$ from \cref{eq:T-relationship}, we obtain
+\begin{equation}
+    (A+V)B \;\le\; q^2 (A+V)(B-y)(1-\eta)
+    \quad\Longrightarrow\quad
+    B \;\le\; q^2 (1-\eta)(B-y),
+\end{equation}
+and hence
+\begin{equation}
+    \frac{B}{q^2 (1-\eta)} \;\le\; B - y
+    \quad\Longrightarrow\quad
+    y \;\le\; B\left(1 - \frac{1}{q^2 (1-\eta)}\right).
+    \label{eq:y-global-bound}
+\end{equation}
 
-\begin{enumerate}[leftmargin=*]
-    \item \textbf{Burn threshold formula}: The maximum burn size that keeps the attack unprofitable is $y_{\max} = \frac{k(B-x)}{k - (B-x)}$, where $k = (A+V)B$ is the invariant. This requires $k > (B-x)$ for the bound to be positive.
-    
-    \item \textbf{Dependence on $V$}: While the final formula appears independent of $V$, the invariant $k = (A+V)B$ depends on $V$, so the relationship is maintained. The factor $\frac{V-1}{V}$ in the exact expression approaches 1 as $V$ grows large, making the bound tight for typical pool configurations.
-    
-    \item \textbf{Interpretation}: For a given purchase amount $x$, burns smaller than $y_{\max}$ cannot be profitably exploited. The bound increases with $k$ (larger reserves) and decreases as $x$ approaches $B$ (more beans purchased).
-    
-    \item \textbf{Practical application}: With $y < 0.01B$ (1\% burn limit) and typical pool parameters where $k \gg (B-x)$, the condition $y < y_{\max}$ is easily satisfied, confirming that small burns are safe from exploitation.
-\end{enumerate}
+Equation \cref{eq:y-global-bound} says that, under the top-up rule,
+any burn with
+\[
+    \frac{y}{B} \;\le\; 1 - \frac{1}{q^2 (1-\eta)}
+\]
+makes the loop unprofitable. Our burn cap \cref{eq:burn-cap} additionally
+enforces $y \le \eta(B-x) \le \eta B$, so it is enough that
+\begin{equation}
+    \eta \;\le\; 1 - \frac{1}{q^2 (1-\eta)}.
+\end{equation}
+Solving this inequality gives
+\begin{equation}
+    q \;\ge\; \frac{1}{1-\eta}.
+\end{equation}
+Recalling that the symmetric fee $N$ (in percent) and $q$ are related by
+$q = \frac{100}{100-N}$, this is equivalent to
+\begin{equation}
+    N \;\ge\; 100 \eta.
+\end{equation}
 
-For the attack to be profitable, we need both:
-\begin{align}
-    x &> B[1 - (A+V)] \label{eq:x-lower-bound} \\
-    x &< B - y \label{eq:x-upper-bound}
-\end{align}
-For these bounds to be compatible, we require $B[1 - (A+V)] < B - y$, which simplifies to $y < (A+V)B$. Since $y < 0.01B$ by assumption, this condition is satisfied when $(A+V)B > 0.01B$, or equivalently $A+V > 0.01$, which holds in practice.
+\paragraph{Parameter choice.}
+In our implementation we set $\eta = 0.01$, i.e.\ each burn removes at most
+$1\%$ of the current pool after the attacker’s buy. The condition above then
+requires only a $1\%$ symmetric base-token fee. We in fact choose a much larger
+fee, $N = 5\%$, which corresponds to $q = 100/95 \approx 1.053$ and satisfies
+$q \ge 1/(1-\eta)$ with a wide margin.
 
-However, the key constraint is that $x$ must satisfy both bounds simultaneously. The attack becomes unprofitable when the upper bound $B - y$ is less than or equal to the lower bound $B[1 - (A+V)]$, i.e., when $B - y \le B[1 - (A+V)]$, which simplifies to $y \ge (A+V)B$. Since we assume $y < 0.01B$, this requires $(A+V)B < 0.01B$, or $A+V < 0.01$, which is unrealistic for a functioning pool.
-
-The more relevant analysis comes from considering that the simplified profit formula \cref{eq:profit-with-M} shows the attack is unprofitable when the bracketed term is negative, which occurs when the fees and the relationship between $A$, $V$, and $B$ make the extraction unviable. Experimental verification with fees $q \ge 1.053$ and burns $y < 0.01B$ confirms that $\Pi_{\text{topup}} \le 0$ for all feasible attack parameters when $N \le M$.
-
-Experimental verification with fees $q \ge 1.053$ and burns $y < 0.01B$ confirms that $\Pi_{\text{topup}} \le 0$ for all feasible attack parameters when $N \le M$. Therefore, burns smaller than 1\% of the remaining supply cannot be profitably exploited under these conditions.
-
-\paragraph{Complete state transition summary.}
-For reference, we provide the complete state transitions through all attack steps:
-
-\textbf{Initial state (before attack):}
-\begin{align*}
-    A_0 &= A, &
-    B_0 &= B, &
-    V_0 &= V, &
-    T_0 &= T \quad (T \geq B), &
-    k_0 &= (A + V) \cdot B.
-\end{align*}
-
-\textbf{Step 1: Attacker buys $x$ beans}
-\begin{align*}
-    S_{\text{buy}} &= q \cdot \frac{(A+V)x}{B-x}, &
-    A_1 &= A + \frac{(A+V)x}{B-x}, &
-    B_1 &= B - x, &
-    V_1 &= V, &
-    T_1 &= T, &
-    k_1 &= (A+V) \cdot B = k_0.
-\end{align*}
-
-\textbf{Step 2: Burn $y$ beans and apply topup $N$}
-\begin{align*}
-    A_2 &= A_1 + N = A + \frac{(A+V)x}{B-x} + N, &
-    B_2 &= B_1 - y = B - x - y, &
-    T_2 &= T_1 - y = T - y,
-\end{align*}
-\begin{align*}
-    V_2 &= \frac{A_2 \cdot B_2}{T_2 - B_2} = \frac{A_2 \cdot B_2}{T - B + x} = \frac{\left(A + \frac{(A+V)x}{B-x} + N\right) \cdot (B - x - y)}{T - B + x},
-\end{align*}
-\begin{equation*}
-    k_2 = (A_2 + V_2) \cdot B_2 = A_2 \cdot B_2 \cdot \left(1 + \frac{B_2}{T - B + x}\right).
-\end{equation*}
-
-\textbf{Step 3: Attacker sells $x$ beans back}
-\begin{align*}
-    S_{\text{pool}} &= \frac{A_2 \cdot x \cdot T_2}{(B - y)(T - B + x)} = \frac{A_2 \cdot x \cdot (T - y)}{(B - y)(T - B + x)}, &
-    S_{\text{sell}} &= \frac{1}{q} \cdot S_{\text{pool}} = \frac{A_2 \cdot x \cdot (T - y)}{q(B - y)(T - B + x)},
-\end{align*}
-\begin{align*}
-    A_3 &= A_2 - S_{\text{pool}} = A_2 \cdot \left(1 - \frac{x \cdot (T - y)}{(B - y)(T - B + x)}\right), &
-    B_3 &= B_2 + x = B - y, &
-    V_3 &= V_2, &
-    T_3 &= T_2 = T - y, &
-    k_3 &= k_2.
-\end{align*}
-
-\textbf{Profit:}
-\begin{equation*}
-    \Pi = S_{\text{sell}} - S_{\text{buy}} = \frac{A_2 \cdot x \cdot (T - y)}{q(B - y)(T - B + x)} - q \cdot \frac{(A+V)x}{B-x},
-\end{equation*}
-where $A_2 = A + \frac{(A+V)x}{B-x} + N$.
-
-\subsubsection{Burn capping by initial price drop allowance}
-
-We can decide to cap the initial price drop to a certain percentage. This makes sure that the price curve after the burn won't diverge too much.
-
-\subsubsection{Topup considerations}
-
-If you take fees from the buys and sells and use them for topup, it's much harder to fuck up over the other people and benefit from it.
-
+Therefore, under the burn cap \cref{eq:burn-cap} and a $5\%$ symmetric fee
+on the base token, every buy–burn–topup–sell loop has
+\[
+    \Pi_{\text{topup}}(x,y,M) \le 0
+\]
+for all admissible $A,B,V,x,y$. The top-up mechanism cannot be profitably
+exploited by this class of attacks.
 
 \section{Implementation}
 \label{sec:implementation}
