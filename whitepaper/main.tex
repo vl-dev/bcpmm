@@ -297,6 +297,7 @@ The actual reserve after the burn equals $A_2 = Vx/(B-x)$, so the required quote
     M = A_{\mathrm{opt}} - A_2
 \end{equation}
 
+
 \subsubsection{Trading impact on required top-up amount}
 \label{sec:trading-impact-on-required-top-up-amount}
 
@@ -373,6 +374,8 @@ The profit formula \cref{eq:value-extraction-profit} reveals several properties 
 
 \subsubsection{Attack model with symmetric base-token fees}
 
+\textbf{TODO: THIS WHOLE SECTION NEEDS REVIEW}
+
 To actively suppress the buy--burn--sell loop, we impose an $N\%$ fee on every trade, collected entirely in the quote token. This fee penalizes extraction attempts in the following way. Define the fee multiplier
 \begin{equation}
     q = \frac{100}{100 - N}
@@ -421,7 +424,7 @@ The fee clips a factor $1/q$ from the output, so the attacker actually receives
 The round-trip profit becomes
 \begin{equation}
     \Pi_{\text{fee}}(x,y)
-        = S_{\text{sell}} - S_{\text{buy}}
+        = S_{\text{buy}} - S_{\text{sell}}
         = \frac{x}{q(B - x)(B - y)}
             \left[q^2(A+V)(B - y) - B(A+V) + Vy\right].
 \end{equation}
@@ -527,6 +530,7 @@ The net round-trip profit with top-up $N$ is therefore
 \]
 
 Since $\Pi_{\text{topup}}$ is increasing in $N$, the worst case for the protocol is the maximal top-up $N = M$ induced by the top-up mechanism. Substituting $N = M$ as in \cref{sec:token-reserve-top-up} gives
+
 \begin{align}
     \Pi_{\text{topup}}(x,y,M)
         &= \frac{x (T - y)}{q(B - y)(T - B + x)}
