@@ -179,31 +179,31 @@ Let the initial state of the pool be
 
 \begin{align*}
     A_0 &= 0, &
-    B_0 &= B, &
+    B_0 &= T, &
     V_0 &= V, &
-    k_0 &= (0 + V) B = V B.
+    k_0 &= (0 + V) T = V T.
 \end{align*}
 
 Assume, without loss of generality, that trading occurs before the burn, lowering the base token reserve by $x \geq 0$. The post-trade values are
 \begin{align*}
-    A_1 &= \frac{Vx}{B - x}, &
-    B_1 &= B - x, &
+    A_1 &= \frac{Vx}{T - x}, &
+    B_1 &= T - x, &
     V_1 &= V, &
-    k_1 &= V B.
+    k_1 &= V T.
 \end{align*}
 
-Now, if we burn $y$ base tokens with $0 \leq y < B - x$, the post-burn state is
+Now, if we burn $y$ base tokens with $0 \leq y < T - x$, the post-burn state is
 \begin{align*}
-    A_2 &= \frac{Vx}{B - x}, &
-    B_2 &= B - x - y, &
+    A_2 &= \frac{Vx}{T - x}, &
+    B_2 &= T - x - y, &
     V_2 &\text{ to be determined}, &
     k_2 &= (A_2 + V_2) B_2.
 \end{align*}
 
-Let's find the condition for the virtual reserve $V_2$ to ensure the pool is solvent. This meant that if everyone sells their base tokens back to the pool, there must be sufficient quote tokens to satisfy the sale. The post-sale state must satisfy
+Let's find the condition for the virtual reserve $V_2$ to ensure the pool is solvent. This means that if everyone sells their base tokens back to the pool, there must be sufficient quote tokens to satisfy the sale. The post-sale state must satisfy
 \begin{align*}
     A_3 &\geq 0, &
-    B_3 &= B - y, &
+    B_3 &= T - y, &
     V_3 &= V_2, &
     k_3 &= (A_3 + V_3) B_3.
 \end{align*}
@@ -211,28 +211,28 @@ Let's find the condition for the virtual reserve $V_2$ to ensure the pool is sol
 From $k_2 = k_3$ and $k_3 \geq V_3 B_3$, we obtain a bound on $V_2$ that ensures the pool is solvent:
 
 \begin{equation}
-    V_2 \leq \frac{V(B-x-y)}{B-x}.
+    V_2 \leq \frac{V(T-x-y)}{T-x}.
 \end{equation}
 
 Thus, after every burn, the virtual reserve must be adjusted downward to ensure solvency. A natural choice is to set $V_2$ to the maximum value satisfying the bound, which minimizes the price impact of the virtual reserve reduction.
 
 \subsubsection{Price impact of the burn}
 
-Denote the price before burn as $P_1 = \frac{A_1+V_1}{B_1}$ and the price after burn as $P_2 = \frac{A_2+V_2}{B_2}$. Substituting the values from the previous section, where $B_1 = B - x$ and $V_2 = \frac{V(B - x - y)}{B - x}$, we obtain
+Denote the price before burn as $P_1 = \frac{A_1+V_1}{B_1}$ and the price after burn as $P_2 = \frac{A_2+V_2}{B_2}$. Substituting the values from the previous section, where $B_1 = T - x$ and $V_2 = \frac{V(T - x - y)}{T - x}$, we obtain
 \begin{align*}
-    P_1 &= \frac{A_1 + V_1}{B_1} = \frac{\frac{Vx}{B-x} + V}{B-x} = \frac{VB}{(B-x)^2}, \\
-    P_2 &= \frac{A_2 + V_2}{B_2} = \frac{\frac{Vx}{B-x} + \frac{V(B-x-y)}{B-x}}{B-x-y} = \frac{V(B-y)}{(B-x)(B-x-y)}.
+    P_1 &= \frac{A_1 + V_1}{B_1} = \frac{\frac{Vx}{T-x} + V}{T-x} = \frac{VT}{(T-x)^2}, \\
+    P_2 &= \frac{A_2 + V_2}{B_2} = \frac{\frac{Vx}{T-x} + \frac{V(T-x-y)}{T-x}}{T-x-y} = \frac{V(T-y)}{(T-x)(T-x-y)}.
 \end{align*}
 
 The relative price impact of the burn is then:
 
 \begin{equation}
-    \frac{P_2 - P_1}{P_1} = \frac{xy}{B(B-x-y)}.
+    \frac{P_2 - P_1}{P_1} = \frac{xy}{T(T-x-y)}.
 \end{equation}
 
-This formula shows that the relative price impact is proportional to the product $xy$ of base tokens held outside the pool $x$ and base tokens burned $y$, divided by $B(B-x-y)$. The impact increases with $x$, meaning burns have greater price impact when more base tokens have been purchased. If $x = 0$ (no base tokens purchased), the burn has no price impact, as expected.
+This formula shows that the relative price impact is proportional to the product $xy$ of base tokens held outside the pool $x$ and base tokens burned $y$, divided by $T(T-x-y)$. The impact increases with $x$, meaning burns have greater price impact when more base tokens have been purchased. If $x = 0$ (no base tokens purchased), the burn has no price impact, as expected.
 
-The solvency adjustment $V_2 \leq V(B-x-y)/(B-x)$ ensures that $V_2 < V$ for any $y > 0$. This reduction in the virtual reserve can affect the worst-case exit price. The worst-case exit price refers to the marginal price when all outstanding base tokens (post-burn) are sold back to the pool, driving the real quote token reserve $A$ toward zero. At this limit, the price approaches $V_2/(B-y)$. When $x > 0$ and $y > 0$, this worst-case exit price can be below the initial anchor price $V/B$ set by the starting virtual reserve $V$. However, when $x = 0$ (no base tokens purchased before the burn), the worst-case exit price equals the initial price, as $V_2 = V(B-y)/B$ and $V_2/(B-y) = V/B$.
+The solvency adjustment $V_2 \leq V(T-x-y)/(T-x)$ ensures that $V_2 < V$ for any $y > 0$. This reduction in the virtual reserve can affect the worst-case exit price. The worst-case exit price refers to the marginal price when all outstanding base tokens (post-burn) are sold back to the pool, driving the real quote token reserve $A$ toward zero. At this limit, the price approaches $V_2/(T-y)$. When $x > 0$ and $y > 0$, this worst-case exit price can be below the initial anchor price $V/T$ set by the starting virtual reserve $V$. However, when $x = 0$ (no base tokens purchased before the burn), the worst-case exit price equals the initial price, as $V_2 = V(T-y)/T$ and $V_2/(T-y) = V/T$.
 
 Operationally, burns reduce the base token reserve $B$, tightening depth and available liquidity at the new state.
 
@@ -241,20 +241,20 @@ Operationally, burns reduce the base token reserve $B$, tightening depth and ava
 
 Burns reduce the base token reserve $B$ and force a downward adjustment of the virtual reserve $V$. This causes a liquidity reduction and price raise offset by the price curve getting steeper and the initial price being reduced. This unwanted side effect can be undone by adding quote tokens to the real quote token reserve $A$ which we call \textbf{top-up}. This subsection derives the exact top-up amount needed to restore the base token starting price without changing the logic introduced earlier.
 
-Let $T$ denote the total base token supply (equal to the in-pool base tokens because we start with zero circulating supply). The pre-trade state is
+Let $T_i$ denote the total base token supply after $i$ operations. The pre-trade state is
 \begin{align*}
     A_0 &= 0, &
-    B_0 &= B, &
+    B_0 &= T_0, &
     V_0 &= V, &
-    T_0 &= B_0, &
-    k_0 &= (A_0+V_0)B_0 = V_0 B_0.
+    T_0 &= T, &
+    k_0 &= (A_0+V_0)B_0 = V_0 T_0.
 \end{align*}
 
 After trades that extract $x$ base tokens from the pool, the state is
 \begin{align*}
-    A_1 &= \frac{Vx}{B-x}, &
-    B_1 &= B - x, &
-    V_1 &= V, &
+    A_1 &= \frac{Vx}{T-x}, &
+    B_1 &= T - x, &
+    V_1 &= V_0, &
     T_1 &= T_0, &
     k_1 &= k_0.
 \end{align*}
@@ -268,7 +268,7 @@ Next, burn $y$ base tokens ($0 \le y < B_1$). Let $V_2$ denote the virtual reser
     k_2 &= (A_2 + V_2) B_2.
 \end{align*}
 
-Our target is to choose a (possibly higher) virtual reserve $V_{\mathrm{opt}}$ and a real quote token amount $A_{\mathrm{opt}}$ that keep the worst-case exit price -- the price when all outstanding base tokens are sold back -- at the original value $P_0 = V_0/T_0$. Let's denote the needed top-up amount to achieve the optimal state as $M$. If we manage to achieve this top-up, the pool state will be
+Our target is to find a virtual reserve $V_{\mathrm{opt}}$ and a real quote token amount $A_{\mathrm{opt}}$ that keep the worst-case exit price -- the price when all outstanding base tokens are sold back -- at the original value $P_0 = V_0/T_0$. Let's denote the needed top-up amount to achieve the optimal state as $M$. If we manage to achieve this top-up, the pool state will be
 \begin{align*}
     A_3 &= A_2 + M = A_{\mathrm{opt}}, &
     B_3 &= B_2, &
@@ -281,9 +281,8 @@ If everyone exits after the top-up, the pool holds $B_3 = T_2$ base tokens and z
 \begin{align}
     \frac{V_0}{T_0} = \frac{V_{\mathrm{opt}}}{T_2}
     \quad \Longrightarrow \quad
-    V_{\mathrm{opt}} = \frac{T_2}{T_0} V_0 = \frac{B-y}{B} V_0.
+    V_{\mathrm{opt}} = \frac{T_2}{T_0} V_0 = \frac{T-y}{T} V_0.
 \end{align}
-
 With this $V_{\mathrm{opt}}$ value, the invariant that corresponds to the desired price profile is
 \begin{equation}
     k_{\mathrm{opt}} = (0 + V_{\mathrm{opt}}) T_2 = V_{\mathrm{opt}} T_2 =( A_{\mathrm{opt}} + V_{\mathrm{opt}} ) B_2.
@@ -292,9 +291,10 @@ This implies the target real quote token reserve
 \begin{equation}
     A_{\mathrm{opt}} = \frac{k_{\mathrm{opt}}}{B_2} - V_{\mathrm{opt}}.
 \end{equation}
-The actual reserve after the burn equals $A_2 = Vx/(B-x)$, so the required quote token top-up is
+The required quote token top-up amount $M$ is
 \begin{equation}
-    M = A_{\mathrm{opt}} - A_2
+    M = A_{\mathrm{opt}} - A_2 = \frac{V x (T-y)}{T(T-x-y)} - \frac{V x}{T-x} = \frac{V x^2 y}{T(T-x)(T-x-y)}.
+    \label{eq:topup-formula}
 \end{equation}
 
 
@@ -315,7 +315,7 @@ The updated top-up requirement after the trades is therefore
 \begin{align}
     M' = A_{\mathrm{opt}}' - A_{\mathrm{real}}' = \frac{k_{\mathrm{opt}} - k_2}{B'} + (V_2 - V_{\mathrm{opt}}).
 \end{align}
-Buys ($\Delta B < 0$) shrink $B'$, amplifying the first term and increasing $M'$; sells ($\Delta B > 0$) expand $B'$ and dampen the same term, but the additive offset $(V_2 - V_{\mathrm{opt}}) < 0$ keeps the gap positive. At the boundary case $\Delta B = T_2-B_2$ the expression is undefined. In that state no base tokens are left outside the pool, so the pool price can be without any unwanted side effect reset to the original initial price by setting $V = V_{\mathrm{opt}}$ without any top-up.
+Buys ($\Delta B < 0$) shrink $B'$, amplifying the first term and increasing $M'$; sells ($\Delta B > 0$) expand $B'$ and dampen the same term, but the additive offset $(V_2 - V_{\mathrm{opt}}) < 0$ keeps the gap positive. At the boundary case $\Delta B = T_2-B_2$ the expression is undefined. In that state no base tokens are left outside the pool, so the pool price can be without any unwanted side effect reset to the original initial price by setting $V = V_{\mathrm{opt}}$ without any real quote token top-up.
 
 \subsubsection{Partial Top-ups}
 
