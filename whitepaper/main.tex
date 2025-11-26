@@ -94,8 +94,7 @@
 % =====================================================
 \title{CBMM Pool: A Constant Burn Market Maker}
 \author{@mmatdev \\
-        Access Protocol\\
-        \texttt{vladislav@accessprotocol.co}}
+        Access Protocol}
 \date{\today}
 
 % =====================================================
@@ -106,7 +105,7 @@
 \maketitle
 
 \begin{abstract}
-This whitepaper describes the CBMM (Constant Burn Market Maker) pool, an improved version of the standard constant product market maker (CPMM) that introduces a token burn mechanism alongside with automated buybacks resulting in a positive impact on the token's price and more continuous demand. Moreover, this provides a mechanism for off-chain actions to have a direct impact onto the beans price.
+This whitepaper describes the Constant Burn Market Maker (CBMM) pool, an extension of the standard constant product market maker (CPMM) that uses a virtual quote reserve and built-in burns to enable translating verifiable off-chain activity into on-chain base-token supply reduction and price impact. We outline the core mathematical model and safety conditions, and describe a Solana implementation with Continuous Conditional Buybacks (CCB) and practical controls such as burn caps, throttling, and authorization.
 \end{abstract}
 
 \section{Introduction}
@@ -114,8 +113,9 @@ This whitepaper describes the CBMM (Constant Burn Market Maker) pool, an improve
 Constant function market makers (CFMMs) have become a foundational primitive for decentralized exchanges~\cite{AngerisChitra2020CFMMOracles}. Variants include constant product market makers (CPMMs) such as Uniswap~v1~\cite{Uniswap-v1-whitepaper}, concentrated liquidity market makers (CLMMs) like Uniswap~{}v3~\cite{UniswapV3Whitepaper2021}, and dynamic automated market makers (DAMMs)~\cite{MeteoraDAMMv2Docs}. Bonding curves~\cite{Bancor2018Whitepaper}, popularized by platforms like Pump.fun, represent another approach where token price is determined by a deterministic curve based on supply.
 
 Existing mechanisms provide no built-in way to translate off-chain activity into on-chain price impact. The only mechanism available to drive positive price action is manual buy-and-burn operations, where participants purchase tokens and burn them to reduce supply. This requires coordination, creates friction, and does not automatically link rewards to verifiable off-chain behavior.
+However, naively bolting burns onto CFMMs with real reserves creates value-extraction vectors: an attacker can execute sequences of operations that siphon collateral from the pool unless the mechanism is carefully constrained.
 
-We present the Constant Burn Market Maker (CBMM), a mechanism that enables tying off-chain events to underlying asset supply reduction. CBMM utilizes a virtual token reserve that supports controlled burns without violating pool invariant constraints and enables creating one-sided launch pools. These burns directly increase price proportionally to the amount of beans held outside the pool and can be tied to off-chain events. Moreover, to compensate for the virtual reserve reduction that accompanies burns, we implement Continuous Conditional Buybacks (CCB), which route a portion of trading fees into the real token reserve, effectively increasing collateralization and increasing price further.
+We present the Constant Burn Market Maker (CBMM), a mechanism that enables tying off-chain events via on-chain burns to underlying asset supply reduction. CBMM utilizes a virtual token reserve that supports controlled burns without violating pool invariant constraints and enables creating one-sided launch pools. These burns directly increase price proportionally to the amount of base tokens held outside the pool and can be tied to off-chain events. Moreover, to compensate for the virtual reserve reduction that accompanies burns, we implement Continuous Conditional Buybacks (CCB), which route a portion of trading fees into the real token reserve, effectively increasing collateralization and increasing price further. On top of this, we introduce burn caps, symmetric quote-token fees, and pacing and authorization controls that jointly enforce formal safety guarantees against these extraction loops.
 
 The remainder of this paper is structured as follows. Section~\ref{sec:math} develops the mathematical model, derives trading and burning formulas, and analyzes price impact and mitigation of possible attacks. Section~\ref{sec:implementation} describes the on-chain program implementation considerations, including safety mechanisms and configuration considerations.
 
@@ -348,6 +348,7 @@ As already discussed in \cref{sec:trading-impact-on-required-top-up-amount}, if 
 A critical concern for CBMM pools is that adversaries may attempt to extract value from the real quote token reserve $A$ through strategic manipulation of burns. An attacker can execute a buy--burn--sell loop: purchase base tokens, trigger a burn (which reduces the virtual reserve $V$), and then sell the base tokens back, potentially realizing a net profit at the expense of the pool's real collateral. This section quantifies the exact profit that an adversary can realize through such attacks and outlines mitigation strategies. We first analyze the basic attack without fees, then show how symmetric quote-token fees can suppress the attack, and finally demonstrate that when top-ups are involved, additional constraints such as per-burn caps are necessary to prevent profitable exploitation.
 
 \subsubsection{Attack model and payoff derivation}
+\label{sec:attack-model-and-payoff-derivation}
 
 Consider a pool in state $(A,B,V)$ with invariant $k = (A+V)B$ and some base tokens in circulation. Total base token supply is $T > B$. An adversary executes the following steps:
 \begin{enumerate}[leftmargin=*]
@@ -448,6 +449,7 @@ Assuming $A>0$ (otherwise there is nothing to extract) keeps the denominator pos
 Even when fees prevent the attacker from profiting (i.e., when $y \le y_{\max}$), the pool can still be negatively impacted by the attack. The burn reduces the base token reserve and forces a downward adjustment of the virtual reserve, which reduces liquidity and can lower the worst-case exit price. Moreover, the fees collected during the attack may not fully compensate for these negative effects. Therefore, it would be reasonable to consider allowing only smaller burn sizes $y$ than $y_{\max}$ to further limit the pool's exposure to such attacks, even when they are not profitable for the attacker.
 
 \subsubsection{Attack model with symmetric base-token fees and topup}
+\label{sec:attack-model-with-symmetric-base-token-fees-and-topup}
 
 We extend the attack model to account for a quote token reserve top-up that occurs after the burn. The top-up increases the real quote token reserve and adjusts the virtual reserve for optimal utilization as described in \cref{sec:token-reserve-top-up}. We keep the same notation as before: the pool has an initial state with real quote token reserve $A\geq0$, base token reserve $B>0$, virtual reserve $V>0$, total base token supply $T \ge B$, and invariant $k = (A+V)B$. Fees are charged symmetrically on the quote token at rate $N\%$, with fee multiplier
 \begin{equation}
@@ -614,64 +616,78 @@ This is exactly \cref{eq:q-eta-condition}, i.e.\ $q \ge 1/(1-\eta)$. Under this 
     \quad\Longleftrightarrow\quad
     N \;\ge\; 100\,\eta.
 \]
-Thus any symmetric quote-token fee of at least $100\eta\%$ suffices to make the buy--burn--topup--sell loop unprofitable, regardless of the pool state and attack size, as long as each burn obeys the cap from \cref{eq:burn-cap-eta}.
+Thus any symmetric quote-token fee of at least $100\eta\%$ suffices to make the buy--burn--topup--sell loop unprofitable, regardless of the pool state and attack size, as long as each burn obeys the cap from \cref{eq:burn-cap-eta}. This yields that if the burn percentage is less than the trading fee percentage, the loop is unprofitable.
 
 \section{Implementation}
 \label{sec:implementation}
 
-This section describes an on-chain implementation of CBMM as a on-chain program. The trading principles in CBMM implementation use the same approach as standard CPMM pools and, therefore, are not repeated here. We first present the Continuous Conditional Buybacks mechanism, which partially offsets the required reduction in the virtual reserve $V$ after burns. We then outline safety controls for burn operations and note key configuration considerations. The design objective is to minimize user friction while faithfully realizing the mathematical model from Section~\ref{sec:math}.
+This section describes the CBMM implementation as an on-chain program. CBMM trading follows the same logic as a standard CPMM, so we focus on Continuous Conditional Buybacks (CCB), which offset the required reduction in the virtual reserve $V$ after burns, followed by the burn safety controls and key configuration considerations. The design objective is to minimize user friction while fully preserving the guarantees established in Section~\ref{sec:math}.
 
-We are implementing this on SOlana, but most of the concepts are general and can be applied to other chains. For the initial version of the CBMM pool we've decided not to use an existing standard for the base token (like SPL or Token Extensions), but to use an on-chain counter, that works in the same way as the standard token would. This allows us to keep the system closed and not to worry about any side effects. However, the quote token is a standard SPL token.
-We still use the same name base token and quote token for consistency with the mathematical model.
+We are describing Solana implementation, but most of the concepts are general and can be applied to other chains. For the initial version of the CBMM pool we have decided not to use a simple on-chain counter instead of an existing standard for the base token (like SPL or Token Extensions). This keeps the system closed and avoids external side effects. The quote token is a standard SPL token, and we keep using the ``base token'' and ``quote token'' terminology for consistency with the \cref{sec:math}.
+
+The implementation concepts described in this section are theoretical and might not directly reflective of the actual implementation details.
 
 \subsection{Continuous Conditional Buybacks}
 \label{sec:continuous-conditional-buybacks}
 
-As discussed in \cref{sec:base-token-reserve-burning}, burns require a reduction of the virtual reserve from $V_1$ to $V_2$ (with $V_2 < V_1$). This adjustment reduces the positive impact of the burn. We implement the quote token reserve top-up mechanism described in \cref{sec:token-reserve-top-up} as \textbf{Continuous Conditional Buybacks} (CCB) redirecting a portion of trading fees into the Real Token Reserve $A$.
+As discussed in \cref{sec:base-token-reserve-burning}, burns require a reduction of the virtual reserve from $V_1$ to $V_2$ (with $V_2 < V_1$). This adjustment reduces the positive impact of the burn. We implement the quote token reserve top-up mechanism described in \cref{sec:token-reserve-top-up} as \textbf{Continuous Conditional Buybacks} (CCB) redirecting a portion of trading fees into the Real Token Reserve $A$ in real time.
 
 Let $\Delta V = V_1 - V_2 \ge 0$ denote the required reduction in virtual reserve implied by Section~\ref{sec:math}. The implemented CCB mechanism then works as follows:
 
 \begin{itemize}[leftmargin=*]
   \item \textbf{Fee accumulation}: On each trade, a fixed fraction of token fees is routed to a dedicated on-chain fee vault (an associated token account controlled by the program).
-  \item \textbf{Burn-time top-up}: Upon a burn event, the program strives to top-up the pool real and virtual quote token reserves to the target values $A_{\mathrm{opt}}$ and $V_{\mathrm{opt}}$ as described in \cref{sec:token-reserve-top-up}. Any shortfall is stored in pool state as an outstanding liability $L$.
-  \item \textbf{Continuous repayment}: While $L>0$, fees contributed by the subsequent trades are immediately applied to reduce $L$ until it reaches zero. Any overage remains in the fee vault and is handled by the Fee accumulation rule.
+  \item \textbf{Burn-time top-up}: Upon a burn event, the program strives to top-up the pool real and virtual quote token reserves to the target values $A_{\mathrm{opt}}$ and $V_{\mathrm{opt}}$ as described in \cref{sec:token-reserve-top-up}.
+  \item \textbf{Continuous repayment}: While $A < A_{\mathrm{opt}}$ and $V < V_{\mathrm{opt}}$, fees contributed by the subsequent trades are immediately applied to increase $A$ and $V$ until they reach the target values. Any overage remains in the fee vault and is handled by the Fee accumulation rule.
 \end{itemize}
 
-The Continuous repayment step differs for beans buys and sells. For buys the fees are applied before the operation itself, for sells the fees are applied after the operation. This directly incentivizes buys and penalizes sells. Moreover, the topup always happens with the lower outstanding amount, which lowers the required top-up amount to achieve the target price.
+The Continuous repayment step differs for base token buys and sells. For buys the fees are applied before the operation itself, for sells the fees are applied after the operation. This ensures that the potential partial top-up impact is maximized.
 
-Technically, this is not a buyback, as no beans leave the pool. However, adding tokens to $A$ increases the beans' price and effectively buys back part of the burn's price impact.
+Technically, this is not a buyback, as no base tokens leave the pool. However, adding tokens to $A$ increases the base token's price and effectively buys back part of the burn's price impact.
 
 If not enough off-chain activity is observed, the trading fees are still accumulated and can be used to top-up the pool in the future. This motivates the off-chain activity to be persistent and ongoing.
 
 \subsection{Burn Safety Mechanisms}
 
-As we know from the attack section, we need to make sure that our burn and fee setup is ok so that noone can actually make money out of this. There are multiple ways this can be achieved - both on-chain and off-chain. The first implortant setup - CCB section - is that we top up immediately after buys and sells when applicable so then on the buy there is usually not such a big jump in the price - these happen continuously. The full topup from section about topups only happens in case there is a lot of trading activity and we have enough tokens in the dedicated pool on-chain fee vault. Even so, we need to make sure that the burn never goes over the limit. This is even worse, because this in not necessarilly one singe burn, but it might be multiple of them chained together. THerefoer we've decided to employ a throttling mechanism that limits the number of burns that can be performed in a given time period. This way people (bots) have time to react to the burn sequence and dump on the attacker during the burns.
+As discussed in the \cref{sec:attack-model-and-payoff-derivation}, the only way to keep the CBMM pool safe from exploitation is to make sure burns and fees are coordinated so nobody can extract collateral through a buy--burn--topup--sell loop. The risk doesn't only apply to a single burn, but we need to consider multiple chained burns as well if there is no market reaction to the individual burns. The mechanisms described in this section retain the original intent of the design -- burns exist, but they are paced, sized, and authorized to help the CBMM pool state remain inside the provably safe region.
 
-Moreover, we've decided to implement a centralized burn authority that is responsible for approving burns. This is done to ensure that all burns are tied to specific off-chain activities and that users have not simply automated the burn operation by calling the on-chain program directly. This mechanism is optional and can be turned off if decentralization is a priority. THis allows for off-chain throttling as well, not only on-chian throttling.
+As previously stated in the \cref{sec:attack-model-with-symmetric-base-token-fees-and-topup}, the worst-case profit from the buy--burn--topup--sell happens when $N = M$. For this to happen the trading preceding the burn must be high enough to fill the dedicated fee vault to the amount larger or equal to $M$. All the mechanism described in this section are either designed to lower the probability of the full top-up happening or directly protecting the system against the buy--burn--topup--sell loop.
 
-Another important consideration is that we only allow burns of certain predefined sizes. In combination with throttling and fees we can ensure that even if there is an automated burn going on, the theoretical profit limit will only be reached in longer time period and therefore would be influenced by other trading activity and very hard to achieve.
+\subsubsection{Predictable burn size and burn cap}
+\label{sec:predictable-burn-sizes}
 
-For convenience we introduce daily burn limits per wallet as well, however, these do not protect against sibyl attacks of course.
+To make the impact of each burn simple to reason about, we restrict burns to a single predefined percentage of the pool. The program multiplies this percentage by the current base token reserve to obtain the burn amount $y$. This keeps every burn reasonably small, predictable, and directly comparable across different pool states.
 
-To bound operational risk and align burns with off-chain incentives, we introduce two controls: (i) per-user daily burn limits and (ii) a centralized burn authority.
+As established in the mathematical model (see \cref{thm:topup-safety} and the subsequent parameter discussion), safety requires that the per-burn percentage does not exceed the symmetric trading fee percentage. In practice, we therefore choose a fixed burn fraction that is at most equal to the fee rate, typically smaller to retain additional safety margin.
+
+\subsubsection{CCB-first top-ups}
+
+The Continuous Conditional Buybacks logic described in \cref{sec:continuous-conditional-buybacks} has a positive impact on the top-up size after burn. The fees gathered on every trade are immediately applied to increase the real quote token reserve to get to the optimal value (directly impacting the quote token virtual reserve as well), so the pool continuously drifts back toward the optimal state before the next burn. 
+
+The immediate``full'' top-up after a burn (from \cref{sec:token-reserve-top-up}) only triggers when $A=A_{\mathrm{opt}}$ and $V=V_{\mathrm{opt}}$ and the fee vault already holds $M$, preventing a burn from executing ahead of the capital needed to reduce $V$. If trading volume never fills the vault, the loop defaults to the simpler buy--burn--sell case analyzed earlier, which is inherently easier to defend.
+
+
+\subsubsection{Burn authority}
+\label{sec:burn-authority}
+
+If off-chain control of the user activity is needed we can implement a centralized Burn Authority that is responsible for approving burns. Every burn instruction must include a signature from this authority, which certifies that the burn is tied to a concrete off-chain action and that the caller is not only calling the on-chain program directly. This is not mandatory and can be turned off if abuse is not of a concern and there is more focus on the full decentralization.
+
+\subsubsection{Throttling mechanism}
+
+Because attacks can consist of several burns chained together, we rate-limit how many burns may be executed for a pool within a given time window. This gives honest traders time to react, forces bots to spread their attempts out in time, and makes it much harder to pre-script a profitable sequence. There are two possible approaches to handling the throttle sarutartion:
+\begin{itemize}
+    \item \textbf{Reject excess burns:} Subsequent burn instructions are rejected until the window resets. This is the most straightforward approach, but can interfere with the user experience, as burns following an off-chain action might be rejected.
+    \item \textbf{Queue and defer burns:} Burn amounts are queued and executed later when the throttle window is reset. This approach is more flexible and improves user experience, but it requires a more complex implementation.
+\end{itemize}
+
+If the Burn Authority from \cref{sec:burn-authority} is employed, the throttling logic is fully customizable off-chain and the on-chain logic can fe fully skipped.
 
 \subsubsection{Daily burn limits}
 
-We introduce a lightweight on-chain counter, \texttt{UserBurnAllowance}, uniquely identified by the user's wallet address. It records the number of burns over a 24-hour window and the timestamp of the most recent burn. Account creation is permissionless (similarly to SPL Associated Token Accounts) so any party can create and fund~\cite{SolanaRent} an account to bootstrap a user's allowance. To avoid rent leakage, accounts associated with users inactive for $\geq 24$ hours may be closed and rent returned to the original funding wallet. If a user exceeds the configured daily limit, additional burn attempts are rejected until the window resets. The impact of each burn is calculated as a hardcoded percentage of the pool's base token reserve. For more significant impact it is possible to burn a percentage of the total supply if the pool reserve is sufficient to do so.
+To be able to restrict the number of impactful off-chain events (and accompanying burns) per user we keep per-wallet daily burn limits in a lightweight on-chain account, \texttt{UserBurnAllowance}, keyed by the wallet address. It records the burn count over the past 24 hours plus the timestamp of the most recent burn. Creation is permissionless (same pattern as e.g. SPL Associated Token Accounts) so anyone can fund~\cite{SolanaRent} the account for a given user. If an account sits idle for $\ge 24$ hours it can be closed and the rent returned to the original funding wallet. Once a user hits the configured ceiling, more burns are rejected until the window resets.
 
-For minimal funding costs and better scalability, equivalent functionality could be realized via State Compression using Concurrent Merkle Trees~\cite{XiaoEtAl2023ConcurrentMerkleTrees}, at the cost of off-chain infrastructure dependence.
+However, this doesn't protect against Sibyl attacks and is mainly implemented as a convenience mechanism to be able to track the faithful users and restrict their amount of impactful off-chain activity.
 
-\subsubsection{Burn authority}
-
-On every burn we require a signature from a Burn Authority. This ensures that all burns are tied to specific off-chain activities and that users have not simply automated the burn operation by calling the on-chain program directly. This mechanism is optional and can be turned off if decentralization is a priority.
-
-\subsubsection{Burn cap and fee parameter choice}
-
-The safety theorem \cref{thm:topup-safety} establishes conditions on the burn cap parameter $\eta$ (from \cref{eq:burn-cap-eta}) and the symmetric base-token fee rate $N\%$ (from \cref{eq:q-eta-condition}) that guarantee the buy--burn--topup--sell loop is unprofitable. In our deployment we choose
-\[
-    \eta = 0.01 \quad\text{and}\quad N = 5\%.
-\]
-The burn cap $\eta = 0.01$ means each burn removes at most $1\%$ of the post-buy pool, while the fee condition from \cref{thm:topup-safety} requires only $N \ge 1\%$. Our actual fee of $5\%$ (so $q = 100/95 \approx 1.0526$) comfortably satisfies \cref{eq:q-eta-condition}, leaving a wide safety margin. Even when the maximal top-up $M$ is applied after every burn, the loop remains strictly unprofitable for all admissible parameters.
+The proposed mechanism can be used to restrict activity across all pools on the platform as it is not specific to a single pool. If specificity is required, a separate account can be used for each pool, which would incur additional funding costs. To minimize these costs and better scalability, equivalent functionality could be realized via State Compression using Concurrent Merkle Trees~\cite{XiaoEtAl2023ConcurrentMerkleTrees}, at the cost of off-chain infrastructure dependence.
 
 \subsection{Pool Configuration Considerations}
 
@@ -680,15 +696,15 @@ The main decision that influences the pool behavior is the initial virtual reser
 \section{Conclusion}
 \label{sec:conclusion}
 
-This work set out to design a market-making mechanism that can translate verifiable off-chain activity into on-chain price impact through controlled burns. We constructed a mathematical model for CBMM with a virtual reserve $V$ and outlined the closed-form expressions for trading, burning, and the induced price impact. On the implementation side, we described a Solana program architecture that implements these mechanics, introduces Continuous Conditional Buybacks (CCB) to partially offset the virtual-reserve reduction after burns, and adds safety controls to regulate burn frequency and authorization.
+This work set out to design a market-making mechanism that can translate verifiable off-chain activity into on-chain price impact through controlled burns. We constructed a mathematical model for CBMM with a virtual reserve $V$, derived closed-form expressions for trading and burning, and used them to characterize the induced price impact and worst-case exit price. On the implementation side, we outlined a Solana-oriented program architecture that realizes these mechanics with a closed base-token design (no external SPL mint), Continuous Conditional Buybacks (CCB) that route fees into the real quote reserve $A$, and a set of safety controls that coordinate burns, fees, and top-ups.
 
-The model reveals a clear separation of roles. First, burns directly increase price with a relative impact proportional to the amount of beans outside the pool and the burned amount. The pool trading volume by itself does not directly contribute to the price increase but complements burns by compensating for the virtual reserve deterioration through the Continuous Conditional Buybacks mechanism. Because burning reduces the in-pool supply, it increases price but also increases volatility. The virtual reserve acts here as a bridge mechanism to facilitate a slow transition from a purely virtual scaling system into a progressively collateralized one. In healthy conditions, as $V$ is reduced toward its minimum, the pool matures by price becoming increasingly supported by real collateral rather than virtual scale.
+The safety analysis reveals a sharp separation between price mechanics and collateral extraction. Without fees, any real reserve $A>0$ makes the buy--burn--sell loop always at least break-even and allows an attacker to extract almost all of $A$ as $x,y\to B$. Adding symmetric quote-token fees but no top-ups yields a closed-form burn threshold $y_{\max}$ under which the loop is unprofitable, independently of the attacker’s buy size, and we give a concrete numerical example showing that once maximal top-ups are allowed, fees alone no longer suffice: profitable buy--burn--topup--sell loops reappear even at nontrivial fee rates. We therefore derive an explicit worst-case profit formula with top-ups and prove a safety theorem: if each burn is capped to a fraction $\eta$ of the pool and the symmetric fee multiplier $q=100/(100-N)$ satisfies $q \ge 1/(1-\eta)$ (equivalently, the fee rate obeys $N \ge 100\eta\%$), then the loop is non-profitable for all pool states and attack sizes.
 
-From a design perspective, the initial virtual reserve $V$ sets the starting price and determines how much trading volume is required to fully top up the pool via fees. Larger $V$ makes early sniping more costly.
+Operationally, this condenses into a simple rule: the per-burn fraction must not exceed the symmetric trading fee percentage, and is preferably smaller for additional margin. Mathematically, burns both raise price and force a downward adjustment of $V$; we show that after a burn there is a unique ``optimal'' target state $(A_{\mathrm{opt}},V_{\mathrm{opt}})$ and top-up amount $M$ that restore the original worst-case exit price, and we analyze how delayed and partial top-ups, combined with intervening trades, affect the required collateral and convergence toward this state. The CCB mechanism implements this path-dependently: fees continuously drift the pool toward $(A_{\mathrm{opt}},V_{\mathrm{opt}})$, and a full top-up to $M$ is only applied when the fee vault is sufficiently funded, which limits attacker access to fresh collateral.
 
-We have investigated alternative invariant types beyond the constant product form. For instance, Power CBMM uses an invariant of the form $k = (A+V)B^p$ with a power parameter $p > 0$, which allows fine-tuning the bonding curve shape: $p > 1$ produces a steeper curve that concentrates price impact at earlier purchases (potentially mitigating sniping risk), while $0 < p < 1$ produces a flatter curve. However, more complex invariant types yield virtual reserve adjustment formulas that are overly complex for convenient on-chain implementation using integer arithmetic and conveniently proving the safety theorems. 
+To make the system robust in practice, we propose predictable fixed-percentage burns (a single configured fraction of the current base reserve, bounded by the fee rate), an optional Burn Authority tying burns to off-chain actions, time-based throttling of burn frequency (reject-or-queue semantics), and per-wallet daily burn limits via a lightweight on-chain \texttt{UserBurnAllowance} account (optionally generalized via compressed state). These mechanisms reduce the probability that the worst-case top-up scenario can be orchestrated repeatedly, and they remain compatible with fully decentralized configurations when centralized authority is disabled.
 
-This paper describes the CBMM pool as a base token rollout mechanism. Other directions for future work include generalizing CBMM to other asset pairs, allowing third-party liquidity provision (LP) in a controlled manner, and analyzing CBMM pool with nonzero initial quote token reserve that should be preserved by the burn mechanism. Investigation of the CBMM as a part of a broader financial ecosystem where there are other pools that would create arbitrage opportunities between them is also an interesting direction for future work. These mechanisms might require $V<0$ and are left for future study.
+This paper deliberately focuses on CBMM as a base token rollout mechanism with $A_0=0$ and a constant-product invariant, but several extensions are natural directions for future work: generalizing CBMM to other asset pairs and nonzero initial quote token reserves, introducing third-party liquidity provisioning, and investigating CBMM pools as a part of a broader financial ecosystem where cross-pool arbitrage, routing, and price discovery interact with the burn and top-up logic. Looking into alternative invariant families such as Power CBMM with $k = (A+V)B^p$ for $p>0$ is another natural direction. These invariants allow shaping the bonding curve (e.g., $p>1$ to front-load price impact and mitigate sniping, or $0<p<1$ for flatter curves) but make virtual-reserve adjustment and safety proofs substantially more complex, and they significantly complicate the on-chain integer-arithmetic implementation. A more systematic treatment of such generalized invariants is also left for future study.
 
 % =====================================================
 % BIBLIOGRAPHY
