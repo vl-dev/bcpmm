@@ -384,9 +384,9 @@ The profit formula \cref{eq:value-extraction-profit} reveals several properties 
 
 \subsubsection{Attack model with symmetric base-token fees}
 
-To actively suppress the buy--burn--sell loop, we impose an $N\%$ fee on every trade, collected entirely in the quote token. This fee penalizes extraction attempts in the following way. Define the fee multiplier
+To actively suppress the buy--burn--sell loop, we impose an $n\%$ fee on every trade, collected entirely in the quote token. This fee penalizes extraction attempts in the following way. Define the fee multiplier
 \begin{equation}
-    q = \frac{100}{100 - N}
+    q = \frac{100}{100 - n}
 \end{equation}
 All fees are skimmed from the trader's quote token transfers: buy-side fees are removed before quote tokens enter the pool, and sell-side fees are shaved off before proceeds hit the attacker's wallet.
 
@@ -445,16 +445,16 @@ Fees suppress the attack whenever the bracketed term is non-negative. Solving th
 
 The main observation is that the profitability condition depends only on the burn size $y$ relative to the pool parameters; the buy size $x$ affects the magnitude of profit but not its sign, so the threshold $y_{\max}$ is independent of the attacker's purchase amount.
 
-Assuming $A>0$ keeps the denominator positive. The bound scales linearly with the base token reserve $B$; the multiplier depends on the fee rate (via $q$), the virtual reserve $V$, and the real quote token reserve $A$. Setting $N = 0$ (so $q = 1$) collapses the bound to $y_{\max} = 0$, matching the logic in \cref{eq:value-extraction-profit}. For $q>1$, the attack is eliminated whenever the configured burn allowance lies below $y_{\max}$.
+Assuming $A>0$ (otherwise there is nothing to extract) keeps the denominator positive. The bound scales linearly with the base token reserve $B$; the multiplier depends on the fee rate (via $q$), the virtual reserve $V$, and the real quote token reserve $A$. Setting $n = 0$ (so $q = 1$) collapses the bound to $y_{\max} = 0$, matching the logic in \cref{eq:value-extraction-profit}. For $q>1$, the attack is eliminated whenever the configured burn allowance lies below $y_{\max}$.
 
 Even when fees prevent the attacker from profiting (i.e., when $y \le y_{\max}$), the pool can still be negatively impacted by the attack. The burn reduces the base token reserve and forces a downward adjustment of the virtual reserve, which reduces liquidity and can lower the worst-case exit price. Moreover, the fees collected during the attack may not fully compensate for these negative effects. Therefore, it would be reasonable to consider allowing only smaller burn sizes $y$ than $y_{\max}$ to further limit the pool's exposure to such attacks, even when they are not profitable for the attacker.
 
 \subsubsection{Attack model with symmetric base-token fees and topup}
 \label{sec:attack-model-with-symmetric-base-token-fees-and-topup}
 
-We extend the attack model to account for a quote token reserve top-up that occurs after the burn. The top-up increases the real quote token reserve and adjusts the virtual reserve for optimal utilization as described in \cref{sec:token-reserve-top-up}. We keep the same notation as before: the pool has an initial state with real quote token reserve $A\geq0$, base token reserve $B>0$, virtual reserve $V>0$, total base token supply $T \ge B$, and invariant $k = (A+V)B$. Fees are charged symmetrically on the quote token at rate $N\%$, with fee multiplier
+We extend the attack model to account for a quote token reserve top-up that occurs after the burn. The top-up increases the real quote token reserve and adjusts the virtual reserve for optimal utilization as described in \cref{sec:token-reserve-top-up}. We keep the same notation as before: the pool has an initial state with real quote token reserve $A\geq0$, base token reserve $B>0$, virtual reserve $V>0$, total base token supply $T \ge B$, and invariant $k = (A+V)B$. Fees are charged symmetrically on the quote token at rate $n\%$, with fee multiplier
 \begin{equation}
-    q = \frac{100}{100 - N} > 1.
+    q = \frac{100}{100 - n} > 1.
 \end{equation}
 
 An adversary executes the buy--burn--topup--sell loop: (i) buys $x$ base tokens ($0 < x < B$) at cost $S_{\text{buy}} = q(A+V)x/(B-x)$, (ii) triggers a burn of $y$ base tokens ($0 < y < B-x$) followed by a top-up, and (iii) sells the $x$ base tokens back. Since top-ups increase the real quote token reserve, they increase the attacker's profit from selling base tokens back. The worst case for the protocol occurs when the maximal top-up $M$ (as defined in \cref{sec:token-reserve-top-up}) is applied, as this maximizes the attacker's gain.
@@ -464,7 +464,7 @@ To see that fees alone do not suffice when top-ups are unconstrained, consider t
 \[
     A = 100,\quad B = 100,\quad V = 10,
 \]
-so that $A+V = 110$ and the invariant is $k = (A+V)B = 11{,}000$. From $k = VT$ we get a total supply $T = k/V = 1100$. Set a symmetric fee of $N = 5\%$, so $q = 100/95 \approx 1.0526$.
+so that $A+V = 110$ and the invariant is $k = (A+V)B = 11{,}000$. From $k = VT$ we get a total supply $T = k/V = 1100$. Set a symmetric fee of $n = 5\%$, so $q = 100/95 \approx 1.0526$.
 
 The attacker executes the following steps:
 \begin{enumerate}[leftmargin=*]
@@ -474,13 +474,13 @@ The attacker executes the following steps:
     \item \textbf{Sell the $x = 90$ base tokens back.} The attacker receives $S_{\text{sell}} \approx 1053.64$ quote tokens after fees.
 \end{enumerate}
 
-The net profit is approximately $11.53 > 0$ quote tokens. This example satisfies all feasibility constraints, yet leads to a profitable buy--burn--topup--sell loop. The issue is that the top-up injects enough real quote tokens to more than offset the fee friction.
+The net profit is approximately $11.53 > 0$ quote tokens. This example satisfies all feasibility constraints, yet leads to a profitable buy--burn--topup--sell loop even with a $5\%$ symmetric fee. The issue is that the top-up injects enough real quote tokens to more than offset the fee friction.
 
 This motivates one additional design constraint besides adding a sufficiently large symmetric fee - per-burn limit on the number of base tokens that may be burned. The derivation of the formula describing the relationship of these two parameters follows.
 
 \begin{lemma}[Profit formula with top-ups]
 \label{lem:topup-profit}
-Let there be a CBMM pool in state $(A,B,V)$ with invariant $k = (A+V)B$, total base token supply $T > B$ and symmetric quote-token fee $N\%$ and fee multiplier $q = 100/(100-N) > 1$.
+Let there be a CBMM pool in state $(A,B,V)$ with invariant $k = (A+V)B$, total base token supply $T > B$ and symmetric quote-token fee $n\%$ and fee multiplier $q = 100/(100-n) > 1$.
 After an attacker buys $x$ base tokens, triggers a burn of $y$ base tokens, applies a top-up $0 \le N \leq M$ (as defined in \cref{sec:token-reserve-top-up}) and sells the $x$ base tokens back, the maximum possible round-trip profit is
 \begin{equation}
     \Pi_{\text{topup}}(x,y,N)
@@ -550,7 +550,7 @@ Since $\Pi_{\text{topup}}$ is increasing in $N$, the worst case for the protocol
 
 \begin{theorem}[Safety under capped burns and top-ups]
 \label{thm:topup-safety}
-Let there be a CBMM pool in state $(A,B,V)$ with invariant $k = (A+V)B$, total base token supply $T > B$ and symmetric quote-token fee $N\%$ and fee multiplier $q = 100/(100-N) > 1$.
+Let there be a CBMM pool in state $(A,B,V)$ with invariant $k = (A+V)B$, total base token supply $T > B$ and symmetric quote-token fee $n\%$ and fee multiplier $q = 100/(100-n) > 1$.
 Fix a burn cap parameter $\eta \in (0,1)$ and require that each burn event satisfies
 \begin{equation}
     0 < y \le \eta\,(B - x).
@@ -611,11 +611,11 @@ This is exactly \cref{eq:q-eta-condition}, i.e.\ $q \ge 1/(1-\eta)$. Under this 
 \end{proof}
 
 \paragraph{Parameter choice.}
-\cref{thm:topup-safety} is stated for a generic per-burn cap $\eta$ and fee multiplier $q$. In terms of the fee rate $N\%$, the condition \cref{eq:q-eta-condition} becomes
+\cref{thm:topup-safety} is stated for a generic per-burn cap $\eta$ and fee multiplier $q$. In terms of the fee rate $n\%$, the condition \cref{eq:q-eta-condition} becomes
 \[
-    \frac{100}{100 - N} \;\ge\; \frac{1}{1-\eta}
+    \frac{100}{100 - n} \;\ge\; \frac{1}{1-\eta}
     \quad\Longleftrightarrow\quad
-    N \;\ge\; 100\,\eta.
+    n \;\ge\; 100\,\eta.
 \]
 Thus any symmetric quote-token fee of at least $100\eta\%$ suffices to make the buy--burn--topup--sell loop unprofitable, regardless of the pool state and attack size, as long as each burn obeys the cap from \cref{eq:burn-cap-eta}. This yields that if the burn percentage is less than the trading fee percentage, the loop is unprofitable.
 
@@ -699,7 +699,7 @@ The main decision that influences the pool behavior is the initial virtual reser
 
 This work set out to design a market-making mechanism that can translate verifiable off-chain activity into on-chain price impact through controlled burns. We constructed a mathematical model for CBMM with a virtual reserve $V$, derived closed-form expressions for trading and burning, and used them to characterize the induced price impact and worst-case exit price. On the implementation side, we outlined a Solana-oriented program architecture that realizes these mechanics with a closed base-token design (no external SPL mint), Continuous Conditional Buybacks (CCB) that route fees into the real quote reserve $A$, and a set of safety controls that coordinate burns, fees, and top-ups.
 
-The safety analysis reveals a sharp separation between price mechanics and collateral extraction. Without fees, any real reserve $A>0$ makes the buy--burn--sell loop always at least break-even and allows an attacker to extract almost all of $A$ as $x,y\to B$. Adding symmetric quote-token fees but no top-ups yields a closed-form burn threshold $y_{\max}$ under which the loop is unprofitable, independently of the attacker’s buy size, and we give a concrete numerical example showing that once maximal top-ups are allowed, fees alone no longer suffice: profitable buy--burn--topup--sell loops reappear even at nontrivial fee rates. We therefore derive an explicit worst-case profit formula with top-ups and prove a safety theorem: if each burn is capped to a fraction $\eta$ of the pool and the symmetric fee multiplier $q=100/(100-N)$ satisfies $q \ge 1/(1-\eta)$ (equivalently, the fee rate obeys $N \ge 100\eta\%$), then the loop is non-profitable for all pool states and attack sizes.
+The safety analysis reveals a sharp separation between price mechanics and collateral extraction. Without fees, any real reserve $A>0$ makes the buy--burn--sell loop always at least break-even and allows an attacker to extract almost all of $A$ as $x,y\to B$. Adding symmetric quote-token fees but no top-ups yields a closed-form burn threshold $y_{\max}$ under which the loop is unprofitable, independently of the attacker’s buy size, and we give a concrete numerical example showing that once maximal top-ups are allowed, fees alone no longer suffice: profitable buy--burn--topup--sell loops reappear even at nontrivial fee rates. We therefore derive an explicit worst-case profit formula with top-ups and prove a safety theorem: if each burn is capped to a fraction $\eta$ of the pool and the symmetric fee multiplier $q=100/(100-n)$ satisfies $q \ge 1/(1-\eta)$ (equivalently, the fee rate obeys $n \ge 100\eta\%$), then the loop is non-profitable for all pool states and attack sizes.
 
 Operationally, this condenses into a simple rule: the per-burn fraction must not exceed the symmetric trading fee percentage, and is preferably smaller for additional margin. Mathematically, burns both raise price and force a downward adjustment of $V$; we show that after a burn there is a unique ``optimal'' target state $(A_{\mathrm{opt}},V_{\mathrm{opt}})$ and top-up amount $M$ that restore the original worst-case exit price, and we analyze how delayed and partial top-ups, combined with intervening trades, affect the required collateral and convergence toward this state. The CCB mechanism implements this path-dependently: fees continuously drift the pool toward $(A_{\mathrm{opt}},V_{\mathrm{opt}})$, and a full top-up to $M$ is only applied when the fee vault is sufficiently funded, which limits attacker access to fresh collateral.
 
