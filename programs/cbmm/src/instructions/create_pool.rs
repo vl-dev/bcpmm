@@ -60,8 +60,8 @@ pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()>
         ctx.accounts.platform_config.key(),
         ctx.accounts.a_mint.key(),
         args.a_virtual_reserve,
-        platform_config.creator_fee_basis_points,
-        platform_config.buyback_fee_basis_points,
+        platform_config.pool_creator_fee_basis_points,
+        platform_config.pool_topup_fee_basis_points,
         platform_config.platform_fee_basis_points,
     )?);
     Ok(())

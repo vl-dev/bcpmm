@@ -15,24 +15,41 @@ pub const USER_BURN_ALLOWANCE_SEED: &[u8] = b"user_burn_allowance";
 
 pub const DEFAULT_B_MINT_DECIMALS: u8 = 6;
 pub const DEFAULT_B_MINT_RESERVE: u64 = 1_000_000_000 * 10u64.pow(DEFAULT_B_MINT_DECIMALS as u32);
+pub const DEFAULT_BURN_TIERS_UPDATE_COOLDOWN_SECONDS: i64 = 86400; // 24 hours
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
+pub enum BurnRole {
+    Anyone,                 // Permissionless - anyone can burn at this tier
+    PoolCreator,            // Only the pool creator can burn at this tier
+    SpecificPubkey(Pubkey), // Only a specific whitelisted pubkey can burn
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
+pub struct BurnTier {
+    pub burn_bp_x100: u32,    // Burn percentage in basis points * 100
+    pub role: BurnRole,       // Who can use this tier
+    pub max_daily_burns: u16, // Max burns per day (0 = unlimited)
+}
 
 #[account]
 #[derive(Default, InitSpace)]
 pub struct PlatformConfig {
     pub bump: u8,
+
     pub admin: Pubkey,
     pub creator: Pubkey,
-    // todo burn authority
     pub quote_mint: Pubkey,
-    pub burn_allowance: u16,
-    pub max_user_daily_burn_count: u16,
-    pub max_creator_daily_burn_count: u16,
-    pub user_burn_bp_x100: u32,
-    pub creator_burn_bp_x100: u32,
+
+    // todo - nicer to do platform creation timestamp instead of time of day
     pub burn_reset_time_of_day_seconds: u32, // Seconds from midnight
-    pub creator_fee_basis_points: u16,
-    pub buyback_fee_basis_points: u16,
+
+    pub pool_creator_fee_basis_points: u16,
+    pub pool_topup_fee_basis_points: u16,
     pub platform_fee_basis_points: u16,
+
+    pub burn_tiers_updated_at: i64, // needed for cooling off period
+    #[max_len(5)]
+    pub burn_tiers: Vec<BurnTier>,
 }
 
 /// Check if given time is after today's burn reset timestamp (for testing with mock time).
@@ -47,36 +64,47 @@ pub fn is_after_burn_reset_with_time(
 }
 
 impl PlatformConfig {
-    pub fn new(
+    pub fn try_new(
         bump: u8,
         admin: Pubkey,
         creator: Pubkey,
         quote_mint: Pubkey,
-        burn_allowance: u16,
-        max_user_daily_burn_count: u16,
-        max_creator_daily_burn_count: u16,
-        user_burn_bp_x100: u32,
-        creator_burn_bp_x100: u32,
+        burn_tiers: Vec<BurnTier>,
         burn_reset_time_of_day_seconds: u32,
-        creator_fee_basis_points: u16,
-        buyback_fee_basis_points: u16,
+        pool_creator_fee_basis_points: u16,
+        pool_topup_fee_basis_points: u16,
         platform_fee_basis_points: u16,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        require!(burn_tiers.len() <= 5, BcpmmError::InvalidBurnTiers);
+        let total_fees =
+            pool_creator_fee_basis_points + pool_topup_fee_basis_points + platform_fee_basis_points;
+        // 1% fee minimum to be able to do reasonable burns
+        require!(
+            total_fees <= 10_000 && total_fees >= 100,
+            BcpmmError::InvalidFeeBasisPoints
+        );
+
+        // check that every burn tier has the amount at most 1/10 of the total fees - keeps the burning reasonably safe
+        // todo doublecheck that 1/10 is the right number
+        require!(
+            !&burn_tiers
+                .iter()
+                .any(|tier| tier.burn_bp_x100 / 100 > total_fees as u32 / 10),
+            BcpmmError::InvalidBurnTiers
+        );
+
+        Ok(Self {
             bump,
             admin,
             creator,
             quote_mint,
-            burn_allowance,
-            max_user_daily_burn_count,
-            max_creator_daily_burn_count,
-            user_burn_bp_x100,
-            creator_burn_bp_x100,
+            burn_tiers,
+            burn_tiers_updated_at: Clock::get()?.unix_timestamp,
             burn_reset_time_of_day_seconds,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
+            pool_creator_fee_basis_points,
+            pool_topup_fee_basis_points,
             platform_fee_basis_points,
-        }
+        })
     }
 
     /// Check if given time is after today's burn reset timestamp.

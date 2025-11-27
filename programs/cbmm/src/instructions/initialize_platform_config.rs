@@ -47,7 +47,7 @@ pub fn initialize_platform_config(
     ctx: Context<InitializePlatformConfig>,
     args: InitializePlatformConfigArgs,
 ) -> Result<()> {
-    ctx.accounts.platform_config.set_inner(PlatformConfig::new(
+    ctx.accounts.platform_config.set_inner(PlatformConfig::try_new(
         ctx.bumps.platform_config,
         args.admin,
         ctx.accounts.creator.key(),

@@ -34,4 +34,6 @@ pub enum BcpmmError {
     InvalidMint,
     #[msg("Invalid platform admin")]
     InvalidPlatformAdmin,
+    #[msg("Invalid burn tiers")]
+    InvalidBurnTiers,
 }

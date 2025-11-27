@@ -122,7 +122,7 @@ impl TestRunner {
             &[cpmm_state::PLATFORM_CONFIG_SEED, creator.pubkey().as_ref()],
             &self.program_id,
         );
-        let platform_config = cpmm_state::PlatformConfig::new(
+        let platform_config = cpmm_state::PlatformConfig::try_new(
             platform_config_bump,
             anchor_lang::prelude::Pubkey::from(creator.pubkey().to_bytes()),
             anchor_lang::prelude::Pubkey::from(creator.pubkey().to_bytes()),
