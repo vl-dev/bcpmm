@@ -105,7 +105,7 @@
 \maketitle
 
 \begin{abstract}
-This whitepaper describes the Constant Burn Market Maker (CBMM) pool, an extension of the standard constant product market maker (CPMM) that uses a virtual quote reserve and built-in burns to enable translating verifiable off-chain activity into on-chain base token supply reduction and price impact. We outline the core mathematical model and safety conditions, and describe a Solana implementation with Continuous Conditional Buybacks (CCB) and practical controls such as burn caps, throttling, and authorization.
+This whitepaper describes the Constant Burn Market Maker (CBMM) pool, an extension of the standard constant product market maker (CPMM) that uses a virtual quote reserve and built-in burns to enable the translation of verifiable off-chain activity into on-chain base token supply reduction and price impact. We outline the core mathematical model and safety conditions, and describe a Solana implementation with Continuous Conditional Buybacks (CCB) and practical controls such as burn caps, throttling, and authorization.
 \end{abstract}
 
 \section{Introduction}
@@ -115,16 +115,16 @@ Constant function market makers (CFMMs) have become a foundational primitive for
 Existing mechanisms provide no built-in way to translate off-chain activity into on-chain price impact. The only mechanism available to drive positive price action is to coordinate manual buy-and-burn operations, where participants purchase tokens and burn them to reduce supply. This requires coordination, creates friction, and does not automatically link rewards to verifiable off-chain behavior.
 However, naively bolting burns onto CFMMs with real reserves creates value-extraction vectors: an attacker can execute sequences of operations that siphon collateral from the pool unless this functionality is carefully constrained.
 
-We present the Constant Burn Market Maker (CBMM), a mechanism that enables tying off-chain events via on-chain burns to underlying asset supply reduction. CBMM utilizes a virtual quote token reserve that is used to support controlled burns without violating pool invariant constraints and enables creating one-sided launch pools. These burns directly increase price proportionally to the amount of base tokens held outside the pool and can be tied to off-chain events. Moreover, to compensate for the virtual reserve reduction that accompanies burns, we implement a real quote token reserve top-up mechanism called Continuous Conditional Buybacks (CCB), which route a portion of trading fees into the real quote token reserve, effectively increasing collateralization and increasing price further. On top of this, we introduce burn caps, symmetric quote-token fees, and pacing and authorization controls that jointly enforce formal safety guarantees against these extraction loops.
+We present the Constant Burn Market Maker (CBMM), a mechanism that enables tying off-chain events via on-chain burns to underlying asset supply reduction. CBMM utilizes a virtual quote token reserve to support controlled burns without violating pool invariant constraints and enables creating one-sided launch pools. These burns directly increase the price proportionally to the amount of base tokens held outside the pool and can be tied to off-chain events. Moreover, to compensate for the virtual reserve reduction that accompanies burns, we implement a real quote token reserve top-up mechanism called Continuous Conditional Buybacks (CCB), which route a portion of trading fees into the real quote token reserve, effectively increasing collateralization and increasing price further. On top of this, we introduce burn caps, symmetric quote-token fees, and pacing and authorization controls that jointly enforce formal safety guarantees against these extraction loops.
 
 The remainder of this paper is structured as follows. Section~\ref{sec:math} develops the mathematical model, derives trading and burning formulas, and analyzes price impact and mitigation of possible attacks. Section~\ref{sec:implementation} describes the on-chain program implementation considerations, including safety mechanisms and configuration considerations.
 
 \section{Mathematical Model}
 \label{sec:math}
 
-In this section we will describe the mathematical model of the CBMM pool. Let us first informally define the key terms used throughout this section. Let there be a CPMM pool with a real quote token reserve $A$ (backed by actual assets), real base token reserve $B$ and virtual quote token reserve $V$ (not backed by assets, used to set the initial price). The pool trading mechanics are defined by the constant product invariant $k = (A+V)B$. We say that this pool is a \textbf{CBMM pool} if it implements the base token burn functionality tied to the virtual reserve reduction as described in subsection \ref{sec:base-token-reserve-burning}.
+In this section we will describe the mathematical model of the CBMM pool. Let us first informally define the key terms used throughout this section. Let there be a CPMM pool with a real quote token reserve $A$ (backed by actual assets), real base token reserve $B$, and virtual quote token reserve $V$ (not backed by assets, used to set the initial price). The pool trading mechanics are defined by the constant product invariant $k = (A+V)B$. We say that this pool is a \textbf{CBMM pool} if it implements the base token burn functionality tied to the virtual reserve reduction as described in subsection \ref{sec:base-token-reserve-burning}.
 
-The CBMM pool is said to be \textbf{insolvent} if its quote token reserves are insufficient to accommodate the sale of all outstanding base tokens; otherwise it is said to be \textbf{solvent}. The goal is to always keep the CBMM pool solvent which can be achieved by adjusting the virtual reserve after each burn.
+The CBMM pool is said to be \textbf{insolvent} if its quote token reserves are insufficient to accommodate the sale of all outstanding base tokens; otherwise it is said to be \textbf{solvent}. The goal is to always keep the CBMM pool solvent, which can be achieved by adjusting the virtual reserve after each burn.
 
 In this whitepaper the CBMM is designed as a base token rollout mechanism, so we do not need to account for any existing supply outside the pool. Moreover, we assume that the initial real quote token reserve $A$ is zero and, therefore, the virtual quote token reserve $V$ sets the initial price of the base token.
 
@@ -200,7 +200,7 @@ Now, if we burn $y$ base tokens with $0 \leq y < T - x$, the post-burn state is
     k_2 &= (A_2 + V_2) B_2.
 \end{align*}
 
-Let's find the condition for the virtual reserve $V_2$ to ensure the pool is solvent. This means that if everyone sells their base tokens back to the pool, there must be sufficient quote tokens to satisfy the sale. The post-sale state must satisfy
+Let us find the condition for the virtual reserve $V_2$ to ensure the pool is solvent. This means that if everyone sells their base tokens back to the pool, there must be sufficient quote tokens to satisfy the sale. The post-sale state must satisfy
 \begin{align*}
     A_3 &\geq 0, &
     B_3 &= T - y, &
@@ -240,7 +240,7 @@ Operationally, burns reduce the base token reserve $B$, tightening depth and ava
 \subsection{Token Reserve Top-up}
 \label{sec:token-reserve-top-up}
 
-As discussed in \cref{sec:price-impact-of-the-burn} burns cause the unwanted side effect of the price curve getting steeper and the initial price being reduced. This effect can be undone by adding quote tokens to the real quote token reserve $A$ which we call \textbf{top-up}. This subsection derives the exact top-up amount needed to restore the base token starting price without changing the logic introduced earlier.
+As discussed in \cref{sec:price-impact-of-the-burn} burns cause the unwanted side effect of the price curve becoming steeper and the initial price being reduced. This effect can be undone by adding quote tokens to the real quote token reserve $A$ which we call \textbf{top-up}. This subsection derives the exact top-up amount needed to restore the base token starting price without changing the logic introduced earlier.
 
 Let $T_i$ denote the total base token supply after $i$ operations. The pre-trade state is
 \begin{align*}
@@ -269,7 +269,7 @@ Next, burn $y$ base tokens ($0 \le y < B_1$). Let $V_2$ denote the virtual reser
     k_2 &= (A_2 + V_2) B_2.
 \end{align*}
 
-Our target is to find a virtual reserve $V_{\mathrm{opt}}$ and a real quote token amount $A_{\mathrm{opt}}$ that keep the worst-case exit price -- the price when all outstanding base tokens are sold back -- at the original value $P_0 = V_0/T_0$. Let's denote the needed top-up amount to achieve the optimal state as $M$. If we manage to achieve this top-up, the pool state will be
+Our target is to find a virtual reserve $V_{\mathrm{opt}}$ and a real quote token amount $A_{\mathrm{opt}}$ that keep the worst-case exit price -- the price when all outstanding base tokens are sold back -- at the original value $P_0 = V_0/T_0$. Let us denote the needed top-up amount to achieve the optimal state as $M$. If we manage to achieve this top-up, the pool state will be
 \begin{align*}
     A_3 &= A_2 + M = A_{\mathrm{opt}}, &
     B_3 &= B_2, &
