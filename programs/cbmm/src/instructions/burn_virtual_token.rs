@@ -30,11 +30,11 @@ pub struct BurnVirtualToken<'info> {
     #[account(mut, seeds = [BCPMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
 
-    #[account(mut, seeds = [USER_BURN_ALLOWANCE_SEED, signer.key().as_ref(), &[pool_owner as u8]], bump)]
+    #[account(mut, seeds = [USER_BURN_ALLOWANCE_SEED, signer.key().as_ref(), pool.platform_config.as_ref(), &[pool_owner as u8]], bump)]
     pub user_burn_allowance: Account<'info, UserBurnAllowance>,
 
-    #[account(mut, seeds = [CENTRAL_STATE_SEED], bump)]
-    pub central_state: Account<'info, CentralState>,
+    #[account(mut, address = pool.platform_config)]
+    pub platform_config: Account<'info, PlatformConfig>,
 }
 
 pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> Result<()> {
@@ -45,23 +45,23 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> R
         BcpmmError::InvalidPoolOwner
     );
     let burn_bp_x100 = if pool_owner {
-        ctx.accounts.central_state.creator_burn_bp_x100
+        ctx.accounts.platform_config.creator_burn_bp_x100
     } else {
-        ctx.accounts.central_state.user_burn_bp_x100
+        ctx.accounts.platform_config.user_burn_bp_x100
     };
     let max_daily_burns = if pool_owner {
-        ctx.accounts.central_state.max_creator_daily_burn_count
+        ctx.accounts.platform_config.max_creator_daily_burn_count
     } else {
-        ctx.accounts.central_state.max_user_daily_burn_count
+        ctx.accounts.platform_config.max_user_daily_burn_count
     };
 
     // Check if we should reset the daily burn count
     // We reset it if we have passed the burn reset window and previous burn was before the reset
     let now = Clock::get()?.unix_timestamp;
-    if ctx.accounts.central_state.is_after_burn_reset(now)?
+    if ctx.accounts.platform_config.is_after_burn_reset(now)?
         && !ctx
             .accounts
-            .central_state
+            .platform_config
             .is_after_burn_reset(ctx.accounts.user_burn_allowance.last_burn_timestamp)?
     {
         ctx.accounts.user_burn_allowance.burns_today = 0;
@@ -73,10 +73,10 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> R
     ctx.accounts.user_burn_allowance.last_burn_timestamp = now;
 
     // Check if we should reset the pool's daily burn count
-    if ctx.accounts.central_state.is_after_burn_reset(now)?
+    if ctx.accounts.platform_config.is_after_burn_reset(now)?
         && !ctx
             .accounts
-            .central_state
+            .platform_config
             .is_after_burn_reset(ctx.accounts.pool.last_burn_timestamp)?
     {
         ctx.accounts.pool.burns_today = 1;
@@ -138,8 +138,12 @@ mod tests {
         let mut runner = TestRunner::new();
         let payer = Keypair::new();
 
-        runner.create_central_state_mock(
+        runner.airdrop(&payer.pubkey(), 10_000_000_000);
+        let a_mint = runner.create_mint(&payer, 9);
+        runner.create_platform_config_mock(
             &payer,
+            a_mint,
+            5,
             5,
             5,
             10_000, // 1%
@@ -149,8 +153,6 @@ mod tests {
             buyback_fee_basis_points,
             platform_fee_basis_points,
         );
-        runner.airdrop(&payer.pubkey(), 10_000_000_000);
-        let a_mint = runner.create_mint(&payer, 9);
         let pool = runner.create_pool_mock(
             &payer,
             a_mint,
@@ -176,13 +178,19 @@ mod tests {
     fn test_burn_virtual_token_as_pool_owner() {
         let (mut runner, pool_owner, _, pool) = setup_test();
 
+        // Get platform_config from pool
+        let pool_account = runner.svm.get_account(&pool.pool).unwrap();
+        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let platform_config = pool_data.platform_config;
+        let platform_config_sdk = solana_sdk::pubkey::Pubkey::from(platform_config.to_bytes());
+
         let owner_burn_allowance = runner
-            .initialize_user_burn_allowance(&pool_owner, pool_owner.pubkey(), true)
+            .initialize_user_burn_allowance(&pool_owner, pool_owner.pubkey(), platform_config_sdk, true)
             .unwrap();
 
         // Can initialize also user burn allowance for other pools
         let user_burn_allowance =
-            runner.initialize_user_burn_allowance(&pool_owner, pool_owner.pubkey(), false);
+            runner.initialize_user_burn_allowance(&pool_owner, pool_owner.pubkey(), platform_config_sdk, false);
         assert!(user_burn_allowance.is_ok());
 
         // Burn at a certain timestamp
@@ -217,10 +225,16 @@ mod tests {
     fn test_burn_virtual_token_as_user() {
         let (mut runner, _pool_owner, user, pool) = setup_test();
 
+        // Get platform_config from pool
+        let pool_account = runner.svm.get_account(&pool.pool).unwrap();
+        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let platform_config = pool_data.platform_config;
+        let platform_config_sdk = solana_sdk::pubkey::Pubkey::from(platform_config.to_bytes());
+
         // Burn at a certain timestamp
         runner.set_system_clock(1682899200);
         let user_burn_allowance = runner
-            .initialize_user_burn_allowance(&user, user.pubkey(), false)
+            .initialize_user_burn_allowance(&user, user.pubkey(), platform_config_sdk, false)
             .unwrap();
 
         let burn_result = runner.burn_virtual_token(&user, pool.pool, user_burn_allowance, false);
@@ -246,11 +260,18 @@ mod tests {
     fn test_burn_virtual_token_twice() {
         let (mut runner, _pool_owner, user, pool) = setup_test();
 
+        // Get platform_config from pool
+        let pool_account = runner.svm.get_account(&pool.pool).unwrap();
+        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let platform_config = pool_data.platform_config;
+        let platform_config_sdk = solana_sdk::pubkey::Pubkey::from(platform_config.to_bytes());
+
         // Set up user burn allowance with 1 burn already recorded (1 hour ago)
         let one_hour_ago = 1682899200 - 3600; // 1 hour before the test timestamp
         let user_burn_allowance = runner.create_user_burn_allowance_mock(
             user.pubkey(),
             user.pubkey(),
+            platform_config_sdk,
             1,
             one_hour_ago,
             false,
@@ -279,11 +300,18 @@ mod tests {
     fn test_burn_virtual_token_after_reset() {
         let (mut runner, _pool_owner, user, pool) = setup_test();
 
+        // Get platform_config from pool
+        let pool_account = runner.svm.get_account(&pool.pool).unwrap();
+        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let platform_config = pool_data.platform_config;
+        let platform_config_sdk = solana_sdk::pubkey::Pubkey::from(platform_config.to_bytes());
+
         // Set up user burn allowance with 1 burn already recorded
         let one_hour_ago = 1682899200;
         let user_burn_allowance = runner.create_user_burn_allowance_mock(
             user.pubkey(),
             user.pubkey(),
+            platform_config_sdk,
             1,
             one_hour_ago,
             false,
@@ -312,11 +340,18 @@ mod tests {
     fn test_burn_virtual_token_past_limit() {
         let (mut runner, _pool_owner, user, pool) = setup_test();
 
+        // Get platform_config from pool
+        let pool_account = runner.svm.get_account(&pool.pool).unwrap();
+        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let platform_config = pool_data.platform_config;
+        let platform_config_sdk = solana_sdk::pubkey::Pubkey::from(platform_config.to_bytes());
+
         // Set up user burn allowance with 5 burns already recorded (1 hour ago)
         let one_hour_ago = 1682899200 - 3600; // 1 hour before the test timestamp
         let user_burn_allowance = runner.create_user_burn_allowance_mock(
             user.pubkey(),
             user.pubkey(),
+            platform_config_sdk,
             5,
             one_hour_ago,
             false,
@@ -332,11 +367,18 @@ mod tests {
     fn test_burn_virtual_token_past_limit_after_reset() {
         let (mut runner, _pool_owner, user, pool) = setup_test();
 
+        // Get platform_config from pool
+        let pool_account = runner.svm.get_account(&pool.pool).unwrap();
+        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let platform_config = pool_data.platform_config;
+        let platform_config_sdk = solana_sdk::pubkey::Pubkey::from(platform_config.to_bytes());
+
         // Set up user burn allowance with 5 burns already recorded (1 hour ago)
         let one_hour_ago = 1682899200 - 3600; // 1 hour before the test timestamp
         let user_burn_allowance = runner.create_user_burn_allowance_mock(
             user.pubkey(),
             user.pubkey(),
+            platform_config_sdk,
             5,
             one_hour_ago,
             false,

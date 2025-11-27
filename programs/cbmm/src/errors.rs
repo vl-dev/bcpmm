@@ -32,4 +32,6 @@ pub enum BcpmmError {
     InvalidPoolOwner,
     #[msg("Invalid mint")]
     InvalidMint,
+    #[msg("Invalid platform admin")]
+    InvalidPlatformAdmin,
 }

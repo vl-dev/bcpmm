@@ -104,9 +104,11 @@ impl TestRunner {
         *account_address
     }
 
-    pub fn create_central_state_mock(
+    pub fn create_platform_config_mock(
         &mut self,
-        payer: &Keypair,
+        creator: &Keypair,
+        a_mint: Pubkey,
+        burn_allowance: u16,
         daily_burn_allowance: u16,
         creator_daily_burn_allowance: u16,
         user_burn_bp_x100: u32,
@@ -116,11 +118,16 @@ impl TestRunner {
         buyback_fee_basis_points: u16,
         platform_fee_basis_points: u16,
     ) -> Pubkey {
-        let (central_state_pda, central_state_bump) =
-            Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
-        let central_state = cpmm_state::CentralState::new(
-            central_state_bump,
-            anchor_lang::prelude::Pubkey::from(payer.pubkey().to_bytes()),
+        let (platform_config_pda, platform_config_bump) = Pubkey::find_program_address(
+            &[cpmm_state::PLATFORM_CONFIG_SEED, creator.pubkey().as_ref()],
+            &self.program_id,
+        );
+        let platform_config = cpmm_state::PlatformConfig::new(
+            platform_config_bump,
+            anchor_lang::prelude::Pubkey::from(creator.pubkey().to_bytes()),
+            anchor_lang::prelude::Pubkey::from(creator.pubkey().to_bytes()),
+            anchor_lang::prelude::Pubkey::from(a_mint.to_bytes()),
+            burn_allowance,
             daily_burn_allowance,
             creator_daily_burn_allowance,
             user_burn_bp_x100,
@@ -130,13 +137,14 @@ impl TestRunner {
             buyback_fee_basis_points,
             platform_fee_basis_points,
         );
-        self.put_account_on_chain(&central_state_pda, central_state)
+        self.put_account_on_chain(&platform_config_pda, platform_config)
     }
 
     pub fn create_user_burn_allowance_mock(
         &mut self,
         user: Pubkey,
         payer: Pubkey,
+        platform_config: Pubkey,
         burns_today: u16,
         last_burn_timestamp: i64,
         is_pool_owner: bool,
@@ -145,6 +153,7 @@ impl TestRunner {
             &[
                 cpmm_state::USER_BURN_ALLOWANCE_SEED,
                 user.as_ref(),
+                platform_config.as_ref(),
                 &[is_pool_owner as u8],
             ],
             &self.program_id,
@@ -226,15 +235,18 @@ impl TestRunner {
         buyback_fees_balance: u64,
         a_outstanding_topup: u64,
     ) -> TestPool {
-        let (central_state_pda, _central_state_bump) =
-            Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
+        let (platform_config_pda, _platform_config_bump) = Pubkey::find_program_address(
+            &[cpmm_state::PLATFORM_CONFIG_SEED, payer.pubkey().as_ref()],
+            &self.program_id,
+        );
 
-        let central_state = self.svm.get_account(&central_state_pda).unwrap();
+        let platform_config = self.svm.get_account(&platform_config_pda).unwrap();
 
-        let central_state_data =
-            cpmm_state::CentralState::try_deserialize(&mut central_state.data.as_slice()).unwrap();
+        let platform_config_data =
+            cpmm_state::PlatformConfig::try_deserialize(&mut platform_config.data.as_slice())
+                .unwrap();
 
-        self.put_account_on_chain(&central_state_pda, central_state_data);
+        self.put_account_on_chain(&platform_config_pda, platform_config_data);
 
         // Setup PDAs consistent with on-chain seeds
         let (pool_pda, pool_bump) = Pubkey::find_program_address(
@@ -251,6 +263,7 @@ impl TestRunner {
             bump: pool_bump,
             creator: anchor_lang::prelude::Pubkey::from(payer.pubkey().to_bytes()),
             pool_index: POOL_INDEX,
+            platform_config: anchor_lang::prelude::Pubkey::from(platform_config_pda.to_bytes()),
             a_mint: anchor_lang::prelude::Pubkey::from(a_mint.to_bytes()),
             a_reserve,
             a_virtual_reserve,
@@ -316,12 +329,14 @@ impl TestRunner {
             &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
         );
 
-        // Derive the CentralState PDA
-        let (central_state_pda, _central_bump) =
-            Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
+        // Get platform_config from pool account
+        let pool_account = self.svm.get_account(&pool).unwrap();
+        let pool_data =
+            cpmm_state::BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let platform_config_pda = pool_data.platform_config;
 
-        let central_state_ata = anchor_spl::associated_token::get_associated_token_address(
-            &anchor_lang::prelude::Pubkey::from(central_state_pda.to_bytes()),
+        let platform_config_ata = anchor_spl::associated_token::get_associated_token_address(
+            &anchor_lang::prelude::Pubkey::from(platform_config_pda.to_bytes()),
             &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
         );
 
@@ -331,8 +346,8 @@ impl TestRunner {
             AccountMeta::new(virtual_token_account, false),
             AccountMeta::new(pool, false),
             AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false),
-            AccountMeta::new(Pubkey::from(central_state_ata.to_bytes()), false),
-            AccountMeta::new(central_state_pda, false),
+            AccountMeta::new(Pubkey::from(platform_config_ata.to_bytes()), false),
+            AccountMeta::new(Pubkey::from(platform_config_pda.to_bytes()), false),
             AccountMeta::new(mint, false),
             AccountMeta::new_readonly(
                 Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
@@ -362,11 +377,15 @@ impl TestRunner {
             &anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
             &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
         );
-        let central_state_pda =
-            Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id).0;
 
-        let central_state_ata = anchor_spl::associated_token::get_associated_token_address(
-            &anchor_lang::prelude::Pubkey::from(central_state_pda.to_bytes()),
+        // Get platform_config from pool account
+        let pool_account = self.svm.get_account(&pool).unwrap();
+        let pool_data =
+            cpmm_state::BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let platform_config_pda = pool_data.platform_config;
+
+        let platform_config_ata = anchor_spl::associated_token::get_associated_token_address(
+            &anchor_lang::prelude::Pubkey::from(platform_config_pda.to_bytes()),
             &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
         );
 
@@ -376,8 +395,8 @@ impl TestRunner {
             AccountMeta::new(virtual_token_account, false),
             AccountMeta::new(pool, false),
             AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false),
-            AccountMeta::new(Pubkey::from(central_state_ata.to_bytes()), false),
-            AccountMeta::new(central_state_pda, false),
+            AccountMeta::new(Pubkey::from(platform_config_ata.to_bytes()), false),
+            AccountMeta::new(Pubkey::from(platform_config_pda.to_bytes()), false),
             AccountMeta::new(mint, false),
             AccountMeta::new(solana_sdk_ids::system_program::ID, false),
             AccountMeta::new_readonly(
@@ -395,17 +414,15 @@ impl TestRunner {
         &mut self,
         payer: &Keypair,
         owner: Pubkey,
+        platform_config: Pubkey,
         is_pool_owner: bool,
     ) -> std::result::Result<Pubkey, TransactionError> {
-        // Derive the CentralState PDA
-        let (central_state_pda, _central_bump) =
-            Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
-
         // Derive the UserBurnAllowance PDA
         let (user_burn_allowance_pda, _bump) = Pubkey::find_program_address(
             &[
                 cpmm_state::USER_BURN_ALLOWANCE_SEED,
                 owner.as_ref(),
+                platform_config.as_ref(),
                 &[is_pool_owner as u8],
             ],
             &self.program_id,
@@ -414,8 +431,8 @@ impl TestRunner {
         let accounts = vec![
             AccountMeta::new(payer.pubkey(), true),
             AccountMeta::new_readonly(owner, false),
-            AccountMeta::new_readonly(central_state_pda, false),
             AccountMeta::new(user_burn_allowance_pda, false),
+            AccountMeta::new_readonly(platform_config, false),
             AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
         ];
 
@@ -436,15 +453,17 @@ impl TestRunner {
         user_burn_allowance: Pubkey,
         is_pool_owner: bool,
     ) -> std::result::Result<(), TransactionError> {
-        // Derive the CentralState PDA
-        let (central_state_pda, _central_bump) =
-            Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
+        // Get platform_config from pool account
+        let pool_account = self.svm.get_account(&pool).unwrap();
+        let pool_data =
+            cpmm_state::BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let platform_config_pda = pool_data.platform_config;
 
         let accounts = vec![
             AccountMeta::new(payer.pubkey(), true),
             AccountMeta::new(pool, false),
             AccountMeta::new(user_burn_allowance, false),
-            AccountMeta::new(central_state_pda, false),
+            AccountMeta::new(Pubkey::from(platform_config_pda.to_bytes()), false),
         ];
 
         self.send_instruction("burn_virtual_token", accounts, is_pool_owner, &[payer])
@@ -525,13 +544,16 @@ impl TestRunner {
             &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
         );
 
-        let (central_state_pda, _central_bump) =
-            Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id);
+        // Get platform_config from pool account
+        let pool_account = self.svm.get_account(&pool).unwrap();
+        let pool_data =
+            cpmm_state::BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let platform_config_pda = pool_data.platform_config;
 
         let accounts = vec![
             AccountMeta::new(owner.pubkey(), true),
             AccountMeta::new(owner_ata, false),
-            AccountMeta::new(central_state_pda, false),
+            AccountMeta::new(Pubkey::from(platform_config_pda.to_bytes()), false),
             AccountMeta::new(pool, false),
             AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false),
             AccountMeta::new(mint, false),
@@ -547,24 +569,29 @@ impl TestRunner {
         self.send_instruction("claim_creator_fees", accounts, args, &[owner])
     }
 
-    pub fn claim_admin_fees(
+    pub fn claim_platform_fees(
         &mut self,
         admin: &Keypair,
+        creator: Pubkey,
         admin_ata: Pubkey,
         mint: Pubkey,
     ) -> std::result::Result<(), TransactionError> {
-        let central_state_pda =
-            Pubkey::find_program_address(&[cpmm_state::CENTRAL_STATE_SEED], &self.program_id).0;
-        let central_state_ata = anchor_spl::associated_token::get_associated_token_address(
-            &anchor_lang::prelude::Pubkey::from(central_state_pda.to_bytes()),
+        let platform_config_pda = Pubkey::find_program_address(
+            &[cpmm_state::PLATFORM_CONFIG_SEED, creator.as_ref()],
+            &self.program_id,
+        )
+        .0;
+        let platform_config_ata = anchor_spl::associated_token::get_associated_token_address(
+            &anchor_lang::prelude::Pubkey::from(platform_config_pda.to_bytes()),
             &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
         );
 
         let accounts = vec![
             AccountMeta::new(admin.pubkey(), true),
+            AccountMeta::new_readonly(creator, false),
             AccountMeta::new(admin_ata, false),
-            AccountMeta::new(central_state_pda, false),
-            AccountMeta::new(Pubkey::from(central_state_ata.to_bytes()), false),
+            AccountMeta::new(platform_config_pda, false),
+            AccountMeta::new(Pubkey::from(platform_config_ata.to_bytes()), false),
             AccountMeta::new(mint, false),
             AccountMeta::new_readonly(
                 Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
@@ -577,6 +604,6 @@ impl TestRunner {
             AccountMeta::new(solana_sdk_ids::system_program::ID, false),
         ];
 
-        self.send_instruction("claim_admin_fees", accounts, (), &[admin])
+        self.send_instruction("claim_platform_fees", accounts, (), &[admin])
     }
 }

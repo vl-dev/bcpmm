@@ -61,13 +61,13 @@ pub struct BuyVirtualToken<'info> {
 
     #[account(mut,
         associated_token::mint = a_mint,
-        associated_token::authority = central_state,
-        associated_token::token_program = token_program        
+        associated_token::authority = platform_config,
+        associated_token::token_program = token_program
     )]
-    pub central_state_ata: InterfaceAccount<'info, TokenAccount>,
+    pub platform_config_ata: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut, seeds = [CENTRAL_STATE_SEED], bump)]
-    pub central_state: Account<'info, CentralState>,
+    #[account(mut, address = pool.platform_config)]
+    pub platform_config: Account<'info, PlatformConfig>,
 
     #[account(address = pool.a_mint @ BcpmmError::InvalidMint)]
     pub a_mint: InterfaceAccount<'info, Mint>,
@@ -110,12 +110,12 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
          args.a_amount - fees.platform_fees_amount,
          ctx.accounts.a_mint.decimals)?;
 
-    
-    // Transfer platform fees to central state ata
+
+    // Transfer platform fees to platform config ata
     let cpi_accounts = TransferChecked {
         mint: ctx.accounts.a_mint.to_account_info(),
         from: ctx.accounts.payer_ata.to_account_info(),
-        to: ctx.accounts.central_state_ata.to_account_info(),
+        to: ctx.accounts.platform_config_ata.to_account_info(),
         authority: ctx.accounts.payer.to_account_info(),
     };
     let cpi_program = ctx.accounts.token_program.to_account_info();
@@ -174,17 +174,19 @@ mod tests {
         let payer_ata = runner.create_associated_token_account(&payer, a_mint, &payer.pubkey());
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
 
-        let central_state = runner.create_central_state_mock(&payer, 
+        let platform_config = runner.create_platform_config_mock(&payer,
+            a_mint,
             5,
-             5,
-              2, 
-            1, 
-            10000, 
-            creator_fee_basis_points, 
-            buyback_fee_basis_points, 
+            5,
+            5,
+            2,
+            1,
+            10000,
+            creator_fee_basis_points,
+            buyback_fee_basis_points,
             platform_fee_basis_points);
-        // central state ata
-        runner.create_associated_token_account(&payer, a_mint, &central_state);
+        // platform config ata
+        runner.create_associated_token_account(&payer, a_mint, &platform_config);
 
         let test_pool = runner.create_pool_mock(
             &payer,
