@@ -115,7 +115,7 @@ Constant function market makers (CFMMs) have become a foundational primitive for
 Existing mechanisms provide no built-in way to translate off-chain activity into on-chain price impact. The only mechanism available to drive positive price action is to coordinate manual buy-and-burn operations, where participants purchase tokens and burn them to reduce supply. This requires coordination, creates friction, and does not automatically link rewards to verifiable off-chain behavior.
 However, naively bolting burns onto CFMMs with real reserves creates value-extraction vectors: an attacker can execute sequences of operations that siphon collateral from the pool unless this functionality is carefully constrained.
 
-We present the Constant Burn Market Maker (CBMM), a mechanism that enables tying off-chain events via on-chain burns to underlying asset supply reduction. CBMM utilizes a virtual quote token reserve that is used to support controlled burns without violating pool invariant constraints and enables creating one-sided launch pools. These burns directly increase price proportionally to the amount of base tokens held outside the pool and can be tied to off-chain events. Moreover, to compensate for the virtual reserve reduction that accompanies burns, we implement a real queue token reserve top-up mechanism called Continuous Conditional Buybacks (CCB), which route a portion of trading fees into the real token reserve, effectively increasing collateralization and increasing price further. On top of this, we introduce burn caps, symmetric quote-token fees, and pacing and authorization controls that jointly enforce formal safety guarantees against these extraction loops.
+We present the Constant Burn Market Maker (CBMM), a mechanism that enables tying off-chain events via on-chain burns to underlying asset supply reduction. CBMM utilizes a virtual quote token reserve that is used to support controlled burns without violating pool invariant constraints and enables creating one-sided launch pools. These burns directly increase price proportionally to the amount of base tokens held outside the pool and can be tied to off-chain events. Moreover, to compensate for the virtual reserve reduction that accompanies burns, we implement a real queue token reserve top-up mechanism called Continuous Conditional Buybacks (CCB), which route a portion of trading fees into the real quote token reserve, effectively increasing collateralization and increasing price further. On top of this, we introduce burn caps, symmetric quote-token fees, and pacing and authorization controls that jointly enforce formal safety guarantees against these extraction loops.
 
 The remainder of this paper is structured as follows. Section~\ref{sec:math} develops the mathematical model, derives trading and burning formulas, and analyzes price impact and mitigation of possible attacks. Section~\ref{sec:implementation} describes the on-chain program implementation considerations, including safety mechanisms and configuration considerations.
 
@@ -631,7 +631,7 @@ The implementation concepts described in this section are theoretical and might 
 \subsection{Continuous Conditional Buybacks}
 \label{sec:continuous-conditional-buybacks}
 
-As discussed in \cref{sec:base-token-reserve-burning}, burns require a reduction of the virtual reserve from $V_1$ to $V_2$ (with $V_2 < V_1$). This adjustment reduces the positive impact of the burn. We implement the quote token reserve top-up mechanism described in \cref{sec:token-reserve-top-up} as \textbf{Continuous Conditional Buybacks} (CCB) redirecting a portion of trading fees into the Real Token Reserve $A$ in real time.
+As discussed in \cref{sec:base-token-reserve-burning}, burns require a reduction of the virtual reserve from $V_1$ to $V_2$ (with $V_2 < V_1$). This adjustment reduces the positive impact of the burn. We implement the quote token reserve top-up mechanism described in \cref{sec:token-reserve-top-up} as \textbf{Continuous Conditional Buybacks} (CCB) redirecting a portion of trading fees into the real quote token reserve $A$ in real time.
 
 Let $\Delta V = V_1 - V_2 \ge 0$ denote the required reduction in virtual reserve implied by Section~\ref{sec:math}. The implemented CCB mechanism then works as follows:
 
@@ -664,7 +664,7 @@ As established in the mathematical model (see \cref{thm:topup-safety} and the su
 
 The Continuous Conditional Buybacks logic described in \cref{sec:continuous-conditional-buybacks} has a positive impact on the required top-up size after next burn. The fees gathered on every trade are immediately applied to increase the real quote token reserve to get to the optimal value (directly impacting the quote token virtual reserve as well), so the pool continuously drifts back toward the optimal state before the next burn. 
 
-The immediate``full'' top-up after a burn (from \cref{sec:token-reserve-top-up}) only triggers when $A=A_{\mathrm{opt}}$ and $V=V_{\mathrm{opt}}$ and the fee vault already holds $M$, preventing a burn from executing ahead of the capital needed to reduce $V$. If trading volume never fills the vault, the loop defaults to the simpler buy--burn--sell case analyzed earlier, which is inherently easier to defend.
+The immediate ``full'' top-up after a burn (from \cref{sec:token-reserve-top-up}) only triggers when $A=A_{\mathrm{opt}}$ and $V=V_{\mathrm{opt}}$ and the fee vault already holds $M$, preventing a burn from executing ahead of the capital needed to reduce $V$. If trading volume never fills the vault, the loop defaults to the simpler buy--burn--sell case analyzed earlier, which is inherently easier to defend.
 
 
 \subsubsection{Burn authority}
@@ -674,19 +674,19 @@ If off-chain control of the user activity is needed we can implement a centraliz
 
 \subsubsection{Throttling mechanism}
 
-Because attacks can consist of several burns chained together, we rate-limit how many burns may be executed for a pool within a given time window. This gives honest traders time to react, forces bots to spread their attempts out in time, and makes it much harder to pre-script a profitable sequence. There are two possible approaches to handling the throttle sarutartion:
+Because attacks can consist of several burns chained together, we rate-limit how many burns may be executed for a pool within a given time window. This gives honest traders time to react, forces bots to spread their attempts out in time, and makes it much harder to pre-script a profitable sequence. There are two possible approaches to handling the throttle saturation:
 \begin{itemize}
     \item \textbf{Reject excess burns:} Subsequent burn instructions are rejected until the window resets. This is the most straightforward approach, but can interfere with the user experience, as burns following an off-chain action might be rejected.
     \item \textbf{Queue and defer burns:} Burn amounts are queued and executed later when the throttle window is reset. This approach is more flexible and improves user experience, but it requires a more complex implementation.
 \end{itemize}
 
-If the Burn Authority from \cref{sec:burn-authority} is employed, the throttling logic is fully customizable off-chain and the on-chain logic can fe fully skipped.
+If the Burn Authority from \cref{sec:burn-authority} is employed, the throttling logic is fully customizable off-chain and the on-chain logic can be fully skipped.
 
 \subsubsection{Daily burn limits}
 
 To be able to restrict the number of impactful off-chain events (and accompanying burns) per user we keep per-wallet daily burn limits in a lightweight on-chain account, keyed by the wallet address. It records the burn count over the past 24 hours plus the timestamp of the most recent burn. Creation is permissionless (same pattern as e.g. SPL Associated Token Accounts) so anyone can fund~\cite{SolanaRent} the account for a given user. If an account sits idle for $\ge 24$ hours it can be closed and the rent returned to the original funding wallet. Once a user hits the configured ceiling, more burns are rejected until the window resets.
 
-However, this does not protect against Sibyl attacks and is mainly implemented as a convenience mechanism to be able to track the faithful users and restrict their amount of impactful off-chain activity.
+However, this does not protect against Sybil attacks and is mainly implemented as a convenience mechanism to be able to track the faithful users and restrict their amount of impactful off-chain activity.
 
 The proposed mechanism can be used to restrict activity across all pools on the platform as it is not specific to a single pool. If specificity is required, a separate account can be used for each user and pool, which would incur additional funding costs. To minimize these costs and improve scalability, equivalent functionality could be realized via State Compression using Concurrent Merkle Trees~\cite{XiaoEtAl2023ConcurrentMerkleTrees}, at the cost of off-chain infrastructure dependence.
 
