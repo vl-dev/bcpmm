@@ -20,9 +20,6 @@ pub struct ClaimCreatorFees<'info> {
     )]
     pub owner_ata: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut, seeds = [CENTRAL_STATE_SEED], bump)]
-    pub central_state: Account<'info, CentralState>,
-
     #[account(mut, seeds = [BCPMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
     pub pool: Account<'info, BcpmmPool>,
 
@@ -89,16 +86,18 @@ mod tests {
         let a_mint = runner.create_mint(&owner, 9);
         let owner_ata = runner.create_associated_token_account(&owner, a_mint, &owner.pubkey());
 
-        runner.create_central_state_mock(&owner, 
+        runner.create_platform_config_mock(&owner,
+            a_mint,
             5,
-             5,
-              2,
-              1,
-              10000,
-              creator_fee_basis_points,
-              buyback_fee_basis_points,
-              platform_fee_basis_points,
-            );
+            5,
+            5,
+            2,
+            1,
+            10000,
+            creator_fee_basis_points,
+            buyback_fee_basis_points,
+            platform_fee_basis_points,
+        );
 
         let pool_created = runner.create_pool_mock(
             &owner,

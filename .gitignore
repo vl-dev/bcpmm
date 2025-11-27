@@ -40,3 +40,5 @@ test-ledger
 
 # LaTeX build directory
 whitepaper/build/
+
+.plan

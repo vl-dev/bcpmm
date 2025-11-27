@@ -7,7 +7,7 @@ use anchor_spl::token_interface::{
     transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
 };
 
-pub const CENTRAL_STATE_SEED: &[u8] = b"central_state";
+pub const PLATFORM_CONFIG_SEED: &[u8] = b"platform_config";
 pub const BCPMM_POOL_SEED: &[u8] = b"bcpmm_pool";
 pub const BCPMM_POOL_INDEX_SEED: u32 = 0; // this is introduced for extensibility - if we ever need more that one pool per user, we can use this to differentiate them
 pub const VIRTUAL_TOKEN_ACCOUNT_SEED: &[u8] = b"virtual_token_account";
@@ -18,9 +18,13 @@ pub const DEFAULT_B_MINT_RESERVE: u64 = 1_000_000_000 * 10u64.pow(DEFAULT_B_MINT
 
 #[account]
 #[derive(Default, InitSpace)]
-pub struct CentralState {
+pub struct PlatformConfig {
     pub bump: u8,
     pub admin: Pubkey,
+    pub creator: Pubkey,
+    // todo burn authority
+    pub quote_mint: Pubkey,
+    pub burn_allowance: u16,
     pub max_user_daily_burn_count: u16,
     pub max_creator_daily_burn_count: u16,
     pub user_burn_bp_x100: u32,
@@ -42,10 +46,13 @@ pub fn is_after_burn_reset_with_time(
     time_to_check >= todays_reset_ts
 }
 
-impl CentralState {
+impl PlatformConfig {
     pub fn new(
         bump: u8,
         admin: Pubkey,
+        creator: Pubkey,
+        quote_mint: Pubkey,
+        burn_allowance: u16,
         max_user_daily_burn_count: u16,
         max_creator_daily_burn_count: u16,
         user_burn_bp_x100: u32,
@@ -58,6 +65,9 @@ impl CentralState {
         Self {
             bump,
             admin,
+            creator,
+            quote_mint,
+            burn_allowance,
             max_user_daily_burn_count,
             max_creator_daily_burn_count,
             user_burn_bp_x100,
@@ -91,6 +101,8 @@ pub struct BcpmmPool {
     pub creator: Pubkey,
     /// Pool index per creator
     pub pool_index: u32,
+    /// Platform config used by this pool
+    pub platform_config: Pubkey,
 
     /// A mint address
     pub a_mint: Pubkey,
@@ -121,7 +133,6 @@ pub struct BcpmmPool {
     /// Burn allowance for the pool
     pub burns_today: u16,
     pub last_burn_timestamp: i64,
-
     // TODO: burn amounts here?
 }
 
@@ -130,6 +141,7 @@ impl BcpmmPool {
         bump: u8,
         creator: Pubkey,
         pool_index: u32,
+        platform_config: Pubkey,
         a_mint: Pubkey,
         a_virtual_reserve: u64,
         creator_fee_basis_points: u16,
@@ -146,6 +158,7 @@ impl BcpmmPool {
             bump,
             creator,
             pool_index,
+            platform_config,
             a_mint,
             a_reserve: 0,
             a_virtual_reserve,

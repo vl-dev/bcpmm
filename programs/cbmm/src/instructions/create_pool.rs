@@ -33,33 +33,36 @@ pub struct CreatePool<'info> {
     )]
     pub pool_ata: InterfaceAccount<'info, TokenAccount>,    
 
-    #[account(mut)]
-    pub central_state: Account<'info, CentralState>,
-
     #[account(
-        init_if_needed, 
-        payer = payer, 
-        associated_token::mint = a_mint, 
-        associated_token::authority = central_state, 
+        mut,
+        seeds = [PLATFORM_CONFIG_SEED, platform_config.creator.key().as_ref()],
+        bump = platform_config.bump
+    )]
+    pub platform_config: Account<'info, PlatformConfig>,
+
+    #[account(        
+        associated_token::mint = a_mint,
+        associated_token::authority = platform_config,
         associated_token::token_program = token_program
     )]
-    pub central_state_ata: InterfaceAccount<'info, TokenAccount>,
+    pub platform_config_ata: InterfaceAccount<'info, TokenAccount>,
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 
-pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {    
-    let central_state = &ctx.accounts.central_state;
+pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
+    let platform_config = &ctx.accounts.platform_config;
     ctx.accounts.pool.set_inner(BcpmmPool::try_new(
         ctx.bumps.pool,
         ctx.accounts.payer.key(),
         BCPMM_POOL_INDEX_SEED,
+        ctx.accounts.platform_config.key(),
         ctx.accounts.a_mint.key(),
         args.a_virtual_reserve,
-        central_state.creator_fee_basis_points,
-        central_state.buyback_fee_basis_points,
-        central_state.platform_fee_basis_points,
+        platform_config.creator_fee_basis_points,
+        platform_config.buyback_fee_basis_points,
+        platform_config.platform_fee_basis_points,
     )?);
     Ok(())
 }

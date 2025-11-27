@@ -17,11 +17,11 @@ declare_id!("CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj");
 pub mod cbmm {
     use super::*;
 
-    pub fn initialize_central_state(
-        ctx: Context<InitializeCentralState>,
-        args: InitializeCentralStateArgs,
+    pub fn initialize_platform_config(
+        ctx: Context<InitializePlatformConfig>,
+        args: InitializePlatformConfigArgs,
     ) -> Result<()> {
-        instructions::initialize_central_state(ctx, args)
+        instructions::initialize_platform_config(ctx, args)
     }
 
     pub fn initialize_user_burn_allowance(
@@ -74,7 +74,7 @@ pub mod cbmm {
     ) -> Result<()> {
         instructions::claim_creator_fees(ctx, args)
     }
-    pub fn claim_admin_fees(ctx: Context<ClaimAdminFees>) -> Result<()> {
-        instructions::claim_admin_fees(ctx)
+    pub fn claim_platform_fees(ctx: Context<ClaimPlatformFees>) -> Result<()> {
+        instructions::claim_platform_fees(ctx)
     }
 }

@@ -12,17 +12,16 @@ pub struct InitializeUserBurnAllowance<'info> {
     /// CHECK: This is just a pubkey, not an account
     pub owner: UncheckedAccount<'info>,
 
-    #[account(seeds = [CENTRAL_STATE_SEED], bump)]
-    pub central_state: Account<'info, CentralState>,
-
     #[account(
         init,
         payer = payer,
         space = 8 + UserBurnAllowance::INIT_SPACE,
-        seeds = [USER_BURN_ALLOWANCE_SEED, owner.key().as_ref(), &[pool_owner as u8]],
+        seeds = [USER_BURN_ALLOWANCE_SEED, owner.key().as_ref(), platform_config.key().as_ref(), &[pool_owner as u8]],
         bump
     )]
     pub user_burn_allowance: Account<'info, UserBurnAllowance>,
+
+    pub platform_config: Account<'info, PlatformConfig>,
 
     pub system_program: Program<'info, System>,
 }

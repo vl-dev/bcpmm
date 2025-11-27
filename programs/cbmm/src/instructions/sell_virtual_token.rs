@@ -58,13 +58,13 @@ pub struct SellVirtualToken<'info> {
 
     #[account(mut,
         associated_token::mint = a_mint,
-        associated_token::authority = central_state,
-        associated_token::token_program = token_program        
+        associated_token::authority = platform_config,
+        associated_token::token_program = token_program
     )]
-    pub central_state_ata: InterfaceAccount<'info, TokenAccount>,
+    pub platform_config_ata: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut, seeds = [CENTRAL_STATE_SEED], bump)]
-    pub central_state: Account<'info, CentralState>,
+    #[account(mut, address = pool.platform_config)]
+    pub platform_config: Account<'info, PlatformConfig>,
 
     pub a_mint: InterfaceAccount<'info, Mint>,
     pub system_program: Program<'info, System>,
@@ -107,7 +107,7 @@ pub fn sell_virtual_token(
         &pool_account_info,
         &ctx.accounts.a_mint,
         &ctx.accounts.pool_ata,
-        &ctx.accounts.central_state_ata,
+        &ctx.accounts.platform_config_ata,
         &ctx.accounts.token_program,
     )?;
     emit!(SellEvent {
@@ -158,10 +158,10 @@ mod tests {
         let a_mint = runner.create_mint(&payer, 9);
         let payer_ata = runner.create_associated_token_account(&payer, a_mint, &payer.pubkey());
         runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
-        let central_state = runner.create_central_state_mock(&payer, 5, 5, 2, 1, 10000, creator_fee_basis_points, buyback_fee_basis_points, platform_fee_basis_points);
+        let platform_config = runner.create_platform_config_mock(&payer, a_mint, 5, 5, 5, 2, 1, 10000, creator_fee_basis_points, buyback_fee_basis_points, platform_fee_basis_points);
 
-        // central state ata
-        runner.create_associated_token_account(&payer, a_mint, &central_state);
+        // platform config ata
+        runner.create_associated_token_account(&payer, a_mint, &platform_config);
 
         let created_pool = runner.create_pool_mock(
             &payer,
