@@ -147,6 +147,7 @@ impl CompoundingRateLimiter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_case::test_case;
 
     // Constants chosen to exercise the limiter around a 5% soft limit.
     const SOFT_LIMIT: u64 = 50000; // 5% (500 bps x100)
@@ -155,108 +156,90 @@ mod tests {
     const DECAY_RATE_PER_SEC: u64 = 100; // 1 bps per second decay
     const START_TIME: i64 = 0;
 
-    #[test]
-    fn test_scenario_step_by_step() {
-        let mut limiter = CompoundingRateLimiter::new(START_TIME);
-
-        // Scenario 1: partial fill near the soft limit.
-        limiter.accumulated_stress_bp_x10k = 4_800_000;
+    #[test_case(
+        // pre: accumulated, pending, last_update_ts
+        4_800_000, 0, START_TIME,
+        // burn input
+        BURN_INPUT,
+        // call timestamp
+        START_TIME,
+        // expected post state: accumulated, pending, last_update_ts
+        5_000_000, 801_603, START_TIME,
+        // expected result
+        RateLimitResult::ExecutePartial(2000);
+        "partial_fill_near_soft_limit"
+    )]
+    #[test_case(
+        // pre state: after scenario 1
+        5_000_000, 801_603, START_TIME,
+        BURN_INPUT,
+        5, // 5 seconds later (decayed stress is 4.95%)
+        4_950_000, 1_793_586, 5,
+        RateLimitResult::Queued;
+        "dust_rejection"
+    )]
+    #[test_case(
+        // pre state: after scenario 2
+        4_950_000, 1_793_586, 5,
+        BURN_INPUT,
+        100, // 95 seconds later (decayed stress is 4%)
+        5_000_000, 1_793_585, 100,
+        RateLimitResult::ExecutePartial(10_000);
+        "partial_flush"
+    )]
+    #[test_case(
+        // pre state: after scenario 3
+        5_000_000, 1_793_585, 100,
+        BURN_INPUT,
+        10000, // anything over 600 behaves the same here
+        2_775_649, 0, 10000,
+        RateLimitResult::ExecuteFull(27_756);
+        "full_flush_after_long_cooldown"
+    )]
+    fn test_try_burn_and_flush_scenarios(
+        // State before
+        pre_accumulated_stress_bp_x10k: u64,
+        pre_pending_queue_shares_bp_x10k: u64,
+        pre_last_update_ts: i64,
+        // Burn input
+        new_burn_bp_x100: u64,
+        // Timestamp of this call
+        now: i64,
+        // Expected state after
+        expected_accumulated_stress_bp_x10k: u64,
+        expected_pending_queue_shares_bp_x10k: u64,
+        expected_last_update_ts: i64,
+        // Expected function output
+        expected_result: RateLimitResult,
+    ) {
+        let mut limiter = CompoundingRateLimiter {
+            accumulated_stress_bp_x10k: pre_accumulated_stress_bp_x10k,
+            pending_queue_shares_bp_x10k: pre_pending_queue_shares_bp_x10k,
+            last_update_ts: pre_last_update_ts,
+        };
 
         let res = limiter
             .try_burn_and_flush(
-                BURN_INPUT,
+                new_burn_bp_x100,
                 SOFT_LIMIT,
                 MIN_BURN,
                 DECAY_RATE_PER_SEC,
-                START_TIME,
+                now,
             )
             .unwrap();
 
-        match res {
-            RateLimitResult::ExecutePartial(amount) => {
-                assert_eq!(amount, 2000, "Should allow 0.2% burn");
-            }
-            _ => panic!("Step 1 failed: Expected Partial Execution"),
-        }
-
+        assert_eq!(res, expected_result, "unexpected RateLimitResult");
         assert_eq!(
-            limiter.accumulated_stress_bp_x10k, 5_000_000,
-            "Stress should be capped at 5%"
+            limiter.accumulated_stress_bp_x10k, expected_accumulated_stress_bp_x10k,
+            "unexpected accumulated_stress_bp_x10k"
         );
-
         assert_eq!(
-            limiter.pending_queue_shares_bp_x10k, 801_603,
-            "Queue should be ~0.801603%"
+            limiter.pending_queue_shares_bp_x10k, expected_pending_queue_shares_bp_x10k,
+            "unexpected pending_queue_shares_bp_x10k"
         );
-
-        // Scenario 2: dust rejection when space < min burn.
-        let res = limiter
-            .try_burn_and_flush(
-                BURN_INPUT,
-                SOFT_LIMIT,
-                MIN_BURN,
-                DECAY_RATE_PER_SEC,
-                5, // 5 seconds later (decayed stress is 4.95%)
-            )
-            .unwrap();
-
-        match res {
-            RateLimitResult::Queued => {}
-            _ => panic!("Step 2 failed: Expected Queue (Dust rejection)"),
-        }
-
-        assert_eq!(limiter.accumulated_stress_bp_x10k, 4_950_000);
-
         assert_eq!(
-            limiter.pending_queue_shares_bp_x10k, 1_793_586,
-            "Queue should grow to ~1.793586%"
+            limiter.last_update_ts, expected_last_update_ts,
+            "unexpected last_update_ts"
         );
-
-        // Scenario 3: partial flush when 1% capacity opens up.
-        let res = limiter
-            .try_burn_and_flush(
-                BURN_INPUT,
-                SOFT_LIMIT,
-                MIN_BURN,
-                DECAY_RATE_PER_SEC,
-                100, // 100 seconds later (decayed stress is 4%)
-            )
-            .unwrap();
-
-        match res {
-            RateLimitResult::ExecutePartial(amount) => {
-                assert_eq!(amount, 10000, "Should fill the 1% space");
-            }
-            _ => panic!("Step 3 failed: Expected Partial Flush"),
-        }
-
-        assert_eq!(limiter.accumulated_stress_bp_x10k, 5_000_000);
-
-        assert_eq!(
-            limiter.pending_queue_shares_bp_x10k,
-            1_793_585, // rounded down
-            "Queue should reduce slightly"
-        );
-
-        // Scenario 4: full flush after long cooldown.
-        let res = limiter
-            .try_burn_and_flush(
-                BURN_INPUT,
-                SOFT_LIMIT,
-                MIN_BURN,
-                DECAY_RATE_PER_SEC,
-                10000, // anything over 510 behaves the same here
-            )
-            .unwrap();
-
-        match res {
-            RateLimitResult::ExecuteFull(amount) => {
-                assert_eq!(amount, 27_756, "Should burn entire queue (~2.775649%)");
-            }
-            _ => panic!("Step 4 failed: Expected Immediate Full Flush"),
-        }
-
-        assert_eq!(limiter.accumulated_stress_bp_x10k, 2_775_649);
-        assert_eq!(limiter.pending_queue_shares_bp_x10k, 0);
     }
 }
