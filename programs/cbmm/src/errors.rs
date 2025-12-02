@@ -36,4 +36,6 @@ pub enum BcpmmError {
     InvalidPlatformAdmin,
     #[msg("Invalid burn tiers")]
     InvalidBurnTiers,
+    #[msg("Math overflow")]
+    MathOverflow,
 }
