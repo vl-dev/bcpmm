@@ -14,7 +14,7 @@ pub struct ClaimCreatorFees<'info> {
     pub owner: Signer<'info>,
 
     #[account(mut,
-        associated_token::mint = a_mint,
+        associated_token::mint = quote_mint,
         associated_token::authority = owner,
         associated_token::token_program = token_program        
     )]
@@ -24,13 +24,13 @@ pub struct ClaimCreatorFees<'info> {
     pub pool: Account<'info, BcpmmPool>,
 
     #[account(mut,
-        associated_token::mint = a_mint,
+        associated_token::mint = quote_mint,
         associated_token::authority = pool,
         associated_token::token_program = token_program        
     )]
     pub pool_ata: InterfaceAccount<'info, TokenAccount>,
 
-    pub a_mint: InterfaceAccount<'info, Mint>,
+    pub quote_mint: InterfaceAccount<'info, Mint>,
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
@@ -68,32 +68,30 @@ mod tests {
 
     fn setup_test() -> (TestRunner, Keypair, Pubkey, Pubkey, Pubkey) {
         // Parameters
-        let a_reserve = 0;
-        let a_virtual_reserve = 1_000_000;
-        let b_reserve = 2_000_000;
-        let b_mint_decimals = 6;
+        let quote_reserve = 0;
+        let quote_virtual_reserve = 1_000_000;
+        let base_reserve = 2_000_000;
+        let base_mint_decimals = 6;
         let creator_fee_basis_points = 200;
         let buyback_fee_basis_points = 600;
         let platform_fee_basis_points = 200;
         let creator_fees_balance = 1000; // Start with some creator fees available
         let buyback_fees_balance = 0;
-        let a_outstanding_topup = 0;
+        let quote_outstanding_topup = 0;
 
         let mut runner = TestRunner::new();
         let owner = Keypair::new();
         
         runner.airdrop(&owner.pubkey(), 10_000_000_000);
-        let a_mint = runner.create_mint(&owner, 9);
-        let owner_ata = runner.create_associated_token_account(&owner, a_mint, &owner.pubkey());
+        let quote_mint = runner.create_mint(&owner, 9);
+        let owner_ata = runner.create_associated_token_account(&owner, quote_mint, &owner.pubkey());
 
         runner.create_platform_config_mock(&owner,
-            a_mint,
-            5,
+            quote_mint,
             5,
             5,
             2,
             1,
-            10000,
             creator_fee_basis_points,
             buyback_fee_basis_points,
             platform_fee_basis_points,
@@ -101,24 +99,24 @@ mod tests {
 
         let pool_created = runner.create_pool_mock(
             &owner,
-            a_mint,
-            a_reserve,
-            a_virtual_reserve,
-            b_reserve,
-            b_mint_decimals,
+            quote_mint,
+            quote_reserve,
+            quote_virtual_reserve,
+            base_reserve,
+            base_mint_decimals,
             creator_fee_basis_points,
             buyback_fee_basis_points,
             platform_fee_basis_points,
             creator_fees_balance,
             buyback_fees_balance,
-            a_outstanding_topup,
+            quote_outstanding_topup,
         );
 
         // pool ata
-        runner.create_associated_token_account(&owner, a_mint, &pool_created.pool);
-        runner.mint_tokens(&owner, pool_created.pool, a_mint, creator_fees_balance);
+        runner.create_associated_token_account(&owner, quote_mint, &pool_created.pool);
+        runner.mint_tokens(&owner, pool_created.pool, quote_mint, creator_fees_balance);
 
-        (runner, owner, pool_created.pool, owner_ata, a_mint)
+        (runner, owner, pool_created.pool, owner_ata, quote_mint)
     }
 
     #[test_case(500, true)]
@@ -126,14 +124,14 @@ mod tests {
     #[test_case(1001, false)]
     #[test_case(0, false)]
     fn test_claim_creator_fees(claim_amount: u64, success: bool) {
-        let (mut runner, owner, pool, owner_ata, a_mint) = setup_test();
+        let (mut runner, owner, pool, owner_ata, quote_mint) = setup_test();
         let initial_creator_fees = 1000;
 
         // Claim creator fees
         let result = runner.claim_creator_fees(
             &owner,
             owner_ata,
-            a_mint,
+            quote_mint,
             pool,
             claim_amount,
         );
@@ -161,14 +159,14 @@ mod tests {
 
         let other_user = Keypair::new();
         runner.airdrop(&other_user.pubkey(), 10_000_000_000);
-        let a_mint = runner.create_mint(&other_user, 9);
-        let other_user_ata = runner.create_associated_token_account(&other_user, a_mint, &other_user.pubkey());
+        let quote_mint = runner.create_mint(&other_user, 9);
+        let other_user_ata = runner.create_associated_token_account(&other_user, quote_mint, &other_user.pubkey());
 
         // Claim creator fees
         let result = runner.claim_creator_fees(
             &other_user,
             other_user_ata,
-            a_mint,
+            quote_mint,
             pool,
             claim_amount,
         );

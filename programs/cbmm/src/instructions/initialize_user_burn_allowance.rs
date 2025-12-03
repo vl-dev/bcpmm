@@ -1,7 +1,6 @@
 use crate::state::*;
 use anchor_lang::prelude::*;
 
-
 #[derive(Accounts)]
 #[instruction(pool_owner: bool)]
 pub struct InitializeUserBurnAllowance<'info> {
@@ -30,10 +29,13 @@ pub fn initialize_user_burn_allowance(
     ctx: Context<InitializeUserBurnAllowance>,
     _: bool,
 ) -> Result<()> {
-    ctx.accounts.user_burn_allowance.set_inner(UserBurnAllowance::new(
-        ctx.bumps.user_burn_allowance,
-        ctx.accounts.owner.key(),
-        ctx.accounts.payer.key(),
-    ));
+    ctx.accounts
+        .user_burn_allowance
+        .set_inner(UserBurnAllowance::new(
+            ctx.bumps.user_burn_allowance,
+            ctx.accounts.owner.key(),
+            ctx.accounts.payer.key(),
+            Clock::get()?.unix_timestamp,
+        ));
     Ok(())
 }

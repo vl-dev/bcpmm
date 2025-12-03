@@ -12,7 +12,6 @@ pub struct InitializePlatformConfigArgs {
     pub max_creator_daily_burn_count: u16,
     pub user_burn_bp_x100: u32,
     pub creator_burn_bp_x100: u32,
-    pub burn_reset_time_of_day_seconds: u32, // Seconds from midnight
     pub creator_fee_basis_points: u16,
     pub buyback_fee_basis_points: u16,
     pub platform_fee_basis_points: u16,
@@ -32,12 +31,12 @@ pub struct InitializePlatformConfig<'info> {
     pub platform_config: Account<'info, PlatformConfig>,
 
     #[account(        
-        associated_token::mint = a_mint,
+        associated_token::mint = quote_mint,
         associated_token::authority = platform_config,
         associated_token::token_program = token_program
     )]
     pub platform_config_ata: InterfaceAccount<'info, TokenAccount>,
-    pub a_mint: InterfaceAccount<'info, Mint>,
+    pub quote_mint: InterfaceAccount<'info, Mint>,
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -47,20 +46,27 @@ pub fn initialize_platform_config(
     ctx: Context<InitializePlatformConfig>,
     args: InitializePlatformConfigArgs,
 ) -> Result<()> {
+    let burn_tiers = vec![
+        BurnTier {
+            burn_bp_x100: args.user_burn_bp_x100,
+            role: BurnRole::Anyone,
+            max_daily_burns: args.max_user_daily_burn_count,
+        },
+        BurnTier {
+            burn_bp_x100: args.creator_burn_bp_x100,
+            role: BurnRole::PoolCreator,
+            max_daily_burns: args.max_creator_daily_burn_count,
+        },
+    ];
     ctx.accounts.platform_config.set_inner(PlatformConfig::try_new(
         ctx.bumps.platform_config,
         args.admin,
         ctx.accounts.creator.key(),
         ctx.accounts.a_mint.key(),
-        args.burn_allowance,
-        args.max_user_daily_burn_count,
-        args.max_creator_daily_burn_count,
-        args.user_burn_bp_x100,
-        args.creator_burn_bp_x100,
-        args.burn_reset_time_of_day_seconds,
+        burn_tiers,
         args.creator_fee_basis_points,
         args.buyback_fee_basis_points,
         args.platform_fee_basis_points,
-    ));
+    )?);
     Ok(())
 }

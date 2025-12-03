@@ -6,15 +6,15 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct CreatePoolArgs {
-    /// a_virtual_reserve is the virtual reserve of the A mint including decimals
-    pub a_virtual_reserve: u64,
+    /// quote_virtual_reserve is the virtual reserve of the A mint including decimals
+    pub quote_virtual_reserve: u64,
 }
 #[derive(Accounts)]
 pub struct CreatePool<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     #[account(mut)]
-    pub a_mint: InterfaceAccount<'info, Mint>,    
+    pub quote_mint: InterfaceAccount<'info, Mint>,    
     
     #[account(init,
          payer = payer, 
@@ -27,7 +27,7 @@ pub struct CreatePool<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        associated_token::mint = a_mint,
+        associated_token::mint = quote_mint,
         associated_token::authority = pool,
         associated_token::token_program = token_program        
     )]
@@ -41,7 +41,7 @@ pub struct CreatePool<'info> {
     pub platform_config: Account<'info, PlatformConfig>,
 
     #[account(        
-        associated_token::mint = a_mint,
+        associated_token::mint = quote_mint,
         associated_token::authority = platform_config,
         associated_token::token_program = token_program
     )]

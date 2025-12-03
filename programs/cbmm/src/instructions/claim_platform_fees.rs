@@ -12,7 +12,7 @@ pub struct ClaimPlatformFees<'info> {
     pub admin: Signer<'info>,
 
     #[account(mut,
-        associated_token::mint = a_mint,
+        associated_token::mint = quote_mint,
         associated_token::authority = platform_config.admin,
         associated_token::token_program = token_program
     )]
@@ -22,13 +22,13 @@ pub struct ClaimPlatformFees<'info> {
     pub platform_config: Account<'info, PlatformConfig>,
 
     #[account(mut,
-        associated_token::mint = a_mint,
+        associated_token::mint = quote_mint,
         associated_token::authority = platform_config,
         associated_token::token_program = token_program
     )]
     pub platform_config_ata: InterfaceAccount<'info, TokenAccount>,
 
-    pub a_mint: InterfaceAccount<'info, Mint>,
+    pub quote_mint: InterfaceAccount<'info, Mint>,
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -75,36 +75,34 @@ mod tests {
         let admin = Keypair::new();
 
         runner.airdrop(&admin.pubkey(), 10_000_000_000);
-        let a_mint = runner.create_mint(&admin, 9);
-        let admin_ata = runner.create_associated_token_account(&admin, a_mint, &admin.pubkey());
+        let quote_mint = runner.create_mint(&admin, 9);
+        let admin_ata = runner.create_associated_token_account(&admin, quote_mint, &admin.pubkey());
 
         let platform_config = runner.create_platform_config_mock(
             &admin,
-            a_mint,
-            5,
+            quote_mint,
             5,
             5,
             2,
             1,
-            10000,
             creator_fee_basis_points,
             buyback_fee_basis_points,
             platform_fee_basis_points,
         );
         // platform config ata
         let platform_config_ata =
-            runner.create_associated_token_account(&admin, a_mint, &platform_config);
-        runner.mint_tokens(&admin, platform_config, a_mint, platform_fees_balance);
+            runner.create_associated_token_account(&admin, quote_mint, &platform_config);
+        runner.mint_tokens(&admin, platform_config, quote_mint, platform_fees_balance);
 
-        (runner, admin, platform_config_ata, admin_ata, a_mint)
+        (runner, admin, platform_config_ata, admin_ata, quote_mint)
     }
 
     #[test]
     fn test_claim_platform_fees() {
-        let (mut runner, admin, platform_config_ata, admin_ata, a_mint) = setup_test();
+        let (mut runner, admin, platform_config_ata, admin_ata, quote_mint) = setup_test();
 
         // Claim platform fees
-        let result = runner.claim_platform_fees(&admin, admin.pubkey(), admin_ata, a_mint);
+        let result = runner.claim_platform_fees(&admin, admin.pubkey(), admin_ata, quote_mint);
         assert!(result.is_ok());
 
         // Check that platform fees_balance was subtracted from platform config pda
@@ -130,13 +128,17 @@ mod tests {
 
         let other_user = Keypair::new();
         runner.airdrop(&other_user.pubkey(), 10_000_000_000);
-        let a_mint = runner.create_mint(&other_user, 9);
+        let quote_mint = runner.create_mint(&other_user, 9);
         let other_user_ata =
-            runner.create_associated_token_account(&other_user, a_mint, &other_user.pubkey());
+            runner.create_associated_token_account(&other_user, quote_mint, &other_user.pubkey());
 
         // Claim platform fees
-        let result =
-            runner.claim_platform_fees(&other_user, other_user.pubkey(), other_user_ata, a_mint);
+        let result = runner.claim_platform_fees(
+            &other_user,
+            other_user.pubkey(),
+            other_user_ata,
+            quote_mint,
+        );
         assert!(result.is_err());
     }
 }

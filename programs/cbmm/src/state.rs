@@ -1,7 +1,11 @@
 use crate::errors::BcpmmError;
 use crate::helpers::{
-    calculate_buy_output_amount, calculate_fees, calculate_sell_output_amount, Fees,
+    calculate_burn_amount, calculate_buy_output_amount, calculate_fees,
+    calculate_new_virtual_reserve_after_burn, calculate_new_virtual_reserve_after_topup,
+    calculate_optimal_real_quote_reserve, calculate_optimal_virtual_quote_reserve,
+    calculate_sell_output_amount, Fees,
 };
+use crate::helpers::{BurnRateConfig, BurnRateLimiter, RateLimitResult};
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
     transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked,
@@ -13,8 +17,9 @@ pub const BCPMM_POOL_INDEX_SEED: u32 = 0; // this is introduced for extensibilit
 pub const VIRTUAL_TOKEN_ACCOUNT_SEED: &[u8] = b"virtual_token_account";
 pub const USER_BURN_ALLOWANCE_SEED: &[u8] = b"user_burn_allowance";
 
-pub const DEFAULT_B_MINT_DECIMALS: u8 = 6;
-pub const DEFAULT_B_MINT_RESERVE: u64 = 1_000_000_000 * 10u64.pow(DEFAULT_B_MINT_DECIMALS as u32);
+pub const DEFAULT_BASE_MINT_DECIMALS: u8 = 6;
+pub const DEFAULT_BASE_MINT_RESERVE: u64 =
+    1_000_000_000 * 10u64.pow(DEFAULT_BASE_MINT_DECIMALS as u32);
 pub const DEFAULT_BURN_TIERS_UPDATE_COOLDOWN_SECONDS: i64 = 86400; // 24 hours
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
@@ -40,27 +45,15 @@ pub struct PlatformConfig {
     pub creator: Pubkey,
     pub quote_mint: Pubkey,
 
-    // todo - nicer to do platform creation timestamp instead of time of day
-    pub burn_reset_time_of_day_seconds: u32, // Seconds from midnight
-
     pub pool_creator_fee_basis_points: u16,
     pub pool_topup_fee_basis_points: u16,
     pub platform_fee_basis_points: u16,
 
     pub burn_tiers_updated_at: i64, // needed for cooling off period
+
+    pub burn_config: BurnRateConfig,
     #[max_len(5)]
     pub burn_tiers: Vec<BurnTier>,
-}
-
-/// Check if given time is after today's burn reset timestamp (for testing with mock time).
-pub fn is_after_burn_reset_with_time(
-    time_to_check: i64,
-    current_time: i64,
-    reset_time_of_day_seconds: u32,
-) -> bool {
-    let todays_midnight = current_time - current_time.rem_euclid(86400);
-    let todays_reset_ts = todays_midnight + reset_time_of_day_seconds as i64;
-    time_to_check >= todays_reset_ts
 }
 
 impl PlatformConfig {
@@ -70,10 +63,12 @@ impl PlatformConfig {
         creator: Pubkey,
         quote_mint: Pubkey,
         burn_tiers: Vec<BurnTier>,
-        burn_reset_time_of_day_seconds: u32,
         pool_creator_fee_basis_points: u16,
         pool_topup_fee_basis_points: u16,
         platform_fee_basis_points: u16,
+        burn_limit_bp_x100: u64,
+        burn_min_burn_bp_x100: u64,
+        burn_decay_rate_per_sec_bp_x100: u64,
     ) -> Result<Self> {
         require!(burn_tiers.len() <= 5, BcpmmError::InvalidBurnTiers);
         let total_fees =
@@ -93,6 +88,13 @@ impl PlatformConfig {
             BcpmmError::InvalidBurnTiers
         );
 
+        // todo check that the burn config is valid
+        let burn_config = BurnRateConfig::new(
+            burn_limit_bp_x100,
+            burn_min_burn_bp_x100,
+            burn_decay_rate_per_sec_bp_x100,
+        );
+
         Ok(Self {
             bump,
             admin,
@@ -100,21 +102,11 @@ impl PlatformConfig {
             quote_mint,
             burn_tiers,
             burn_tiers_updated_at: Clock::get()?.unix_timestamp,
-            burn_reset_time_of_day_seconds,
+            burn_config,
             pool_creator_fee_basis_points,
             pool_topup_fee_basis_points,
             platform_fee_basis_points,
         })
-    }
-
-    /// Check if given time is after today's burn reset timestamp.
-    pub fn is_after_burn_reset(&self, time_to_check: i64) -> Result<bool> {
-        let now = Clock::get()?.unix_timestamp;
-        Ok(is_after_burn_reset_with_time(
-            time_to_check,
-            now,
-            self.burn_reset_time_of_day_seconds,
-        ))
     }
 }
 
@@ -127,24 +119,31 @@ pub struct BcpmmPool {
     pub bump: u8,
     /// Pool creator address
     pub creator: Pubkey,
+    // todo maybe delete
     /// Pool index per creator
     pub pool_index: u32,
     /// Platform config used by this pool
     pub platform_config: Pubkey,
 
     /// A mint address
-    pub a_mint: Pubkey,
+    pub quote_mint: Pubkey,
     /// A reserve including decimals
-    pub a_reserve: u64,
+    pub quote_reserve: u64,
     /// A virtual reserve including decimals
-    pub a_virtual_reserve: u64,
-    // A remaining topup to compensate for the virtual reserve reduction happening on burn
-    pub a_outstanding_topup: u64,
+    pub quote_virtual_reserve: u64,
+    /// A optimal virtual reserve that keeps the worst-case exit price at the original value
+    pub quote_optimal_virtual_reserve: u64,
+    /// A starting virtual reserve that is used to calculate the optimal virtual reserve
+    pub quote_starting_virtual_reserve: u64,
 
     /// B mint decimals
-    pub b_mint_decimals: u8,
+    pub base_mint_decimals: u8,
     /// B reserve including decimals
-    pub b_reserve: u64,
+    pub base_reserve: u64,
+    /// B starting total supply including decimals
+    pub base_starting_total_supply: u64,
+    /// B total supply including decimals
+    pub base_total_supply: u64,
 
     /// Creator fees balance denominated in Mint A including decimals
     pub creator_fees_balance: u64,
@@ -158,10 +157,13 @@ pub struct BcpmmPool {
     /// Platform fee basis points
     pub platform_fee_basis_points: u16,
 
-    /// Burn allowance for the pool
-    pub burns_today: u16,
-    pub last_burn_timestamp: i64,
-    // TODO: burn amounts here?
+    /// Burn rate limiter
+    pub burn_limiter: BurnRateLimiter,
+}
+
+pub struct BurnResult {
+    pub rate_limit_result: RateLimitResult,
+    pub burn_amount: u64,
 }
 
 impl BcpmmPool {
@@ -170,64 +172,142 @@ impl BcpmmPool {
         creator: Pubkey,
         pool_index: u32,
         platform_config: Pubkey,
-        a_mint: Pubkey,
-        a_virtual_reserve: u64,
+        quote_mint: Pubkey,
+        quote_virtual_reserve: u64,
         creator_fee_basis_points: u16,
         buyback_fee_basis_points: u16,
         platform_fee_basis_points: u16,
     ) -> Result<Self> {
-        require!(a_virtual_reserve > 0, BcpmmError::InvalidVirtualReserve);
+        require!(quote_virtual_reserve > 0, BcpmmError::InvalidVirtualReserve);
         require!(
             buyback_fee_basis_points > 0,
             BcpmmError::InvalidBuybackFeeBasisPoints
         );
+
+        let burn_limiter = BurnRateLimiter::new(Clock::get()?.unix_timestamp);
 
         Ok(Self {
             bump,
             creator,
             pool_index,
             platform_config,
-            a_mint,
-            a_reserve: 0,
-            a_virtual_reserve,
-            a_outstanding_topup: 0,
-            b_mint_decimals: DEFAULT_B_MINT_DECIMALS,
-            b_reserve: DEFAULT_B_MINT_RESERVE,
+            quote_mint,
+            quote_reserve: 0,
+            quote_virtual_reserve,
+            quote_optimal_virtual_reserve: quote_virtual_reserve,
+            quote_starting_virtual_reserve: quote_virtual_reserve,
+            base_mint_decimals: DEFAULT_BASE_MINT_DECIMALS,
+            base_reserve: DEFAULT_BASE_MINT_RESERVE,
+            base_starting_total_supply: DEFAULT_BASE_MINT_RESERVE,
+            base_total_supply: DEFAULT_BASE_MINT_RESERVE,
             creator_fees_balance: 0,
             buyback_fees_balance: 0,
             creator_fee_basis_points,
             buyback_fee_basis_points,
             platform_fee_basis_points,
-            burns_today: 0,
-            last_burn_timestamp: 0,
+            burn_limiter,
         })
     }
 
-    pub fn calculate_fees(&self, a_amount: u64) -> anchor_lang::prelude::Result<Fees> {
+    pub fn calculate_fees(&self, quote_amount: u64) -> anchor_lang::prelude::Result<Fees> {
         calculate_fees(
-            a_amount,
+            quote_amount,
             self.creator_fee_basis_points,
             self.buyback_fee_basis_points,
             self.platform_fee_basis_points,
         )
     }
 
-    pub fn calculate_sell_output_amount(&self, b_amount: u64) -> u64 {
+    pub fn calculate_quote_output_amount(&self, base_amount: u64) -> u64 {
         calculate_sell_output_amount(
-            b_amount,
-            self.b_reserve,
-            self.a_reserve,
-            self.a_virtual_reserve,
+            base_amount,
+            self.base_reserve,
+            self.quote_reserve,
+            self.quote_virtual_reserve,
         )
     }
 
-    pub fn calculate_buy_output_amount(&self, a_amount: u64) -> u64 {
+    pub fn calculate_base_output_amount(&self, quote_amount: u64) -> u64 {
         calculate_buy_output_amount(
-            a_amount,
-            self.a_reserve,
-            self.b_reserve,
-            self.a_virtual_reserve,
+            quote_amount,
+            self.quote_reserve,
+            self.base_reserve,
+            self.quote_virtual_reserve,
         )
+    }
+
+    pub fn burn(&mut self, config: &BurnRateConfig, requested_amount: u64) -> Result<BurnResult> {
+        let allowed_burn = self.burn_limiter.calculate_required_bp_x100(
+            requested_amount,
+            &config,
+            Clock::get()?.unix_timestamp,
+        )?;
+
+        let allowed_burn_bp_x100;
+        match allowed_burn {
+            RateLimitResult::ExecuteFull(bp_x100) => allowed_burn_bp_x100 = bp_x100,
+            RateLimitResult::ExecutePartial(bp_x100) => allowed_burn_bp_x100 = bp_x100,
+            RateLimitResult::Queued => {
+                return Ok(BurnResult {
+                    rate_limit_result: RateLimitResult::Queued,
+                    burn_amount: 0,
+                })
+            }
+        }
+
+        let burn_amount = calculate_burn_amount(allowed_burn_bp_x100, self.base_reserve);
+
+        self.quote_virtual_reserve = calculate_new_virtual_reserve_after_burn(
+            self.quote_virtual_reserve,
+            self.base_reserve,
+            burn_amount,
+        );
+        self.quote_optimal_virtual_reserve = calculate_new_virtual_reserve_after_burn(
+            self.quote_virtual_reserve,
+            self.base_total_supply,
+            burn_amount,
+        );
+        self.base_reserve -= burn_amount;
+        self.base_total_supply -= burn_amount;
+        Ok(BurnResult {
+            rate_limit_result: allowed_burn,
+            burn_amount,
+        })
+    }
+
+    pub fn topup(&mut self) -> Result<u64> {
+        let quote_optimal_virtual_reserve = calculate_optimal_virtual_quote_reserve(
+            self.quote_starting_virtual_reserve,
+            self.base_starting_total_supply,
+            self.base_total_supply,
+        );
+
+        let quote_optimal_real_reserve = calculate_optimal_real_quote_reserve(
+            self.base_total_supply,
+            quote_optimal_virtual_reserve,
+            self.base_reserve,
+        );
+
+        let needed_topup_amount = quote_optimal_real_reserve
+            .checked_sub(self.quote_reserve)
+            .ok_or(BcpmmError::MathOverflow)?;
+        if needed_topup_amount == 0 {
+            return Ok(0);
+        }
+
+        let real_topup_amount = needed_topup_amount.min(self.buyback_fees_balance);
+        self.buyback_fees_balance -= real_topup_amount;
+        self.quote_reserve += real_topup_amount;
+        self.quote_virtual_reserve = if real_topup_amount < needed_topup_amount {
+            calculate_new_virtual_reserve_after_topup(
+                self.quote_reserve,
+                self.base_reserve,
+                self.base_total_supply,
+            )
+        } else {
+            quote_optimal_virtual_reserve
+        };
+        Ok(real_topup_amount)
     }
 
     pub fn transfer_out<'info>(
@@ -288,19 +368,19 @@ impl VirtualTokenAccount {
         }
     }
 
-    pub fn sub(&mut self, b_amount: u64, fees: &Fees) -> Result<()> {
+    pub fn sub(&mut self, base_amount: u64, fees: &Fees) -> Result<()> {
         require_gte!(
             self.balance,
-            b_amount,
+            base_amount,
             BcpmmError::InsufficientVirtualTokenBalance
         );
-        self.balance -= b_amount;
+        self.balance -= base_amount;
         self.fees_paid += fees.total_fees_amount();
         Ok(())
     }
 
-    pub fn add(&mut self, b_amount: u64, fees: &Fees) -> Result<()> {
-        self.balance += b_amount;
+    pub fn add(&mut self, base_amount: u64, fees: &Fees) -> Result<()> {
+        self.balance += base_amount;
         self.fees_paid += fees.total_fees_amount();
         Ok(())
     }
@@ -315,65 +395,59 @@ pub struct UserBurnAllowance {
     pub burns_today: u16,
 
     pub last_burn_timestamp: i64,
+    // Time of creation of the allowance used to reset the burn count
+    pub created_at: i64,
 }
 
 impl UserBurnAllowance {
-    pub fn new(bump: u8, user: Pubkey, payer: Pubkey) -> Self {
+    pub fn new(bump: u8, user: Pubkey, payer: Pubkey, now: i64) -> Self {
         Self {
             bump,
             user,
             payer,
             burns_today: 0,
             last_burn_timestamp: 0,
+            created_at: now,
         }
+    }
+
+    pub fn pop(&mut self) -> Result<u16> {
+        let now = Clock::get()?.unix_timestamp;
+        if self.should_reset(now) {
+            self.burns_today = 0;
+        }
+        self.burns_today += 1;
+        self.last_burn_timestamp = now;
+        Ok(self.burns_today)
+    }
+
+    fn should_reset(&self, now: i64) -> bool {
+        let reset_offset = self.created_at % 86_400;
+        let day_last = (self.last_burn_timestamp.saturating_sub(reset_offset)) / 86_400;
+        let day_now = (now.saturating_sub(reset_offset)) / 86_400;
+        day_last < day_now
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_case::test_case;
 
-    #[test]
-    fn test_is_after_burn_reset_with_time_before_reset() {
-        let midnight = 1761177600;
-        let current_time = midnight + 1;
-        let time_before_reset = 1761177660; // Just after midnight
-        assert!(!is_after_burn_reset_with_time(
-            time_before_reset,
-            current_time,
-            43200
-        ));
-    }
+    const CREATED_AT: i64 = 1761177600;
+    const DAY: i64 = 86400;
 
-    #[test]
-    fn test_is_after_burn_reset_with_time_yesterday() {
-        let midnight = 1761177600;
-        let current_time = midnight + 1;
-        let yesterday_night = 1761166800;
-        assert!(!is_after_burn_reset_with_time(
-            yesterday_night,
-            current_time,
-            43200
-        ));
-    }
-
-    #[test]
-    fn test_is_after_burn_reset_with_time_same_day() {
-        let midnight = 1761177600;
-        let current_time = midnight + 1;
-        let time_after_reset_same_day = 1761224400;
-        assert!(is_after_burn_reset_with_time(
-            time_after_reset_same_day,
-            current_time,
-            43200
-        ));
-    }
-
-    #[test]
-    fn test_is_after_burn_reset_with_time_next_day() {
-        let midnight = 1761177600;
-        let current_time = midnight + 1;
-        let next_day = 1761264000;
-        assert!(is_after_burn_reset_with_time(next_day, current_time, 43200));
+    #[test_case(CREATED_AT, 0, CREATED_AT, true; "reset_on_creation")]
+    #[test_case(CREATED_AT, CREATED_AT, CREATED_AT + 1, false; "reset_on_creation_and_immediately_after_creation")]
+    #[test_case(CREATED_AT, 0, CREATED_AT + 1, true; "reset_at_immediately_after_creation")]
+    #[test_case(CREATED_AT, CREATED_AT + DAY - 2, CREATED_AT + DAY - 1, false; "reset_today")]
+    #[test_case(CREATED_AT, CREATED_AT + DAY - 1, CREATED_AT + DAY, true; "reset_yesteray")]
+    #[test_case(CREATED_AT, CREATED_AT + DAY, CREATED_AT + DAY + 1, false; "reset_bound")]
+    #[test_case(CREATED_AT, CREATED_AT + DAY, CREATED_AT + 20*DAY - 1, true; "reset_after_20_days")]
+    fn test_should_reset(created_at: i64, last_burn_timestamp: i64, now: i64, should_reset: bool) {
+        let mut user_burn_allowance =
+            UserBurnAllowance::new(0, Pubkey::default(), Pubkey::default(), created_at);
+        user_burn_allowance.last_burn_timestamp = last_burn_timestamp;
+        assert_eq!(user_burn_allowance.should_reset(now), should_reset);
     }
 }

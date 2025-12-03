@@ -1,12 +1,9 @@
 use crate::errors::BcpmmError;
+use crate::helpers::{SCALING_FACTOR, X10K_100_PERCENT_BP};
 use anchor_lang::prelude::*;
 
-pub const X10K_100_PERCENT_BP: u64 = 100_000_000;
-pub const X100_100_PERCENT_BP: u64 = 1_000_000;
-pub const SCALING_FACTOR: u64 = X10K_100_PERCENT_BP / X100_100_PERCENT_BP;
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, Default)]
-pub struct CompoundingRateLimiter {
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, Default, InitSpace)]
+pub struct BurnRateLimiter {
     /// Executed burns ("heat") that decay over time.
     pub accumulated_stress_bp_x10k: u64,
     /// Pending burns in the queue; does not decay.
@@ -24,7 +21,24 @@ pub enum RateLimitResult {
     Queued,
 }
 
-impl CompoundingRateLimiter {
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, Default)]
+pub struct BurnRateConfig {
+    pub limit_bp_x100: u64,
+    pub min_burn_bp_x100: u64,
+    pub decay_rate_per_sec_bp_x100: u64,
+}
+
+impl BurnRateConfig {
+    pub fn new(limit_bp_x100: u64, min_burn_bp_x100: u64, decay_rate_per_sec_bp_x100: u64) -> Self {
+        Self {
+            limit_bp_x100,
+            min_burn_bp_x100,
+            decay_rate_per_sec_bp_x100,
+        }
+    }
+}
+
+impl BurnRateLimiter {
     pub fn new(now: i64) -> Self {
         Self {
             accumulated_stress_bp_x10k: 0,
@@ -84,19 +98,18 @@ impl CompoundingRateLimiter {
         Ok(result as u64)
     }
 
-    pub fn try_burn_and_flush(
+    pub fn calculate_required_bp_x100(
         &mut self,
         new_burn_bp_x100: u64, // user input
-        limit_bp_x100: u64,    // soft limit, e.g. 5%
-        min_burn_bp_x100: u64, // min granular burn, e.g. 0.1%
-        decay_rate_per_sec_bp_x100: u64,
+        config: &BurnRateConfig,
         now: i64,
     ) -> Result<RateLimitResult> {
         // Upscale inputs to x10k basis points.
         let new_burn_x10k = new_burn_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
-        let soft_limit_x10k = limit_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
-        let min_burn_x10k = min_burn_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
-        let decay_rate_x10k = decay_rate_per_sec_bp_x100
+        let soft_limit_x10k = config.limit_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
+        let min_burn_x10k = config.min_burn_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
+        let decay_rate_x10k = config
+            .decay_rate_per_sec_bp_x100
             .checked_mul(SCALING_FACTOR)
             .unwrap();
 
@@ -212,20 +225,16 @@ mod tests {
         // Expected function output
         expected_result: RateLimitResult,
     ) {
-        let mut limiter = CompoundingRateLimiter {
+        let mut limiter = BurnRateLimiter {
             accumulated_stress_bp_x10k: pre_accumulated_stress_bp_x10k,
             pending_queue_shares_bp_x10k: pre_pending_queue_shares_bp_x10k,
             last_update_ts: pre_last_update_ts,
         };
 
+        let config = BurnRateConfig::new(SOFT_LIMIT, MIN_BURN, DECAY_RATE_PER_SEC);
+
         let res = limiter
-            .try_burn_and_flush(
-                new_burn_bp_x100,
-                SOFT_LIMIT,
-                MIN_BURN,
-                DECAY_RATE_PER_SEC,
-                now,
-            )
+            .calculate_required_bp_x100(new_burn_bp_x100, config, now)
             .unwrap();
 
         assert_eq!(res, expected_result, "unexpected RateLimitResult");
