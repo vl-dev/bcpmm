@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[error_code]
-pub enum BcpmmError {
+pub enum CbmmError {
     #[msg("Insufficient virtual token balance")]
     InsufficientVirtualTokenBalance,
     #[msg("Amount too small")]
@@ -38,4 +38,14 @@ pub enum BcpmmError {
     InvalidBurnTiers,
     #[msg("Math overflow")]
     MathOverflow,
+    #[msg("Invalid burn tier index")]
+    InvalidBurnTierIndex,
+    #[msg("Pool creator burn tier requires pool")]
+    PoolCreatorBurnTierRequiresPool,
+    #[msg("Invalid pool creator")]
+    InvalidPoolCreator,
+    #[msg("Invalid platform config")]
+    InvalidPlatformConfig,
+    #[msg("Burn limit reached")]
+    BurnLimitReached,
 }

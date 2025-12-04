@@ -1,6 +1,6 @@
 use super::compute_metrics::send_and_record;
 use crate::instructions::BuyVirtualTokenArgs;
-use crate::state::{self as cpmm_state, BCPMM_POOL_INDEX_SEED};
+use crate::state::{self as cpmm_state, CBMM_POOL_INDEX_SEED};
 use anchor_lang::prelude::*;
 use litesvm::LiteSVM;
 use litesvm_token::{CreateAssociatedTokenAccount, CreateMint, MintTo};
@@ -13,7 +13,7 @@ use solana_sdk::{
 };
 
 use crate::helpers::BurnRateLimiter;
-const POOL_INDEX: u32 = BCPMM_POOL_INDEX_SEED;
+const POOL_INDEX: u32 = CBMM_POOL_INDEX_SEED;
 
 #[derive(Debug)]
 pub struct TransactionError {
@@ -264,15 +264,15 @@ impl TestRunner {
         // Setup PDAs consistent with on-chain seeds
         let (pool_pda, pool_bump) = Pubkey::find_program_address(
             &[
-                cpmm_state::BCPMM_POOL_SEED,
+                cpmm_state::CBMM_POOL_SEED,
                 POOL_INDEX.to_le_bytes().as_ref(),
                 payer.pubkey().as_ref(),
             ],
             &self.program_id,
         );
 
-        // Create pool PDA account with BcpmmPool structure
-        let pool_data = cpmm_state::BcpmmPool {
+        // Create pool PDA account with CbmmPool structure
+        let pool_data = cpmm_state::CbmmPool {
             bump: pool_bump,
             creator: anchor_lang::prelude::Pubkey::from(payer.pubkey().to_bytes()),
             pool_index: POOL_INDEX,
@@ -345,7 +345,7 @@ impl TestRunner {
         // Get platform_config from pool account
         let pool_account = self.svm.get_account(&pool).unwrap();
         let pool_data =
-            cpmm_state::BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+            cpmm_state::CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config_pda = pool_data.platform_config;
 
         let platform_config_ata = anchor_spl::associated_token::get_associated_token_address(
@@ -394,7 +394,7 @@ impl TestRunner {
         // Get platform_config from pool account
         let pool_account = self.svm.get_account(&pool).unwrap();
         let pool_data =
-            cpmm_state::BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+            cpmm_state::CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config_pda = pool_data.platform_config;
 
         let platform_config_ata = anchor_spl::associated_token::get_associated_token_address(
@@ -469,7 +469,7 @@ impl TestRunner {
         // Get platform_config from pool account
         let pool_account = self.svm.get_account(&pool).unwrap();
         let pool_data =
-            cpmm_state::BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+            cpmm_state::CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config_pda = pool_data.platform_config;
 
         let accounts = vec![
@@ -560,7 +560,7 @@ impl TestRunner {
         // Get platform_config from pool account
         let pool_account = self.svm.get_account(&pool).unwrap();
         let pool_data =
-            cpmm_state::BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+            cpmm_state::CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config_pda = pool_data.platform_config;
 
         let accounts = vec![

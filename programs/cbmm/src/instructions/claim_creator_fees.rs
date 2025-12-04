@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::state::*;
-use crate::errors::BcpmmError;
+use crate::errors::CbmmError;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct ClaimCreatorFeesArgs {
@@ -10,7 +10,7 @@ pub struct ClaimCreatorFeesArgs {
 
 #[derive(Accounts)]
 pub struct ClaimCreatorFees<'info> {
-    #[account(mut, address = pool.creator @ BcpmmError::InvalidPoolOwner)]
+    #[account(mut, address = pool.creator @ CbmmError::InvalidPoolOwner)]
     pub owner: Signer<'info>,
 
     #[account(mut,
@@ -20,8 +20,8 @@ pub struct ClaimCreatorFees<'info> {
     )]
     pub owner_ata: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
-    pub pool: Account<'info, BcpmmPool>,
+    #[account(mut, seeds = [CBMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
+    pub pool: Account<'info, CbmmPool>,
 
     #[account(mut,
         associated_token::mint = quote_mint,
@@ -38,8 +38,8 @@ pub struct ClaimCreatorFees<'info> {
 pub fn claim_creator_fees(ctx: Context<ClaimCreatorFees>, args: ClaimCreatorFeesArgs) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
     
-    require!( args.amount <= pool.creator_fees_balance, BcpmmError::InsufficientVirtualTokenBalance);
-    require!( args.amount > 0, BcpmmError::AmountTooSmall);
+    require!( args.amount <= pool.creator_fees_balance, CbmmError::InsufficientVirtualTokenBalance);
+    require!( args.amount > 0, CbmmError::AmountTooSmall);
 
     // Subtract the claimed amount and transfer to owner
     pool.creator_fees_balance -= args.amount;
@@ -58,7 +58,7 @@ pub fn claim_creator_fees(ctx: Context<ClaimCreatorFees>, args: ClaimCreatorFees
 
 #[cfg(test)]
 mod tests {
-    use crate::state::BcpmmPool;
+    use crate::state::CbmmPool;
     use crate::test_utils::TestRunner;
     use anchor_lang::prelude::*;
     use anchor_lang::solana_program::program_pack::Pack;
@@ -141,8 +141,8 @@ mod tests {
 
           // Check that creator fees were subtracted from pool balance
           let pool_account = runner.svm.get_account(&pool).unwrap();
-          let final_pool_data: BcpmmPool =
-              BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+          let final_pool_data: CbmmPool =
+              CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
           assert_eq!(final_pool_data.creator_fees_balance, initial_creator_fees - claim_amount);
 
           // Check that owner ATA balance increased by the claimed amount

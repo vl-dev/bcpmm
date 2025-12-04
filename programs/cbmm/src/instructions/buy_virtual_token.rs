@@ -1,4 +1,4 @@
-use crate::errors::BcpmmError;
+use crate::errors::CbmmError;
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
@@ -49,8 +49,8 @@ pub struct BuyVirtualToken<'info> {
     #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump = virtual_token_account.bump)]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
 
-    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
-    pub pool: Account<'info, BcpmmPool>,
+    #[account(mut, seeds = [CBMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
+    pub pool: Account<'info, CbmmPool>,
 
     #[account(mut,
         associated_token::mint = quote_mint,
@@ -69,7 +69,7 @@ pub struct BuyVirtualToken<'info> {
     #[account(mut, address = pool.platform_config)]
     pub platform_config: Account<'info, PlatformConfig>,
 
-    #[account(address = pool.quote_mint @ BcpmmError::InvalidMint)]
+    #[account(address = pool.quote_mint @ CbmmError::InvalidMint)]
     pub quote_mint: InterfaceAccount<'info, Mint>,
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
@@ -83,8 +83,8 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
     let real_swap_amount = args.a_amount - fees.total_fees_amount();
 
     let output_amount = pool.calculate_base_output_amount(real_swap_amount);
-    require_gt!(output_amount, 0, BcpmmError::AmountTooSmall);
-    require_gte!(output_amount, args.b_amount_min, BcpmmError::SlippageExceeded);
+    require_gt!(output_amount, 0, CbmmError::AmountTooSmall);
+    require_gte!(output_amount, args.b_amount_min, CbmmError::SlippageExceeded);
 
     virtual_token_account.add(output_amount, &fees)?;
 
@@ -145,7 +145,7 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
 
 #[cfg(test)]
 mod tests {
-    use crate::state::BcpmmPool;
+    use crate::state::CbmmPool;
     use crate::test_utils::{TestRunner, TestPool};
     use anchor_lang::prelude::*;
     use solana_sdk::signature::{Keypair, Signer};
@@ -239,8 +239,8 @@ mod tests {
 
         // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
-        let pool_data: BcpmmPool =
-            BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         assert_eq!(pool_data.quote_reserve, quote_amount_after_fees);
         assert_eq!(pool_data.base_reserve, base_reserve - calculated_b_amount_min);
         assert_eq!(pool_data.quote_virtual_reserve, quote_virtual_reserve); // Unchanged

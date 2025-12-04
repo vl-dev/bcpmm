@@ -18,11 +18,11 @@ pub struct CreatePool<'info> {
     
     #[account(init,
          payer = payer, 
-         space = BcpmmPool::INIT_SPACE + 8,
-         seeds = [BCPMM_POOL_SEED, BCPMM_POOL_INDEX_SEED.to_le_bytes().as_ref(), payer.key().as_ref()],
+         space = CbmmPool::INIT_SPACE + 8,
+         seeds = [CBMM_POOL_SEED, CBMM_POOL_INDEX_SEED.to_le_bytes().as_ref(), payer.key().as_ref()],
          bump
     )]
-    pub pool: Account<'info, BcpmmPool>,        
+    pub pool: Account<'info, CbmmPool>,        
 
     #[account(
         init_if_needed,
@@ -53,10 +53,10 @@ pub struct CreatePool<'info> {
 
 pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
     let platform_config = &ctx.accounts.platform_config;
-    ctx.accounts.pool.set_inner(BcpmmPool::try_new(
+    ctx.accounts.pool.set_inner(CbmmPool::try_new(
         ctx.bumps.pool,
         ctx.accounts.payer.key(),
-        BCPMM_POOL_INDEX_SEED,
+        CBMM_POOL_INDEX_SEED,
         ctx.accounts.platform_config.key(),
         ctx.accounts.a_mint.key(),
         args.a_virtual_reserve,

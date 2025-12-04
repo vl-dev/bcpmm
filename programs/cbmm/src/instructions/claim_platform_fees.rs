@@ -1,4 +1,4 @@
-use crate::errors::BcpmmError;
+use crate::errors::CbmmError;
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
@@ -8,7 +8,7 @@ use anchor_spl::token_interface::{
 
 #[derive(Accounts)]
 pub struct ClaimPlatformFees<'info> {
-    #[account(mut, address = platform_config.admin @ BcpmmError::InvalidPlatformAdmin)]
+    #[account(mut, address = platform_config.admin @ CbmmError::InvalidPlatformAdmin)]
     pub admin: Signer<'info>,
 
     #[account(mut,

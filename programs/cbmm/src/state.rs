@@ -1,4 +1,4 @@
-use crate::errors::BcpmmError;
+use crate::errors::CbmmError;
 use crate::helpers::{
     calculate_burn_amount, calculate_buy_output_amount, calculate_fees,
     calculate_new_virtual_reserve_after_burn, calculate_new_virtual_reserve_after_topup,
@@ -12,8 +12,8 @@ use anchor_spl::token_interface::{
 };
 
 pub const PLATFORM_CONFIG_SEED: &[u8] = b"platform_config";
-pub const BCPMM_POOL_SEED: &[u8] = b"bcpmm_pool";
-pub const BCPMM_POOL_INDEX_SEED: u32 = 0; // this is introduced for extensibility - if we ever need more that one pool per user, we can use this to differentiate them
+pub const CBMM_POOL_SEED: &[u8] = b"cbmm_pool";
+pub const CBMM_POOL_INDEX_SEED: u32 = 0; // this is introduced for extensibility - if we ever need more that one pool per user, we can use this to differentiate them
 pub const VIRTUAL_TOKEN_ACCOUNT_SEED: &[u8] = b"virtual_token_account";
 pub const USER_BURN_ALLOWANCE_SEED: &[u8] = b"user_burn_allowance";
 
@@ -21,6 +21,7 @@ pub const DEFAULT_BASE_MINT_DECIMALS: u8 = 6;
 pub const DEFAULT_BASE_MINT_RESERVE: u64 =
     1_000_000_000 * 10u64.pow(DEFAULT_BASE_MINT_DECIMALS as u32);
 pub const DEFAULT_BURN_TIERS_UPDATE_COOLDOWN_SECONDS: i64 = 86400; // 24 hours
+pub const BURN_UPDATE_COOLDOWN_PERIOD_SECONDS: i64 = 3600; // 1 hour
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
 pub enum BurnRole {
@@ -49,9 +50,9 @@ pub struct PlatformConfig {
     pub pool_topup_fee_basis_points: u16,
     pub platform_fee_basis_points: u16,
 
-    pub burn_tiers_updated_at: i64, // needed for cooling off period
+    pub burn_rate_config: BurnRateConfig,
 
-    pub burn_config: BurnRateConfig,
+    pub burn_tiers_updated_at: i64, // used as a seed for the burn allowance accounts - update makes all old allowances invalid
     #[max_len(5)]
     pub burn_tiers: Vec<BurnTier>,
 }
@@ -70,13 +71,13 @@ impl PlatformConfig {
         burn_min_burn_bp_x100: u64,
         burn_decay_rate_per_sec_bp_x100: u64,
     ) -> Result<Self> {
-        require!(burn_tiers.len() <= 5, BcpmmError::InvalidBurnTiers);
+        require!(burn_tiers.len() <= 5, CbmmError::InvalidBurnTiers);
         let total_fees =
             pool_creator_fee_basis_points + pool_topup_fee_basis_points + platform_fee_basis_points;
         // 1% fee minimum to be able to do reasonable burns
         require!(
             total_fees <= 10_000 && total_fees >= 100,
-            BcpmmError::InvalidFeeBasisPoints
+            CbmmError::InvalidFeeBasisPoints
         );
 
         // check that every burn tier has the amount at most 1/10 of the total fees - keeps the burning reasonably safe
@@ -85,7 +86,7 @@ impl PlatformConfig {
             !&burn_tiers
                 .iter()
                 .any(|tier| tier.burn_bp_x100 / 100 > total_fees as u32 / 10),
-            BcpmmError::InvalidBurnTiers
+            CbmmError::InvalidBurnTiers
         );
 
         // todo check that the burn config is valid
@@ -102,7 +103,7 @@ impl PlatformConfig {
             quote_mint,
             burn_tiers,
             burn_tiers_updated_at: Clock::get()?.unix_timestamp,
-            burn_config,
+            burn_rate_config: burn_config,
             pool_creator_fee_basis_points,
             pool_topup_fee_basis_points,
             platform_fee_basis_points,
@@ -114,7 +115,7 @@ impl PlatformConfig {
 // B is the virtual token
 #[account]
 #[derive(Default, InitSpace)]
-pub struct BcpmmPool {
+pub struct CbmmPool {
     /// Bump seed
     pub bump: u8,
     /// Pool creator address
@@ -166,7 +167,7 @@ pub struct BurnResult {
     pub burn_amount: u64,
 }
 
-impl BcpmmPool {
+impl CbmmPool {
     pub fn try_new(
         bump: u8,
         creator: Pubkey,
@@ -178,10 +179,10 @@ impl BcpmmPool {
         buyback_fee_basis_points: u16,
         platform_fee_basis_points: u16,
     ) -> Result<Self> {
-        require!(quote_virtual_reserve > 0, BcpmmError::InvalidVirtualReserve);
+        require!(quote_virtual_reserve > 0, CbmmError::InvalidVirtualReserve);
         require!(
             buyback_fee_basis_points > 0,
-            BcpmmError::InvalidBuybackFeeBasisPoints
+            CbmmError::InvalidBuybackFeeBasisPoints
         );
 
         let burn_limiter = BurnRateLimiter::new(Clock::get()?.unix_timestamp);
@@ -236,9 +237,9 @@ impl BcpmmPool {
         )
     }
 
-    pub fn burn(&mut self, config: &BurnRateConfig, requested_amount: u64) -> Result<BurnResult> {
+    pub fn burn(&mut self, config: &BurnRateConfig, requested_bp_x100: u32) -> Result<BurnResult> {
         let allowed_burn = self.burn_limiter.calculate_required_bp_x100(
-            requested_amount,
+            requested_bp_x100,
             &config,
             Clock::get()?.unix_timestamp,
         )?;
@@ -290,7 +291,7 @@ impl BcpmmPool {
 
         let needed_topup_amount = quote_optimal_real_reserve
             .checked_sub(self.quote_reserve)
-            .ok_or(BcpmmError::MathOverflow)?;
+            .ok_or(CbmmError::MathOverflow)?;
         if needed_topup_amount == 0 {
             return Ok(0);
         }
@@ -329,7 +330,7 @@ impl BcpmmPool {
         let pool_index = &self.pool_index;
         let pool_index_bytes = pool_index.to_le_bytes().to_vec();
         let signer_seeds: &[&[&[u8]]] = &[&[
-            BCPMM_POOL_SEED,
+            CBMM_POOL_SEED,
             pool_index_bytes.as_slice(),
             self.creator.as_ref(),
             &[bump_seed],
@@ -372,7 +373,7 @@ impl VirtualTokenAccount {
         require_gte!(
             self.balance,
             base_amount,
-            BcpmmError::InsufficientVirtualTokenBalance
+            CbmmError::InsufficientVirtualTokenBalance
         );
         self.balance -= base_amount;
         self.fees_paid += fees.total_fees_amount();
@@ -390,17 +391,28 @@ impl VirtualTokenAccount {
 #[derive(Default, InitSpace)]
 pub struct UserBurnAllowance {
     pub bump: u8,
+    // seeds
     pub user: Pubkey,
+    pub burn_tier_index: u8,
+    pub corresponding_burn_tier_update_timestamp: i64,
+
     pub payer: Pubkey, // Wallet that receives funds when this account is closed
     pub burns_today: u16,
 
     pub last_burn_timestamp: i64,
-    // Time of creation of the allowance used to reset the burn count
+
     pub created_at: i64,
 }
 
 impl UserBurnAllowance {
-    pub fn new(bump: u8, user: Pubkey, payer: Pubkey, now: i64) -> Self {
+    pub fn new(
+        bump: u8,
+        user: Pubkey,
+        payer: Pubkey,
+        burn_tier_index: u8,
+        corresponding_burn_tier_update_timestamp: i64,
+        now: i64,
+    ) -> Self {
         Self {
             bump,
             user,
@@ -408,6 +420,8 @@ impl UserBurnAllowance {
             burns_today: 0,
             last_burn_timestamp: 0,
             created_at: now,
+            burn_tier_index,
+            corresponding_burn_tier_update_timestamp,
         }
     }
 
@@ -446,7 +460,7 @@ mod tests {
     #[test_case(CREATED_AT, CREATED_AT + DAY, CREATED_AT + 20*DAY - 1, true; "reset_after_20_days")]
     fn test_should_reset(created_at: i64, last_burn_timestamp: i64, now: i64, should_reset: bool) {
         let mut user_burn_allowance =
-            UserBurnAllowance::new(0, Pubkey::default(), Pubkey::default(), created_at);
+            UserBurnAllowance::new(0, Pubkey::default(), Pubkey::default(), 0, 0, created_at);
         user_burn_allowance.last_burn_timestamp = last_burn_timestamp;
         assert_eq!(user_burn_allowance.should_reset(now), should_reset);
     }

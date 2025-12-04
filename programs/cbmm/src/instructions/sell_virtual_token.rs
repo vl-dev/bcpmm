@@ -1,4 +1,4 @@
-use crate::errors::BcpmmError;
+use crate::errors::CbmmError;
 use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{
@@ -46,8 +46,8 @@ pub struct SellVirtualToken<'info> {
     #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump = virtual_token_account.bump)]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
 
-    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
-    pub pool: Account<'info, BcpmmPool>,
+    #[account(mut, seeds = [CBMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
+    pub pool: Account<'info, CbmmPool>,
 
     #[account(mut,
         associated_token::mint = quote_mint,
@@ -76,10 +76,10 @@ pub fn sell_virtual_token(
 ) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
     let virtual_token_account = &mut ctx.accounts.virtual_token_account;
-    require_gte!(virtual_token_account.balance, args.b_amount, BcpmmError::InsufficientVirtualTokenBalance);
+    require_gte!(virtual_token_account.balance, args.b_amount, CbmmError::InsufficientVirtualTokenBalance);
 
     let output_amount = pool.calculate_quote_output_amount(args.b_amount);
-    require_gte!(pool.quote_reserve, output_amount, BcpmmError::Underflow);
+    require_gte!(pool.quote_reserve, output_amount, CbmmError::Underflow);
 
     let fees = pool.calculate_fees(output_amount)?;
     virtual_token_account.sub(args.b_amount, &fees)?;
@@ -130,7 +130,7 @@ pub fn sell_virtual_token(
 
 #[cfg(test)]
 mod tests {
-    use crate::state::BcpmmPool;
+    use crate::state::CbmmPool;
     use crate::test_utils::TestRunner;
     use anchor_lang::prelude::*;
     use solana_sdk::signature::{Keypair, Signer};
@@ -217,8 +217,8 @@ mod tests {
 
         // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&pool).unwrap();
-        let pool_data: BcpmmPool =
-            BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
 
         let expected_output_amount = 251;
 

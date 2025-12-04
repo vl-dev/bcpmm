@@ -1,4 +1,4 @@
-use crate::errors::BcpmmError;
+use crate::errors::CbmmError;
 use crate::state::*;
 use anchor_lang::prelude::*;
 
@@ -25,7 +25,7 @@ pub struct CloseUserBurnAllowance<'info> {
     pub platform_config: Account<'info, PlatformConfig>,
 
     /// CHECK: Checked that it's the same as the payer in the user burn allowance account.
-    #[account(address = user_burn_allowance.payer @ BcpmmError::InvalidBurnAccountPayer)]
+    #[account(address = user_burn_allowance.payer @ CbmmError::InvalidBurnAccountPayer)]
     pub burn_allowance_open_payer: AccountInfo<'info>,
 }
 
@@ -37,7 +37,7 @@ pub fn close_user_burn_allowance(
     let time_since_last_burn = now - ctx.accounts.user_burn_allowance.last_burn_timestamp;
     require!(
         ctx.accounts.user_burn_allowance.burns_today == 0 || time_since_last_burn >= 86400,
-        BcpmmError::CannotCloseActiveBurnAllowance
+        CbmmError::CannotCloseActiveBurnAllowance
     );
 
     Ok(())

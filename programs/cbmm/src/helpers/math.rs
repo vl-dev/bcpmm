@@ -1,4 +1,4 @@
-use crate::errors::BcpmmError;
+use crate::errors::CbmmError;
 use anchor_lang::prelude::*;
 
 pub const X10K_100_PERCENT_BP: u64 = 100_000_000;
@@ -28,13 +28,13 @@ pub fn calculate_fees(
         || creator_fee_basis_points > 10000
         || buyback_fee_basis_points > 10000
     {
-        return Err(BcpmmError::InvalidFeeBasisPoints.into());
+        return Err(CbmmError::InvalidFeeBasisPoints.into());
     }
     if u64::MAX / (platform_fee_basis_points as u64) < quote_amount
         || u64::MAX / (creator_fee_basis_points as u64) < quote_amount
         || u64::MAX / (buyback_fee_basis_points as u64) < quote_amount
     {
-        return Err(BcpmmError::AmountTooBig.into());
+        return Err(CbmmError::AmountTooBig.into());
     }
     // Use ceiling division for fees to avoid rounding down: ceil(x / d) = (x + d - 1) / d
     let creator_fees_amount =
@@ -148,36 +148,27 @@ mod tests {
     fn test_calculate_amount_too_big() {
         let result = calculate_fees(u64::MAX, 10000, 10000, 10000);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), BcpmmError::AmountTooBig.into());
+        assert_eq!(result.unwrap_err(), CbmmError::AmountTooBig.into());
     }
 
     #[test]
     fn test_calculate_fees_creator_fee_basis_points_overflow() {
         let result = calculate_fees(1_000_000_000, 10000, 10001, 10000);
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            BcpmmError::InvalidFeeBasisPoints.into()
-        );
+        assert_eq!(result.unwrap_err(), CbmmError::InvalidFeeBasisPoints.into());
     }
 
     #[test]
     fn test_calculate_fees_buyback_fee_basis_points_overflow() {
         let result = calculate_fees(1_000_000_000, 10001, 10000, 10000);
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            BcpmmError::InvalidFeeBasisPoints.into()
-        );
+        assert_eq!(result.unwrap_err(), CbmmError::InvalidFeeBasisPoints.into());
     }
 
     #[test]
     fn test_calculate_fees_platform_fee_basis_points_overflow() {
         let result = calculate_fees(1_000_000_000, 10000, 10000, 10001);
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            BcpmmError::InvalidFeeBasisPoints.into()
-        );
+        assert_eq!(result.unwrap_err(), CbmmError::InvalidFeeBasisPoints.into());
     }
 }

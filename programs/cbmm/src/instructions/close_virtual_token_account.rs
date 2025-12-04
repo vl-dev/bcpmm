@@ -1,4 +1,4 @@
-use crate::errors::BcpmmError;
+use crate::errors::CbmmError;
 use crate::state::*;
 use anchor_lang::prelude::*;
 
@@ -9,8 +9,8 @@ pub struct CloseVirtualTokenAccount<'info> {
     #[account(
         mut,
         close = owner,
-        has_one = owner @ BcpmmError::InvalidOwner,
-        constraint = virtual_token_account.balance == 0 @ BcpmmError::NonzeroBalance
+        has_one = owner @ CbmmError::InvalidOwner,
+        constraint = virtual_token_account.balance == 0 @ CbmmError::NonzeroBalance
     )]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
 }
