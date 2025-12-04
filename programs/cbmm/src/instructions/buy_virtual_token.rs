@@ -10,17 +10,12 @@ pub struct BuyEvent {
     pub quote_input: u64,
     pub base_output: u64,
 
-    pub creator_fees: u64,
-    pub buyback_fees: u64,
-    pub platform_fees: u64,
+    pub fees: u64,
 
     pub topup_paid: u64,
 
-    pub new_b_reserve: u64,
-    pub new_a_reserve: u64,
-    pub new_outstanding_topup: u64,
-    pub new_creator_fees_balance: u64,
-    pub new_buyback_fees_balance: u64,
+    pub new_base_reserve: u64,
+    pub new_quote_reserve: u64,
 
     pub buyer: Pubkey,
     pub pool: Pubkey,
@@ -42,31 +37,40 @@ pub struct BuyVirtualToken<'info> {
     #[account(mut,
         associated_token::mint = quote_mint,
         associated_token::authority = payer,
-        associated_token::token_program = token_program        
+        associated_token::token_program = token_program
     )]
     pub payer_ata: InterfaceAccount<'info, TokenAccount>,
     // todo check owner (or maybe not? can buy for other user)
-    #[account(mut, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump = virtual_token_account.bump)]
+    #[account(mut,
+        seeds = [
+            VIRTUAL_TOKEN_ACCOUNT_SEED,
+            pool.key().as_ref(),
+            payer.key().as_ref(),
+        ],
+        bump = virtual_token_account.bump,
+        has_one = pool,
+    )]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
 
-    #[account(mut, seeds = [CBMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
+    #[account(
+        mut,
+        seeds = [
+            CBMM_POOL_SEED,
+            pool.pool_index.to_le_bytes().as_ref(),
+             pool.creator.as_ref()
+             ],
+              bump = pool.bump,
+              has_one = platform_config
+            )]
     pub pool: Account<'info, CbmmPool>,
 
     #[account(mut,
         associated_token::mint = quote_mint,
         associated_token::authority = pool,
-        associated_token::token_program = token_program        
+        associated_token::token_program = token_program
     )]
     pub pool_ata: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut,
-        associated_token::mint = quote_mint,
-        associated_token::authority = platform_config,
-        associated_token::token_program = token_program
-    )]
-    pub platform_config_ata: InterfaceAccount<'info, TokenAccount>,
-
-    #[account(mut, address = pool.platform_config)]
     pub platform_config: Account<'info, PlatformConfig>,
 
     #[account(address = pool.quote_mint @ CbmmError::InvalidMint)]
@@ -79,26 +83,20 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
     let pool = &mut ctx.accounts.pool;
     let virtual_token_account = &mut ctx.accounts.virtual_token_account;
 
-    let fees = pool.calculate_fees(args.a_amount)?;
-    let real_swap_amount = args.a_amount - fees.total_fees_amount();
-
-    let output_amount = pool.calculate_base_output_amount(real_swap_amount);
+    let exchange_rate = pool.quote_to_base(args.quote_amount)?;
+    let output_amount = exchange_rate.base_amount;
     require_gt!(output_amount, 0, CbmmError::AmountTooSmall);
-    require_gte!(output_amount, args.b_amount_min, CbmmError::SlippageExceeded);
-
-    virtual_token_account.add(output_amount, &fees)?;
-
-    // Update the pool state
-    let real_topup_amount = pool.quote_outstanding_topup.min(fees.buyback_fees_amount);
-    pool.quote_outstanding_topup -= real_topup_amount;    
-    pool.buyback_fees_balance += fees.buyback_fees_amount - real_topup_amount;
-    pool.creator_fees_balance += fees.creator_fees_amount;
-    pool.quote_reserve += real_swap_amount + real_topup_amount;
-    pool.base_reserve -= output_amount;
+    require_gte!(
+        output_amount,
+        args.base_amount_min,
+        CbmmError::SlippageExceeded
+    );
+    let topup_amount = pool.topup()?;
+    virtual_token_account.add(output_amount)?;
 
     // Transfer A tokens to pool ata, excluding platform fees
     let cpi_accounts = TransferChecked {
-        mint: ctx.accounts.a_mint.to_account_info(),
+        mint: ctx.accounts.quote_mint.to_account_info(),
         from: ctx.accounts.payer_ata.to_account_info(),
         to: ctx.accounts.pool_ata.to_account_info(),
         authority: ctx.accounts.payer.to_account_info(),
@@ -107,49 +105,30 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
     let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
     transfer_checked(
         cpi_context,
-         args.a_amount - fees.platform_fees_amount,
-         ctx.accounts.a_mint.decimals)?;
-
-
-    // Transfer platform fees to platform config ata
-    let cpi_accounts = TransferChecked {
-        mint: ctx.accounts.a_mint.to_account_info(),
-        from: ctx.accounts.payer_ata.to_account_info(),
-        to: ctx.accounts.platform_config_ata.to_account_info(),
-        authority: ctx.accounts.payer.to_account_info(),
-    };
-    let cpi_program = ctx.accounts.token_program.to_account_info();
-    let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
-    transfer_checked(
-        cpi_context,
-        fees.platform_fees_amount,
-        ctx.accounts.a_mint.decimals
+        args.quote_amount,
+        ctx.accounts.quote_mint.decimals,
     )?;
+
     emit!(BuyEvent {
-        quote_input: args.a_amount,
+        quote_input: args.quote_amount,
         base_output: output_amount,
-        creator_fees: fees.creator_fees_amount,
-        buyback_fees: fees.buyback_fees_amount,
-        platform_fees: fees.platform_fees_amount,
-        topup_paid: real_topup_amount,
-        new_b_reserve: pool.base_reserve,
-        new_a_reserve: pool.quote_reserve,
-        new_outstanding_topup: pool.quote_outstanding_topup,
-        new_creator_fees_balance: pool.creator_fees_balance,
-        new_buyback_fees_balance: pool.buyback_fees_balance,
+        fees: args.quote_amount - exchange_rate.quote_amount,
+        topup_paid: topup_amount,
+        new_base_reserve: pool.base_reserve,
+        new_quote_reserve: pool.quote_reserve,
         buyer: ctx.accounts.payer.key(),
         pool: ctx.accounts.pool.key(),
-    }); 
+    });
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use crate::state::CbmmPool;
-    use crate::test_utils::{TestRunner, TestPool};
+    use crate::test_utils::{TestPool, TestRunner};
     use anchor_lang::prelude::*;
-    use solana_sdk::signature::{Keypair, Signer};
     use solana_sdk::pubkey::Pubkey;
+    use solana_sdk::signature::{Keypair, Signer};
 
     fn setup_test() -> (TestRunner, Keypair, Keypair, TestPool, Pubkey, Pubkey) {
         // Parameters
@@ -167,14 +146,15 @@ mod tests {
         let mut runner = TestRunner::new();
         let payer = Keypair::new();
         let another_wallet = Keypair::new();
-        
+
         runner.airdrop(&payer.pubkey(), 10_000_000_000);
         runner.airdrop(&another_wallet.pubkey(), 10_000_000_000);
         let quote_mint = runner.create_mint(&payer, 9);
         let payer_ata = runner.create_associated_token_account(&payer, quote_mint, &payer.pubkey());
-        runner.mint_to(&payer, &a_mint, payer_ata, 10_000_000_000);
+        runner.mint_to(&payer, &quote_mint, payer_ata, 10_000_000_000);
 
-        let platform_config = runner.create_platform_config_mock(&payer,
+        let platform_config = runner.create_platform_config_mock(
+            &payer,
             quote_mint,
             5,
             5,
@@ -182,7 +162,8 @@ mod tests {
             1,
             creator_fee_basis_points,
             buyback_fee_basis_points,
-            platform_fee_basis_points);
+            platform_fee_basis_points,
+        );
         // platform config ata
         runner.create_associated_token_account(&payer, quote_mint, &platform_config);
 
@@ -203,13 +184,20 @@ mod tests {
         // pool ata
         runner.create_associated_token_account(&payer, quote_mint, &test_pool.pool);
 
-        (runner, payer, another_wallet, test_pool, payer_ata, quote_mint)
+        (
+            runner,
+            payer,
+            another_wallet,
+            test_pool,
+            payer_ata,
+            quote_mint,
+        )
     }
 
     #[test]
     fn test_buy_virtual_token_success() {
         let (mut runner, payer, _, pool, payer_ata, quote_mint) = setup_test();
-        
+
         let quote_amount = 5000;
         let quote_virtual_reserve = 1_000_000;
         let base_reserve = 2_000_000;
@@ -219,9 +207,10 @@ mod tests {
         let buyback_fees = 300;
         let buyback_fees_after_topup = buyback_fees - quote_outstanding_topup;
         let platform_fees = 100;
-        let quote_amount_after_fees = quote_amount - creator_fees - buyback_fees_after_topup - platform_fees;
+        let quote_amount_after_fees =
+            quote_amount - creator_fees - buyback_fees_after_topup - platform_fees;
 
-        let calculated_b_amount_min = 8959;
+        let calculated_base_amount_min = 8959;
         let virtual_token_account =
             runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0, 0);
 
@@ -232,7 +221,7 @@ mod tests {
             pool.pool,
             virtual_token_account,
             quote_amount,
-            calculated_b_amount_min,
+            calculated_base_amount_min,
         );
         result_buy.unwrap();
         //assert!(result_buy.is_ok());
@@ -242,19 +231,21 @@ mod tests {
         let pool_data: CbmmPool =
             CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         assert_eq!(pool_data.quote_reserve, quote_amount_after_fees);
-        assert_eq!(pool_data.base_reserve, base_reserve - calculated_b_amount_min);
+        assert_eq!(
+            pool_data.base_reserve,
+            base_reserve - calculated_base_amount_min
+        );
         assert_eq!(pool_data.quote_virtual_reserve, quote_virtual_reserve); // Unchanged
         assert_eq!(pool_data.buyback_fees_balance, buyback_fees_after_topup);
         assert_eq!(pool_data.creator_fees_balance, creator_fees);
-        assert_eq!(pool_data.quote_outstanding_topup, 0);
     }
 
     #[test]
     fn test_buy_virtual_token_slippage_exceeded() {
         let (mut runner, payer, _, pool, payer_ata, quote_mint) = setup_test();
-        
+
         let quote_amount = 5000;
-        let calculated_b_amount_min = 9157;
+        let calculated_base_amount_min = 9157;
 
         let virtual_token_account =
             runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0, 0);
@@ -266,7 +257,7 @@ mod tests {
             pool.pool,
             virtual_token_account,
             quote_amount,
-            calculated_b_amount_min + 1, // Set minimum too high
+            calculated_base_amount_min + 1, // Set minimum too high
         );
         assert!(result_buy_min_too_high.is_err());
     }
@@ -274,9 +265,9 @@ mod tests {
     #[test]
     fn test_buy_virtual_token_wrong_virtual_account_owner() {
         let (mut runner, payer, another_wallet, pool, payer_ata, quote_mint) = setup_test();
-        
+
         let quote_amount = 5000;
-        let calculated_b_amount_min = 9157;
+        let calculated_base_amount_min = 9157;
 
         let virtual_token_account_another_wallet =
             runner.create_virtual_token_account_mock(another_wallet.pubkey(), pool.pool, 0, 0);
@@ -288,7 +279,7 @@ mod tests {
             pool.pool,
             virtual_token_account_another_wallet,
             quote_amount,
-            calculated_b_amount_min,
+            calculated_base_amount_min,
         );
         assert!(result_buy_another_virtual_account.is_err());
     }

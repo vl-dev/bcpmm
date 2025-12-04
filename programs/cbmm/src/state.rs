@@ -150,6 +150,8 @@ pub struct CbmmPool {
     pub creator_fees_balance: u64,
     /// Total buyback fees accumulated in Mint A including decimals
     pub buyback_fees_balance: u64,
+    /// Total platform fees accumulated in Mint A including decimals
+    pub platform_fees_balance: u64,
 
     /// Creator fee basis points
     pub creator_fee_basis_points: u16,
@@ -165,6 +167,11 @@ pub struct CbmmPool {
 pub struct BurnResult {
     pub rate_limit_result: RateLimitResult,
     pub burn_amount: u64,
+}
+
+pub struct SwapResult {
+    pub quote_amount: u64,
+    pub base_amount: u64,
 }
 
 impl CbmmPool {
@@ -210,13 +217,29 @@ impl CbmmPool {
         })
     }
 
-    pub fn calculate_fees(&self, quote_amount: u64) -> anchor_lang::prelude::Result<Fees> {
-        calculate_fees(
+    fn collect_fees(&mut self, quote_amount: u64) -> anchor_lang::prelude::Result<u64> {
+        let fees = calculate_fees(
             quote_amount,
             self.creator_fee_basis_points,
             self.buyback_fee_basis_points,
             self.platform_fee_basis_points,
-        )
+        )?;
+        self.creator_fees_balance += fees.creator_fees_amount;
+        self.buyback_fees_balance += fees.buyback_fees_amount;
+        self.platform_fees_balance += fees.platform_fees_amount;
+        Ok(quote_amount - fees.total_fees_amount())
+    }
+
+    pub fn quote_to_base(&mut self, quote_amount: u64) -> anchor_lang::prelude::Result<SwapResult> {
+        let amount_after_fees = self.collect_fees(quote_amount)?;
+        let base_amount = self.calculate_base_output_amount(amount_after_fees);
+        self.base_reserve -= base_amount;
+        self.base_total_supply -= base_amount;
+        self.quote_reserve += amount_after_fees;
+        Ok(SwapResult {
+            quote_amount: amount_after_fees,
+            base_amount,
+        })
     }
 
     pub fn calculate_quote_output_amount(&self, base_amount: u64) -> u64 {
@@ -354,8 +377,6 @@ pub struct VirtualTokenAccount {
     pub owner: Pubkey,
     /// Balance of Mint B including decimals
     pub balance: u64,
-    /// All fees paid when buying and selling tokens to this account. Denominated in Mint A including decimals
-    pub fees_paid: u64,
 }
 
 impl VirtualTokenAccount {
@@ -365,24 +386,22 @@ impl VirtualTokenAccount {
             pool,
             owner,
             balance: 0,
-            fees_paid: 0,
         }
     }
 
-    pub fn sub(&mut self, base_amount: u64, fees: &Fees) -> Result<()> {
-        require_gte!(
-            self.balance,
-            base_amount,
-            CbmmError::InsufficientVirtualTokenBalance
-        );
-        self.balance -= base_amount;
-        self.fees_paid += fees.total_fees_amount();
+    pub fn sub(&mut self, base_amount: u64) -> Result<()> {
+        self.balance = self
+            .balance
+            .checked_sub(base_amount)
+            .ok_or(CbmmError::InsufficientVirtualTokenBalance)?;
         Ok(())
     }
 
-    pub fn add(&mut self, base_amount: u64, fees: &Fees) -> Result<()> {
-        self.balance += base_amount;
-        self.fees_paid += fees.total_fees_amount();
+    pub fn add(&mut self, base_amount: u64) -> Result<()> {
+        self.balance = self
+            .balance
+            .checked_add(base_amount)
+            .ok_or(CbmmError::MathOverflow)?;
         Ok(())
     }
 }
