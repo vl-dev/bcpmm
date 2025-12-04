@@ -52,16 +52,15 @@ pub struct BuyVirtualToken<'info> {
     )]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
 
-    #[account(
-        mut,
+    #[account(mut,
         seeds = [
             CBMM_POOL_SEED,
             pool.pool_index.to_le_bytes().as_ref(),
-             pool.creator.as_ref()
-             ],
-              bump = pool.bump,
-              has_one = platform_config
-            )]
+            pool.creator.as_ref(),
+        ],
+        bump = pool.bump,
+        has_one = platform_config,
+    )]
     pub pool: Account<'info, CbmmPool>,
 
     #[account(mut,
@@ -83,16 +82,19 @@ pub fn buy_virtual_token(ctx: Context<BuyVirtualToken>, args: BuyVirtualTokenArg
     let pool = &mut ctx.accounts.pool;
     let virtual_token_account = &mut ctx.accounts.virtual_token_account;
 
-    let exchange_rate = pool.quote_to_base(args.quote_amount)?;
+    // Topup before trade for more impact on price curve
+    let amount_after_fees = pool.collect_fees(args.quote_amount)?;
+    let topup_amount = pool.topup()?;
+    let exchange_rate = pool.quote_to_base(amount_after_fees)?;
     let output_amount = exchange_rate.base_amount;
+    virtual_token_account.add(output_amount)?;
+
     require_gt!(output_amount, 0, CbmmError::AmountTooSmall);
     require_gte!(
         output_amount,
         args.base_amount_min,
         CbmmError::SlippageExceeded
     );
-    let topup_amount = pool.topup()?;
-    virtual_token_account.add(output_amount)?;
 
     // Transfer A tokens to pool ata, excluding platform fees
     let cpi_accounts = TransferChecked {

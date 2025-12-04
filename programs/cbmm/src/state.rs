@@ -217,7 +217,7 @@ impl CbmmPool {
         })
     }
 
-    fn collect_fees(&mut self, quote_amount: u64) -> anchor_lang::prelude::Result<u64> {
+    pub fn collect_fees(&mut self, quote_amount: u64) -> anchor_lang::prelude::Result<u64> {
         let fees = calculate_fees(
             quote_amount,
             self.creator_fee_basis_points,
@@ -231,18 +231,26 @@ impl CbmmPool {
     }
 
     pub fn quote_to_base(&mut self, quote_amount: u64) -> anchor_lang::prelude::Result<SwapResult> {
-        let amount_after_fees = self.collect_fees(quote_amount)?;
-        let base_amount = self.calculate_base_output_amount(amount_after_fees);
+        let base_amount = self.calculate_base_output_amount(quote_amount);
         self.base_reserve -= base_amount;
-        self.base_total_supply -= base_amount;
-        self.quote_reserve += amount_after_fees;
+        self.quote_reserve += quote_amount;
         Ok(SwapResult {
-            quote_amount: amount_after_fees,
+            quote_amount,
             base_amount,
         })
     }
 
-    pub fn calculate_quote_output_amount(&self, base_amount: u64) -> u64 {
+    pub fn base_to_quote(&mut self, base_amount: u64) -> anchor_lang::prelude::Result<SwapResult> {
+        let quote_amount = self.calculate_quote_output_amount(base_amount);
+        self.quote_reserve += quote_amount;
+        self.base_reserve -= base_amount;
+        Ok(SwapResult {
+            quote_amount,
+            base_amount,
+        })
+    }
+
+    fn calculate_quote_output_amount(&self, base_amount: u64) -> u64 {
         calculate_sell_output_amount(
             base_amount,
             self.base_reserve,
@@ -251,7 +259,7 @@ impl CbmmPool {
         )
     }
 
-    pub fn calculate_base_output_amount(&self, quote_amount: u64) -> u64 {
+    fn calculate_base_output_amount(&self, quote_amount: u64) -> u64 {
         calculate_buy_output_amount(
             quote_amount,
             self.quote_reserve,
