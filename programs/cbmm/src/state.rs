@@ -3,7 +3,7 @@ use crate::helpers::{
     calculate_burn_amount, calculate_buy_output_amount, calculate_fees,
     calculate_new_virtual_reserve_after_burn, calculate_new_virtual_reserve_after_topup,
     calculate_optimal_real_quote_reserve, calculate_optimal_virtual_quote_reserve,
-    calculate_sell_output_amount, Fees,
+    calculate_sell_output_amount,
 };
 use crate::helpers::{BurnRateConfig, BurnRateLimiter, RateLimitResult};
 use anchor_lang::prelude::*;
@@ -210,6 +210,7 @@ impl CbmmPool {
             base_total_supply: DEFAULT_BASE_MINT_RESERVE,
             creator_fees_balance: 0,
             buyback_fees_balance: 0,
+            platform_fees_balance: 0,
             creator_fee_basis_points,
             buyback_fee_basis_points,
             platform_fee_basis_points,
@@ -232,8 +233,14 @@ impl CbmmPool {
 
     pub fn quote_to_base(&mut self, quote_amount: u64) -> anchor_lang::prelude::Result<SwapResult> {
         let base_amount = self.calculate_base_output_amount(quote_amount);
-        self.base_reserve -= base_amount;
-        self.quote_reserve += quote_amount;
+        self.base_reserve = self
+            .base_reserve
+            .checked_sub(base_amount)
+            .ok_or(CbmmError::Underflow)?;
+        self.quote_reserve = self
+            .quote_reserve
+            .checked_add(quote_amount)
+            .ok_or(CbmmError::MathOverflow)?;
         Ok(SwapResult {
             quote_amount,
             base_amount,
@@ -242,8 +249,14 @@ impl CbmmPool {
 
     pub fn base_to_quote(&mut self, base_amount: u64) -> anchor_lang::prelude::Result<SwapResult> {
         let quote_amount = self.calculate_quote_output_amount(base_amount);
-        self.quote_reserve += quote_amount;
-        self.base_reserve -= base_amount;
+        self.quote_reserve = self
+            .quote_reserve
+            .checked_sub(quote_amount)
+            .ok_or(CbmmError::Underflow)?;
+        self.base_reserve = self
+            .base_reserve
+            .checked_add(base_amount)
+            .ok_or(CbmmError::MathOverflow)?;
         Ok(SwapResult {
             quote_amount,
             base_amount,

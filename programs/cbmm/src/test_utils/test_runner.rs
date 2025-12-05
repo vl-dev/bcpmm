@@ -177,6 +177,8 @@ impl TestRunner {
             burns_today,
             last_burn_timestamp,
             created_at: 0,
+            burn_tier_index: 0,
+            corresponding_burn_tier_update_timestamp: 0,
         };
         self.put_account_on_chain(
             &Pubkey::from(user_burn_allowance_pda.to_bytes()),
@@ -246,7 +248,7 @@ impl TestRunner {
         platform_fee_basis_points: u16,
         creator_fees_balance: u64,
         buyback_fees_balance: u64,
-        quote_outstanding_topup: u64,
+        _quote_outstanding_topup: u64,
     ) -> TestPool {
         let (platform_config_pda, _platform_config_bump) = Pubkey::find_program_address(
             &[cpmm_state::PLATFORM_CONFIG_SEED, payer.pubkey().as_ref()],
@@ -280,7 +282,7 @@ impl TestRunner {
             quote_mint: anchor_lang::prelude::Pubkey::from(quote_mint.to_bytes()),
             quote_reserve: quote_reserve,
             quote_virtual_reserve: quote_virtual_reserve,
-            quote_outstanding_topup: quote_outstanding_topup,
+            // quote_outstanding_topup removed from state
             base_mint_decimals: base_mint_decimals,
             base_reserve: base_reserve,
             base_total_supply: base_reserve,
@@ -290,6 +292,10 @@ impl TestRunner {
             buyback_fee_basis_points,
             platform_fee_basis_points,
             burn_limiter: BurnRateLimiter::new(0),
+            quote_optimal_virtual_reserve: quote_virtual_reserve, // defaulting
+            quote_starting_virtual_reserve: quote_virtual_reserve, // defaulting
+            base_starting_total_supply: base_reserve,             // defaulting
+            platform_fees_balance: 0,
         };
 
         self.put_account_on_chain(&pool_pda, pool_data);
@@ -302,7 +308,7 @@ impl TestRunner {
         owner: Pubkey,
         pool: Pubkey,
         balance: u64,
-        fees_paid: u64,
+        _fees_paid: u64,
     ) -> Pubkey {
         // Derive the VirtualTokenAccount PDA using pool + owner seeds
         let (vta_pda, vta_bump) = Pubkey::find_program_address(
@@ -320,7 +326,6 @@ impl TestRunner {
                 pool: anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
                 owner: anchor_lang::prelude::Pubkey::from(owner.to_bytes()),
                 balance,
-                fees_paid,
             },
         );
 
@@ -385,6 +390,7 @@ impl TestRunner {
         pool: Pubkey,
         virtual_token_account: Pubkey,
         base_amount: u64,
+        min_quote_amount: u64,
     ) -> std::result::Result<(), TransactionError> {
         let pool_ata = anchor_spl::associated_token::get_associated_token_address(
             &anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
@@ -397,28 +403,25 @@ impl TestRunner {
             cpmm_state::CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config_pda = pool_data.platform_config;
 
-        let platform_config_ata = anchor_spl::associated_token::get_associated_token_address(
-            &anchor_lang::prelude::Pubkey::from(platform_config_pda.to_bytes()),
-            &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
-        );
-
         let accounts = vec![
             AccountMeta::new(payer.pubkey(), true),
             AccountMeta::new(payer_ata, false),
             AccountMeta::new(virtual_token_account, false),
             AccountMeta::new(pool, false),
             AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false),
-            AccountMeta::new(Pubkey::from(platform_config_ata.to_bytes()), false),
             AccountMeta::new(Pubkey::from(platform_config_pda.to_bytes()), false),
             AccountMeta::new(mint, false),
-            AccountMeta::new(solana_sdk_ids::system_program::ID, false),
             AccountMeta::new_readonly(
                 Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
                 false,
             ),
+            AccountMeta::new(solana_sdk_ids::system_program::ID, false),
         ];
 
-        let args = crate::instructions::SellVirtualTokenArgs { base_amount };
+        let args = crate::instructions::SellVirtualTokenArgs {
+            base_amount,
+            min_quote_amount,
+        };
 
         self.send_instruction("sell_virtual_token", accounts, args, &[payer])
     }
@@ -520,29 +523,6 @@ impl TestRunner {
             .send()
             .unwrap();
     }
-
-    // pub fn create_treasury_ata(&mut self, payer: &Keypair, mint: Pubkey, initial_balance: u64) -> Pubkey {
-    //     let (treasury_pda, _treasury_bump) = Pubkey::find_program_address(
-    //         &[cpmm_state::TREASURY_SEED, mint.as_ref()],
-    //         &self.program_id,
-    //     );
-
-    //     let treasury_ata = self.create_associated_token_account(payer, mint, &treasury_pda);
-
-    //     // mint appropriate amount of A tokens to pool
-    //     MintTo::new(
-    //         &mut self.svm,
-    //         &payer,
-    //         &mint,
-    //         &treasury_ata,
-    //         initial_balance,
-    //     )
-    //     .owner(&payer)
-    //     .send()
-    //     .unwrap();
-
-    //     return treasury_ata;
-    // }
 
     pub fn claim_creator_fees(
         &mut self,
