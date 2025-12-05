@@ -13,8 +13,11 @@ pub struct InitializePlatformConfigArgs {
     pub user_burn_bp_x100: u32,
     pub creator_burn_bp_x100: u32,
     pub creator_fee_basis_points: u16,
-    pub buyback_fee_basis_points: u16,
+    pub topup_fee_basis_points: u16,
     pub platform_fee_basis_points: u16,
+    pub burn_limit_bp_x100: u64,
+    pub burn_min_burn_bp_x100: u64,
+    pub burn_decay_rate_per_sec_bp_x100: u64,
 }
 
 #[derive(Accounts)]
@@ -46,6 +49,7 @@ pub fn initialize_platform_config(
     ctx: Context<InitializePlatformConfig>,
     args: InitializePlatformConfigArgs,
 ) -> Result<()> {
+    // todo check that the args combination is valid
     let burn_tiers = vec![
         BurnTier {
             burn_bp_x100: args.user_burn_bp_x100,
@@ -62,11 +66,14 @@ pub fn initialize_platform_config(
         ctx.bumps.platform_config,
         args.admin,
         ctx.accounts.creator.key(),
-        ctx.accounts.a_mint.key(),
+        ctx.accounts.quote_mint.key(),
         burn_tiers,
         args.creator_fee_basis_points,
-        args.buyback_fee_basis_points,
+        args.topup_fee_basis_points,
         args.platform_fee_basis_points,
+        args.burn_limit_bp_x100,
+        args.burn_min_burn_bp_x100,
+        args.burn_decay_rate_per_sec_bp_x100,
     )?);
     Ok(())
 }

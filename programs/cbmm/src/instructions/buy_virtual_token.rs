@@ -52,14 +52,16 @@ pub struct BuyVirtualToken<'info> {
     )]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
 
-    #[account(mut,
+    #[account(
+        mut,
         seeds = [
             CBMM_POOL_SEED,
             pool.pool_index.to_le_bytes().as_ref(),
             pool.creator.as_ref(),
+            platform_config.key().as_ref(),
         ],
         bump = pool.bump,
-        has_one = platform_config,
+        has_one = platform_config @ CbmmError::InvalidPlatformConfig, // todo this might be redundant
     )]
     pub pool: Account<'info, CbmmPool>,
 

@@ -172,6 +172,7 @@ impl TestRunner {
         );
         let user_burn_allowance = cpmm_state::UserBurnAllowance {
             bump,
+            platform_config: anchor_lang::prelude::Pubkey::from(platform_config.to_bytes()),
             user: anchor_lang::prelude::Pubkey::from(user.to_bytes()),
             payer: anchor_lang::prelude::Pubkey::from(payer.to_bytes()),
             burns_today,
@@ -557,9 +558,7 @@ impl TestRunner {
             AccountMeta::new(solana_sdk_ids::system_program::ID, false),
         ];
 
-        let args = crate::instructions::ClaimCreatorFeesArgs { amount };
-
-        self.send_instruction("claim_creator_fees", accounts, args, &[owner])
+        self.send_instruction("claim_creator_fees", accounts, (), &[owner])
     }
 
     pub fn claim_platform_fees(

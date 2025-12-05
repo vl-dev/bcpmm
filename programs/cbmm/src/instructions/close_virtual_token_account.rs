@@ -15,10 +15,6 @@ pub struct CloseVirtualTokenAccount<'info> {
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
 }
 
-pub fn close_virtual_token_account(ctx: Context<CloseVirtualTokenAccount>) -> Result<()> {
-    msg!(
-        "Closing virtual token account, collected fees: {}",
-        ctx.accounts.virtual_token_account.fees_paid
-    );
+pub fn close_virtual_token_account(_ctx: Context<CloseVirtualTokenAccount>) -> Result<()> {
     Ok(())
 }

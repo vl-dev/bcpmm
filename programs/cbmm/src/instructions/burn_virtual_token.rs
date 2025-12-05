@@ -30,9 +30,10 @@ pub struct BurnVirtualToken<'info> {
             CBMM_POOL_SEED,
             pool.pool_index.to_le_bytes().as_ref(),
             pool.creator.as_ref(),
+            platform_config.key().as_ref(),
         ],
         bump = pool.bump,
-        has_one = platform_config @ CbmmError::InvalidPlatformConfig,
+        has_one = platform_config @ CbmmError::InvalidPlatformConfig, // todo this might be redundant
     )]
     pub pool: Account<'info, CbmmPool>,
 
@@ -47,7 +48,6 @@ pub struct BurnVirtualToken<'info> {
     ], bump = user_burn_allowance.bump)]
     pub user_burn_allowance: Account<'info, UserBurnAllowance>,
 
-    #[account(mut)]
     pub platform_config: Account<'info, PlatformConfig>,
 }
 
@@ -194,7 +194,6 @@ mod tests {
 
         // 2 percent of virtual reserve is burned and required as topup
         assert_eq!(pool_data.quote_virtual_reserve, 490000);
-        assert_eq!(pool_data.quote_outstanding_topup, 10000);
     }
 
     #[test]
@@ -230,7 +229,6 @@ mod tests {
 
         // 1 percent of virtual reserve is burned and required as topup
         assert_eq!(pool_data.quote_virtual_reserve, 495000);
-        assert_eq!(pool_data.quote_outstanding_topup, 5000);
     }
 
     #[test]

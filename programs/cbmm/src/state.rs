@@ -13,7 +13,7 @@ use anchor_spl::token_interface::{
 
 pub const PLATFORM_CONFIG_SEED: &[u8] = b"platform_config";
 pub const CBMM_POOL_SEED: &[u8] = b"cbmm_pool";
-pub const CBMM_POOL_INDEX_SEED: u32 = 0; // this is introduced for extensibility - if we ever need more that one pool per user, we can use this to differentiate them
+pub const CBMM_POOL_INDEX_SEED: u32 = 0; // this is introduced for extensibility - if we ever need more that one pool per creator, we can use this to differentiate them
 pub const VIRTUAL_TOKEN_ACCOUNT_SEED: &[u8] = b"virtual_token_account";
 pub const USER_BURN_ALLOWANCE_SEED: &[u8] = b"user_burn_allowance";
 
@@ -22,6 +22,7 @@ pub const DEFAULT_BASE_MINT_RESERVE: u64 =
     1_000_000_000 * 10u64.pow(DEFAULT_BASE_MINT_DECIMALS as u32);
 pub const DEFAULT_BURN_TIERS_UPDATE_COOLDOWN_SECONDS: i64 = 86400; // 24 hours
 pub const BURN_UPDATE_COOLDOWN_PERIOD_SECONDS: i64 = 3600; // 1 hour
+pub const MIN_VIRTUAL_RESERVE: u64 = 1_000_000;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
 pub enum BurnRole {
@@ -435,6 +436,7 @@ pub struct UserBurnAllowance {
     pub user: Pubkey,
     pub burn_tier_index: u8,
     pub corresponding_burn_tier_update_timestamp: i64,
+    pub platform_config: Pubkey,
 
     pub payer: Pubkey, // Wallet that receives funds when this account is closed
     pub burns_today: u16,
@@ -448,6 +450,7 @@ impl UserBurnAllowance {
     pub fn new(
         bump: u8,
         user: Pubkey,
+        platform_config: Pubkey,
         payer: Pubkey,
         burn_tier_index: u8,
         corresponding_burn_tier_update_timestamp: i64,
@@ -456,6 +459,7 @@ impl UserBurnAllowance {
         Self {
             bump,
             user,
+            platform_config,
             payer,
             burns_today: 0,
             last_burn_timestamp: 0,
@@ -499,8 +503,15 @@ mod tests {
     #[test_case(CREATED_AT, CREATED_AT + DAY, CREATED_AT + DAY + 1, false; "reset_bound")]
     #[test_case(CREATED_AT, CREATED_AT + DAY, CREATED_AT + 20*DAY - 1, true; "reset_after_20_days")]
     fn test_should_reset(created_at: i64, last_burn_timestamp: i64, now: i64, should_reset: bool) {
-        let mut user_burn_allowance =
-            UserBurnAllowance::new(0, Pubkey::default(), Pubkey::default(), 0, 0, created_at);
+        let mut user_burn_allowance = UserBurnAllowance::new(
+            0,
+            Pubkey::default(),
+            Pubkey::default(),
+            Pubkey::default(),
+            0,
+            0,
+            created_at,
+        );
         user_burn_allowance.last_burn_timestamp = last_burn_timestamp;
         assert_eq!(user_burn_allowance.should_reset(now), should_reset);
     }

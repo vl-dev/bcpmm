@@ -3,11 +3,6 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::state::*;
 use crate::errors::CbmmError;
 
-#[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct ClaimCreatorFeesArgs {
-    pub amount: u64,
-}
-
 #[derive(Accounts)]
 pub struct ClaimCreatorFees<'info> {
     #[account(mut, address = pool.creator @ CbmmError::InvalidPoolOwner)]
@@ -20,7 +15,16 @@ pub struct ClaimCreatorFees<'info> {
     )]
     pub owner_ata: InterfaceAccount<'info, TokenAccount>,
 
-    #[account(mut, seeds = [CBMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
+    #[account(
+        mut,
+        seeds = [
+            CBMM_POOL_SEED,
+            pool.pool_index.to_le_bytes().as_ref(),
+            pool.creator.as_ref(),
+            pool.platform_config.as_ref(),
+        ],
+        bump = pool.bump,
+    )]
     pub pool: Account<'info, CbmmPool>,
 
     #[account(mut,
@@ -35,19 +39,16 @@ pub struct ClaimCreatorFees<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn claim_creator_fees(ctx: Context<ClaimCreatorFees>, args: ClaimCreatorFeesArgs) -> Result<()> {
+pub fn claim_creator_fees(ctx: Context<ClaimCreatorFees>) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
-    
-    require!( args.amount <= pool.creator_fees_balance, CbmmError::InsufficientVirtualTokenBalance);
-    require!( args.amount > 0, CbmmError::AmountTooSmall);
-
+    let amount = pool.creator_fees_balance;
     // Subtract the claimed amount and transfer to owner
-    pool.creator_fees_balance -= args.amount;
+    pool.creator_fees_balance -= amount;
     let pool_account_info = pool.to_account_info();
     pool.transfer_out(
-        args.amount,
+        amount,
         &pool_account_info,
-        &ctx.accounts.a_mint,
+        &ctx.accounts.quote_mint,
         &ctx.accounts.pool_ata,
         &ctx.accounts.owner_ata,
         &ctx.accounts.token_program,

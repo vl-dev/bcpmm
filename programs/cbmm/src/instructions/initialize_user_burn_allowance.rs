@@ -5,7 +5,6 @@ use anchor_lang::prelude::*;
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
 pub struct InitializeUserBurnAllowanceArgs {
     pub burn_tier_index: u8,
-    pub corresponding_burn_tier_update_timestamp: i64,
 }
 
 #[derive(Accounts)]
@@ -45,9 +44,11 @@ pub fn initialize_user_burn_allowance(
     ctx: Context<InitializeUserBurnAllowance>,
     args: InitializeUserBurnAllowanceArgs,
 ) -> Result<()> {
-    if args.burn_tier_index >= ctx.accounts.platform_config.burn_tiers.len() as u8 {
-        return Err(CbmmError::InvalidBurnTierIndex.into());
-    }
+    require_gt!(
+        ctx.accounts.platform_config.burn_tiers.len() as u8,
+        args.burn_tier_index,
+        CbmmError::InvalidBurnTierIndex
+    );
 
     let burn_tier = &ctx.accounts.platform_config.burn_tiers[args.burn_tier_index as usize];
     match burn_tier.role {
@@ -72,6 +73,7 @@ pub fn initialize_user_burn_allowance(
         .set_inner(UserBurnAllowance::new(
             ctx.bumps.user_burn_allowance,
             ctx.accounts.owner.key(),
+            ctx.accounts.platform_config.key(),
             ctx.accounts.payer.key(),
             args.burn_tier_index,
             ctx.accounts.platform_config.burn_tiers_updated_at,

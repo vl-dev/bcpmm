@@ -2,6 +2,7 @@ use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use crate::errors::CbmmError;
 
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -19,7 +20,12 @@ pub struct CreatePool<'info> {
     #[account(init,
          payer = payer, 
          space = CbmmPool::INIT_SPACE + 8,
-         seeds = [CBMM_POOL_SEED, CBMM_POOL_INDEX_SEED.to_le_bytes().as_ref(), payer.key().as_ref()],
+         seeds = [
+            CBMM_POOL_SEED,
+            CBMM_POOL_INDEX_SEED.to_le_bytes().as_ref(),
+            payer.key().as_ref(),
+            platform_config.key().as_ref()
+          ],
          bump
     )]
     pub pool: Account<'info, CbmmPool>,        
@@ -52,14 +58,15 @@ pub struct CreatePool<'info> {
 }
 
 pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
+    require_gte!(args.quote_virtual_reserve, MIN_VIRTUAL_RESERVE, CbmmError::InvalidVirtualReserve);
     let platform_config = &ctx.accounts.platform_config;
     ctx.accounts.pool.set_inner(CbmmPool::try_new(
         ctx.bumps.pool,
         ctx.accounts.payer.key(),
         CBMM_POOL_INDEX_SEED,
         ctx.accounts.platform_config.key(),
-        ctx.accounts.a_mint.key(),
-        args.a_virtual_reserve,
+        ctx.accounts.quote_mint.key(),
+        args.quote_virtual_reserve,
         platform_config.pool_creator_fee_basis_points,
         platform_config.pool_topup_fee_basis_points,
         platform_config.platform_fee_basis_points,

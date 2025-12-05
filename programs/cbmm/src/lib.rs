@@ -26,9 +26,9 @@ pub mod cbmm {
 
     pub fn initialize_user_burn_allowance(
         ctx: Context<InitializeUserBurnAllowance>,
-        pool_owner: bool,
+        args: InitializeUserBurnAllowanceArgs,
     ) -> Result<()> {
-        instructions::initialize_user_burn_allowance(ctx, pool_owner)
+        instructions::initialize_user_burn_allowance(ctx, args)
     }
 
     pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()> {
@@ -55,24 +55,18 @@ pub mod cbmm {
         instructions::sell_virtual_token(ctx, args)
     }
 
-    pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> Result<()> {
-        instructions::burn_virtual_token(ctx, pool_owner)
+    pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>) -> Result<()> {
+        instructions::burn_virtual_token(ctx)
     }
 
     pub fn close_virtual_token_account(ctx: Context<CloseVirtualTokenAccount>) -> Result<()> {
         instructions::close_virtual_token_account(ctx)
     }
-    pub fn close_user_burn_allowance(
-        ctx: Context<CloseUserBurnAllowance>,
-        args: CloseUserBurnAllowanceArgs,
-    ) -> Result<()> {
-        instructions::close_user_burn_allowance(ctx, args)
+    pub fn close_user_burn_allowance(ctx: Context<CloseUserBurnAllowance>) -> Result<()> {
+        instructions::close_user_burn_allowance(ctx)
     }
-    pub fn claim_creator_fees(
-        ctx: Context<ClaimCreatorFees>,
-        args: ClaimCreatorFeesArgs,
-    ) -> Result<()> {
-        instructions::claim_creator_fees(ctx, args)
+    pub fn claim_creator_fees(ctx: Context<ClaimCreatorFees>) -> Result<()> {
+        instructions::claim_creator_fees(ctx)
     }
     pub fn claim_platform_fees(ctx: Context<ClaimPlatformFees>) -> Result<()> {
         instructions::claim_platform_fees(ctx)
