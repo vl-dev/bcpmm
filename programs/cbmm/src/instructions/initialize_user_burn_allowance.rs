@@ -37,6 +37,15 @@ pub struct InitializeUserBurnAllowance<'info> {
     pub system_program: Program<'info, System>,
 
     /// Optional pool account - only needed if requesting a pool creator burn tier
+    #[account(
+        seeds = [
+            CBMM_POOL_SEED,
+            pool.pool_index.to_le_bytes().as_ref(),
+            pool.creator.as_ref(),
+            platform_config.key().as_ref(),
+        ],
+        bump = pool.bump,
+    )]
     pub pool: Option<Account<'info, CbmmPool>>,
 }
 
@@ -58,7 +67,6 @@ pub fn initialize_user_burn_allowance(
                 CbmmError::PoolCreatorBurnTierRequiresPool
             );
             let pool = &ctx.accounts.pool.as_ref().unwrap();
-            require_keys_eq!(pool.platform_config, ctx.accounts.platform_config.key());
             require_keys_eq!(pool.creator, ctx.accounts.owner.key());
         }
         BurnRole::SpecificPubkey(pubkey) => {
@@ -67,7 +75,6 @@ pub fn initialize_user_burn_allowance(
         BurnRole::Anyone => {}
     }
 
-    // todo check that this is the creator if the burn tier is pool creator
     ctx.accounts
         .user_burn_allowance
         .set_inner(UserBurnAllowance::new(

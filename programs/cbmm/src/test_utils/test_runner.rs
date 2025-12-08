@@ -179,7 +179,7 @@ impl TestRunner {
             last_burn_timestamp,
             created_at: 0,
             burn_tier_index: 0,
-            corresponding_burn_tier_update_timestamp: 0,
+            burn_tier_update_timestamp: 0,
         };
         self.put_account_on_chain(
             &Pubkey::from(user_burn_allowance_pda.to_bytes()),
@@ -354,18 +354,12 @@ impl TestRunner {
             cpmm_state::CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config_pda = pool_data.platform_config;
 
-        let platform_config_ata = anchor_spl::associated_token::get_associated_token_address(
-            &anchor_lang::prelude::Pubkey::from(platform_config_pda.to_bytes()),
-            &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
-        );
-
         let accounts = vec![
             AccountMeta::new(payer.pubkey(), true),
             AccountMeta::new(payer_ata, false),
             AccountMeta::new(virtual_token_account, false),
             AccountMeta::new(pool, false),
             AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false),
-            AccountMeta::new(Pubkey::from(platform_config_ata.to_bytes()), false),
             AccountMeta::new(Pubkey::from(platform_config_pda.to_bytes()), false),
             AccountMeta::new(mint, false),
             AccountMeta::new_readonly(
@@ -573,17 +567,12 @@ impl TestRunner {
             &self.program_id,
         )
         .0;
-        let platform_config_ata = anchor_spl::associated_token::get_associated_token_address(
-            &anchor_lang::prelude::Pubkey::from(platform_config_pda.to_bytes()),
-            &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
-        );
 
         let accounts = vec![
             AccountMeta::new(admin.pubkey(), true),
             AccountMeta::new_readonly(creator, false),
             AccountMeta::new(admin_ata, false),
             AccountMeta::new(platform_config_pda, false),
-            AccountMeta::new(Pubkey::from(platform_config_ata.to_bytes()), false),
             AccountMeta::new(mint, false),
             AccountMeta::new_readonly(
                 Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),

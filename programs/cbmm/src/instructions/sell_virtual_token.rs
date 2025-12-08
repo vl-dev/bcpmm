@@ -46,7 +46,6 @@ pub struct SellVirtualToken<'info> {
             payer.key().as_ref()
         ],
         bump = virtual_token_account.bump,
-        has_one = pool,
     )]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
 
@@ -54,10 +53,10 @@ pub struct SellVirtualToken<'info> {
         seeds = [
             CBMM_POOL_SEED,
             pool.pool_index.to_le_bytes().as_ref(),
-            pool.creator.as_ref()
+            pool.creator.as_ref(),
+            platform_config.key().as_ref(),
         ],
         bump = pool.bump,
-        has_one = platform_config,
     )]
     pub pool: Account<'info, CbmmPool>,
 
@@ -91,18 +90,18 @@ pub fn sell_virtual_token(
 
     // Calculate fees on output
     let net_output = pool.collect_fees(gross_output)?;
-    let fees = gross_output - net_output;
-    let topup_amount = pool.topup()?;
-
-    // Update user virtual balance
-    virtual_token_account.sub(args.base_amount)?;
-
     require_gt!(net_output, 0, CbmmError::AmountTooSmall);
     require_gte!(
         net_output,
         args.min_quote_amount,
         CbmmError::SlippageExceeded
     );
+
+    let fees = gross_output - net_output;
+    let topup_amount = pool.topup()?;
+
+    // Update user virtual balance
+    virtual_token_account.sub(args.base_amount)?;
 
     // Transfer Quote tokens from pool to user
     let pool_account_info = pool.to_account_info();

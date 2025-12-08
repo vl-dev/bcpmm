@@ -32,8 +32,7 @@ pub struct BurnVirtualToken<'info> {
             pool.creator.as_ref(),
             platform_config.key().as_ref(),
         ],
-        bump = pool.bump,
-        has_one = platform_config @ CbmmError::InvalidPlatformConfig, // todo this might be redundant
+        bump = pool.bump,        
     )]
     pub pool: Account<'info, CbmmPool>,
 
@@ -56,7 +55,16 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>) -> Result<()> {
     let user_daily_burn_index = user_burn_allowance.pop()?;
     let platform_config = &ctx.accounts.platform_config;
     let burn_tier_index = user_burn_allowance.burn_tier_index;
+    require_gt!(
+        platform_config.burn_tiers.len() as u8,
+        burn_tier_index,
+        CbmmError::InvalidBurnTierIndex
+    );
     let burn_tier = &platform_config.burn_tiers[burn_tier_index as usize];
+
+    if let BurnRole::PoolCreator = burn_tier.role {
+        require_keys_eq!(ctx.accounts.pool.creator, ctx.accounts.signer.key(), CbmmError::InvalidPoolCreator);
+    }
 
     require_gte!(
         burn_tier.max_daily_burns,

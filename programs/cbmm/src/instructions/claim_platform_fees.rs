@@ -25,7 +25,6 @@ pub struct ClaimPlatformFees<'info> {
             pool.platform_config.as_ref(),
         ],
         bump = pool.bump,
-        has_one = platform_config,
     )]
     pub pool: Account<'info, CbmmPool>,
 
@@ -48,7 +47,9 @@ pub struct ClaimPlatformFees<'info> {
 pub fn claim_platform_fees(ctx: Context<ClaimPlatformFees>) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
     let amount = pool.platform_fees_balance;
-    // Subtract the claimed amount and transfer to admin
+    if amount == 0 {
+        return Ok(()); // No-op
+    }
     pool.platform_fees_balance = 0;
     let pool_account_info = pool.to_account_info();
     pool.transfer_out(

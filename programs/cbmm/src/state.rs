@@ -24,14 +24,14 @@ pub const DEFAULT_BURN_TIERS_UPDATE_COOLDOWN_SECONDS: i64 = 86400; // 24 hours
 pub const BURN_UPDATE_COOLDOWN_PERIOD_SECONDS: i64 = 3600; // 1 hour
 pub const MIN_VIRTUAL_RESERVE: u64 = 1_000_000;
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, PartialEq)]
 pub enum BurnRole {
     Anyone,                 // Permissionless - anyone can burn at this tier
     PoolCreator,            // Only the pool creator can burn at this tier
     SpecificPubkey(Pubkey), // Only a specific whitelisted pubkey can burn
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, PartialEq)]
 pub struct BurnTier {
     pub burn_bp_x100: u32,    // Burn percentage in basis points * 100
     pub role: BurnRole,       // Who can use this tier
@@ -378,6 +378,7 @@ impl CbmmPool {
             CBMM_POOL_SEED,
             pool_index_bytes.as_slice(),
             self.creator.as_ref(),
+            self.platform_config.as_ref(),
             &[bump_seed],
         ]];
         let cpi_context = CpiContext::new(token_program.to_account_info(), cpi_accounts)
@@ -435,7 +436,7 @@ pub struct UserBurnAllowance {
     // seeds
     pub user: Pubkey,
     pub burn_tier_index: u8,
-    pub corresponding_burn_tier_update_timestamp: i64,
+    pub burn_tier_update_timestamp: i64,
     pub platform_config: Pubkey,
 
     pub payer: Pubkey, // Wallet that receives funds when this account is closed
@@ -447,13 +448,14 @@ pub struct UserBurnAllowance {
 }
 
 impl UserBurnAllowance {
+    const RESET_INTERVAL_SECONDS: i64 = 86400;
     pub fn new(
         bump: u8,
         user: Pubkey,
         platform_config: Pubkey,
         payer: Pubkey,
         burn_tier_index: u8,
-        corresponding_burn_tier_update_timestamp: i64,
+        burn_tier_update_timestamp: i64,
         now: i64,
     ) -> Self {
         Self {
@@ -465,7 +467,7 @@ impl UserBurnAllowance {
             last_burn_timestamp: 0,
             created_at: now,
             burn_tier_index,
-            corresponding_burn_tier_update_timestamp,
+            burn_tier_update_timestamp,
         }
     }
 
@@ -479,10 +481,17 @@ impl UserBurnAllowance {
         Ok(self.burns_today)
     }
 
+    pub fn is_closable(&self, platform_burn_tiers_updated_at: i64, now: i64) -> bool {
+        self.burns_today == 0
+            || platform_burn_tiers_updated_at > self.burn_tier_update_timestamp
+            || now - self.last_burn_timestamp >= Self::RESET_INTERVAL_SECONDS
+    }
+
     fn should_reset(&self, now: i64) -> bool {
-        let reset_offset = self.created_at % 86_400;
-        let day_last = (self.last_burn_timestamp.saturating_sub(reset_offset)) / 86_400;
-        let day_now = (now.saturating_sub(reset_offset)) / 86_400;
+        let reset_offset = self.created_at % Self::RESET_INTERVAL_SECONDS;
+        let day_last =
+            (self.last_burn_timestamp.saturating_sub(reset_offset)) / Self::RESET_INTERVAL_SECONDS;
+        let day_now = (now.saturating_sub(reset_offset)) / Self::RESET_INTERVAL_SECONDS;
         day_last < day_now
     }
 }

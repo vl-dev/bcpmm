@@ -40,7 +40,8 @@ pub struct BuyVirtualToken<'info> {
         associated_token::token_program = token_program
     )]
     pub payer_ata: InterfaceAccount<'info, TokenAccount>,
-    // todo check owner (or maybe not? can buy for other user)
+
+    // We only allow buying for yourself. This restriction can be lifted
     #[account(mut,
         seeds = [
             VIRTUAL_TOKEN_ACCOUNT_SEED,
@@ -48,7 +49,6 @@ pub struct BuyVirtualToken<'info> {
             payer.key().as_ref(),
         ],
         bump = virtual_token_account.bump,
-        has_one = pool,
     )]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
 
@@ -61,7 +61,6 @@ pub struct BuyVirtualToken<'info> {
             platform_config.key().as_ref(),
         ],
         bump = pool.bump,
-        has_one = platform_config @ CbmmError::InvalidPlatformConfig, // todo this might be redundant
     )]
     pub pool: Account<'info, CbmmPool>,
 

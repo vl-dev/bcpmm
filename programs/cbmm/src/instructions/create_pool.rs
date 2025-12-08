@@ -14,7 +14,10 @@ pub struct CreatePoolArgs {
 pub struct CreatePool<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = quote_mint.key() == platform_config.quote_mint @ CbmmError::InvalidMint
+    )]
     pub quote_mint: InterfaceAccount<'info, Mint>,    
     
     #[account(init,
@@ -46,12 +49,6 @@ pub struct CreatePool<'info> {
     )]
     pub platform_config: Account<'info, PlatformConfig>,
 
-    #[account(        
-        associated_token::mint = quote_mint,
-        associated_token::authority = platform_config,
-        associated_token::token_program = token_program
-    )]
-    pub platform_config_ata: InterfaceAccount<'info, TokenAccount>,
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,

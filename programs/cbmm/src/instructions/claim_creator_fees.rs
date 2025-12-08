@@ -39,11 +39,13 @@ pub struct ClaimCreatorFees<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn claim_creator_fees(ctx: Context<ClaimCreatorFees>) -> Result<()> {
+pub fn claim_creator_fees(ctx: Context<ClaimCreatorFees>) -> Result<()> {        
     let pool = &mut ctx.accounts.pool;
     let amount = pool.creator_fees_balance;
-    // Subtract the claimed amount and transfer to owner
-    pool.creator_fees_balance -= amount;
+    if amount == 0 {
+        return Ok(()); // No-op
+    }
+    pool.creator_fees_balance = 0;
     let pool_account_info = pool.to_account_info();
     pool.transfer_out(
         amount,
