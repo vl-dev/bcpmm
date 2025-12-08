@@ -1,12 +1,9 @@
-use crate::errors::BcpmmError;
+use crate::errors::CbmmError;
+use crate::helpers::{SCALING_FACTOR, X10K_100_PERCENT_BP};
 use anchor_lang::prelude::*;
 
-pub const X10K_100_PERCENT_BP: u64 = 100_000_000;
-pub const X100_100_PERCENT_BP: u64 = 1_000_000;
-pub const SCALING_FACTOR: u64 = X10K_100_PERCENT_BP / X100_100_PERCENT_BP;
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, Default)]
-pub struct CompoundingRateLimiter {
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, Default, InitSpace)]
+pub struct BurnRateLimiter {
     /// Executed burns ("heat") that decay over time.
     pub accumulated_stress_bp_x10k: u64,
     /// Pending burns in the queue; does not decay.
@@ -24,7 +21,24 @@ pub enum RateLimitResult {
     Queued,
 }
 
-impl CompoundingRateLimiter {
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, Default)]
+pub struct BurnRateConfig {
+    pub limit_bp_x100: u64,
+    pub min_burn_bp_x100: u64,
+    pub decay_rate_per_sec_bp_x100: u64,
+}
+
+impl BurnRateConfig {
+    pub fn new(limit_bp_x100: u64, min_burn_bp_x100: u64, decay_rate_per_sec_bp_x100: u64) -> Self {
+        Self {
+            limit_bp_x100,
+            min_burn_bp_x100,
+            decay_rate_per_sec_bp_x100,
+        }
+    }
+}
+
+impl BurnRateLimiter {
     pub fn new(now: i64) -> Self {
         Self {
             accumulated_stress_bp_x10k: 0,
@@ -38,21 +52,19 @@ impl CompoundingRateLimiter {
     fn compound_add(current_x10k: u64, new_x10k: u64) -> Result<u64> {
         let p = X10K_100_PERCENT_BP;
 
-        let keep_cur = p
-            .checked_sub(current_x10k)
-            .ok_or(BcpmmError::MathOverflow)?;
-        let keep_new = p.checked_sub(new_x10k).ok_or(BcpmmError::MathOverflow)?;
+        let keep_cur = p.checked_sub(current_x10k).ok_or(CbmmError::MathOverflow)?;
+        let keep_new = p.checked_sub(new_x10k).ok_or(CbmmError::MathOverflow)?;
 
         let numerator = (keep_cur as u128)
             .checked_mul(keep_new as u128)
-            .ok_or(BcpmmError::MathOverflow)?;
+            .ok_or(CbmmError::MathOverflow)?;
 
         // Round up the "kept" part; the final result is p - keep_combined and needs to be rounded down.
         let keep_combined = numerator
             .checked_add((p - 1) as u128)
-            .ok_or(BcpmmError::MathOverflow)?
+            .ok_or(CbmmError::MathOverflow)?
             .checked_div(p as u128)
-            .ok_or(BcpmmError::MathOverflow)?;
+            .ok_or(CbmmError::MathOverflow)?;
 
         Ok(p.saturating_sub(keep_combined as u64))
     }
@@ -61,42 +73,43 @@ impl CompoundingRateLimiter {
     /// Used to compute the remaining queue after peeling off a burn.
     fn compound_remove(total_x10k: u64, part_to_remove_x10k: u64) -> Result<u64> {
         if part_to_remove_x10k > total_x10k {
-            return Err(BcpmmError::MathOverflow.into());
+            return Err(CbmmError::MathOverflow.into());
         }
 
         let num = total_x10k
             .checked_sub(part_to_remove_x10k)
-            .ok_or(BcpmmError::MathOverflow)?;
+            .ok_or(CbmmError::MathOverflow)?;
 
         let scaled_num = (num as u128)
             .checked_mul(X10K_100_PERCENT_BP as u128)
-            .ok_or(BcpmmError::MathOverflow)?;
+            .ok_or(CbmmError::MathOverflow)?;
 
         let denom = X10K_100_PERCENT_BP
             .checked_sub(part_to_remove_x10k)
-            .ok_or(BcpmmError::MathOverflow)?;
+            .ok_or(CbmmError::MathOverflow)?;
 
         // Integer division floor is acceptable: worst case we burn slightly less than originally requested.
         let result = scaled_num
             .checked_div(denom as u128)
-            .ok_or(BcpmmError::MathOverflow)?;
+            .ok_or(CbmmError::MathOverflow)?;
 
         Ok(result as u64)
     }
 
-    pub fn try_burn_and_flush(
+    pub fn calculate_required_bp_x100(
         &mut self,
-        new_burn_bp_x100: u64, // user input
-        limit_bp_x100: u64,    // soft limit, e.g. 5%
-        min_burn_bp_x100: u64, // min granular burn, e.g. 0.1%
-        decay_rate_per_sec_bp_x100: u64,
+        new_burn_bp_x100: u32, // user input
+        config: &BurnRateConfig,
         now: i64,
     ) -> Result<RateLimitResult> {
         // Upscale inputs to x10k basis points.
-        let new_burn_x10k = new_burn_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
-        let soft_limit_x10k = limit_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
-        let min_burn_x10k = min_burn_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
-        let decay_rate_x10k = decay_rate_per_sec_bp_x100
+        let new_burn_x10k = (new_burn_bp_x100 as u64)
+            .checked_mul(SCALING_FACTOR)
+            .unwrap();
+        let soft_limit_x10k = config.limit_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
+        let min_burn_x10k = config.min_burn_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
+        let decay_rate_x10k = config
+            .decay_rate_per_sec_bp_x100
             .checked_mul(SCALING_FACTOR)
             .unwrap();
 
@@ -127,7 +140,7 @@ impl CompoundingRateLimiter {
         self.accumulated_stress_bp_x10k = self
             .accumulated_stress_bp_x10k
             .checked_add(potential_burn_x10k)
-            .ok_or(BcpmmError::MathOverflow)?;
+            .ok_or(CbmmError::MathOverflow)?;
 
         // Remove from queue (geometric).
         self.pending_queue_shares_bp_x10k =
@@ -152,7 +165,7 @@ mod tests {
     // Constants chosen to exercise the limiter around a 5% soft limit.
     const SOFT_LIMIT: u64 = 50000; // 5% (500 bps x100)
     const MIN_BURN: u64 = 1000; // 0.1% (10 bps x100)
-    const BURN_INPUT: u64 = 10000; // 1% (100 bps x100)
+    const BURN_BP_X100: u32 = 10000; // 1% (100 bps x100)
     const DECAY_RATE_PER_SEC: u64 = 100; // 1 bps per second decay
     const START_TIME: i64 = 0;
 
@@ -160,7 +173,7 @@ mod tests {
         // pre: accumulated, pending, last_update_ts
         4_800_000, 0, START_TIME,
         // burn input
-        BURN_INPUT,
+        BURN_BP_X100,
         // call timestamp
         START_TIME,
         // expected post state: accumulated, pending, last_update_ts
@@ -172,7 +185,7 @@ mod tests {
     #[test_case(
         // pre state: after scenario 1
         5_000_000, 801_603, START_TIME,
-        BURN_INPUT,
+        BURN_BP_X100,
         5, // 5 seconds later (decayed stress is 4.95%)
         4_950_000, 1_793_586, 5,
         RateLimitResult::Queued;
@@ -181,7 +194,7 @@ mod tests {
     #[test_case(
         // pre state: after scenario 2
         4_950_000, 1_793_586, 5,
-        BURN_INPUT,
+        BURN_BP_X100,
         100, // 95 seconds later (decayed stress is 4%)
         5_000_000, 1_793_585, 100,
         RateLimitResult::ExecutePartial(10_000);
@@ -190,7 +203,7 @@ mod tests {
     #[test_case(
         // pre state: after scenario 3
         5_000_000, 1_793_585, 100,
-        BURN_INPUT,
+        BURN_BP_X100,
         10000, // anything over 600 behaves the same here
         2_775_649, 0, 10000,
         RateLimitResult::ExecuteFull(27_756);
@@ -202,7 +215,7 @@ mod tests {
         pre_pending_queue_shares_bp_x10k: u64,
         pre_last_update_ts: i64,
         // Burn input
-        new_burn_bp_x100: u64,
+        new_burn_bp_x100: u32,
         // Timestamp of this call
         now: i64,
         // Expected state after
@@ -212,20 +225,16 @@ mod tests {
         // Expected function output
         expected_result: RateLimitResult,
     ) {
-        let mut limiter = CompoundingRateLimiter {
+        let mut limiter = BurnRateLimiter {
             accumulated_stress_bp_x10k: pre_accumulated_stress_bp_x10k,
             pending_queue_shares_bp_x10k: pre_pending_queue_shares_bp_x10k,
             last_update_ts: pre_last_update_ts,
         };
 
+        let config = BurnRateConfig::new(SOFT_LIMIT, MIN_BURN, DECAY_RATE_PER_SEC);
+
         let res = limiter
-            .try_burn_and_flush(
-                new_burn_bp_x100,
-                SOFT_LIMIT,
-                MIN_BURN,
-                DECAY_RATE_PER_SEC,
-                now,
-            )
+            .calculate_required_bp_x100(new_burn_bp_x100, &config, now)
             .unwrap();
 
         assert_eq!(res, expected_result, "unexpected RateLimitResult");

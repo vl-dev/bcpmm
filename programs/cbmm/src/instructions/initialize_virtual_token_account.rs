@@ -7,9 +7,19 @@ pub struct InitializeVirtualTokenAccount<'info> {
     pub payer: Signer<'info>,
     /// CHECK: No check needed, owner can be any account
     pub owner: AccountInfo<'info>,
-    #[account(init, payer = payer, space = VirtualTokenAccount::INIT_SPACE + 8, seeds = [VIRTUAL_TOKEN_ACCOUNT_SEED, pool.key().as_ref(), payer.key().as_ref()], bump)]
+    #[account(
+        init,
+        payer = payer,
+        space = VirtualTokenAccount::INIT_SPACE + 8,
+        seeds = [
+            VIRTUAL_TOKEN_ACCOUNT_SEED,
+            pool.key().as_ref(),
+            owner.key().as_ref(),
+        ],
+        bump
+    )]
     pub virtual_token_account: Account<'info, VirtualTokenAccount>,
-    pub pool: Account<'info, BcpmmPool>,
+    pub pool: Account<'info, CbmmPool>,
     pub system_program: Program<'info, System>,
 }
 

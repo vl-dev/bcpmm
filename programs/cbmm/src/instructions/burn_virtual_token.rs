@@ -1,5 +1,5 @@
-use crate::errors::BcpmmError;
-use crate::helpers::{calculate_burn_amount, calculate_new_virtual_reserve};
+use crate::errors::CbmmError;
+use crate::helpers::{calculate_burn_amount, calculate_new_virtual_reserve_after_burn};
 use crate::state::*;
 use anchor_lang::prelude::*;
 
@@ -11,7 +11,6 @@ pub struct BurnEvent {
 
     pub new_b_reserve: u64,
     pub new_a_reserve: u64,
-    pub new_outstanding_topup: u64,
 
     pub new_virtual_reserve: u64,
     pub new_buyback_fees_balance: u64,
@@ -20,94 +19,71 @@ pub struct BurnEvent {
     pub pool: Pubkey,
 }
 
-
 #[derive(Accounts)]
-#[instruction(pool_owner: bool)]
 pub struct BurnVirtualToken<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    #[account(mut, seeds = [BCPMM_POOL_SEED, pool.pool_index.to_le_bytes().as_ref(), pool.creator.as_ref()], bump = pool.bump)]
-    pub pool: Account<'info, BcpmmPool>,
+    #[account(
+        mut,
+        seeds = [
+            CBMM_POOL_SEED,
+            pool.pool_index.to_le_bytes().as_ref(),
+            pool.creator.as_ref(),
+            platform_config.key().as_ref(),
+        ],
+        bump = pool.bump,        
+    )]
+    pub pool: Account<'info, CbmmPool>,
 
-    #[account(mut, seeds = [USER_BURN_ALLOWANCE_SEED, signer.key().as_ref(), pool.platform_config.as_ref(), &[pool_owner as u8]], bump)]
+    // We don't have to check all cases of the user_burn_allowance here,
+    // because we restrict the invalid combinations from creation
+    #[account(mut, seeds = [
+        USER_BURN_ALLOWANCE_SEED,
+        signer.key().as_ref(),
+        platform_config.key().as_ref(),
+        &[user_burn_allowance.burn_tier_index],
+        platform_config.burn_tiers_updated_at.to_le_bytes().as_ref(),
+    ], bump = user_burn_allowance.bump)]
     pub user_burn_allowance: Account<'info, UserBurnAllowance>,
 
-    #[account(mut, address = pool.platform_config)]
     pub platform_config: Account<'info, PlatformConfig>,
 }
 
-pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> Result<()> {
-    // If burning as a pool owner, the signer must be the pool creator.
-    // We are also checking if the creator is trying to burn as a user of their own pool.
-    require!(
-        pool_owner == (ctx.accounts.pool.creator == ctx.accounts.signer.key()),
-        BcpmmError::InvalidPoolOwner
+pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>) -> Result<()> {
+    let user_burn_allowance = &mut ctx.accounts.user_burn_allowance;
+    let user_daily_burn_index = user_burn_allowance.pop()?;
+    let platform_config = &ctx.accounts.platform_config;
+    let burn_tier_index = user_burn_allowance.burn_tier_index;
+    require_gt!(
+        platform_config.burn_tiers.len() as u8,
+        burn_tier_index,
+        CbmmError::InvalidBurnTierIndex
     );
-    let burn_bp_x100 = if pool_owner {
-        ctx.accounts.platform_config.creator_burn_bp_x100
-    } else {
-        ctx.accounts.platform_config.user_burn_bp_x100
-    };
-    let max_daily_burns = if pool_owner {
-        ctx.accounts.platform_config.max_creator_daily_burn_count
-    } else {
-        ctx.accounts.platform_config.max_user_daily_burn_count
-    };
+    let burn_tier = &platform_config.burn_tiers[burn_tier_index as usize];
 
-    // Check if we should reset the daily burn count
-    // We reset it if we have passed the burn reset window and previous burn was before the reset
-    let now = Clock::get()?.unix_timestamp;
-    if ctx.accounts.platform_config.is_after_burn_reset(now)?
-        && !ctx
-            .accounts
-            .platform_config
-            .is_after_burn_reset(ctx.accounts.user_burn_allowance.last_burn_timestamp)?
-    {
-        ctx.accounts.user_burn_allowance.burns_today = 0;
-    } else if ctx.accounts.user_burn_allowance.burns_today >= max_daily_burns {
-        return Err(BcpmmError::InsufficientBurnAllowance.into());
+    if let BurnRole::PoolCreator = burn_tier.role {
+        require_keys_eq!(ctx.accounts.pool.creator, ctx.accounts.signer.key(), CbmmError::InvalidPoolCreator);
     }
 
-    ctx.accounts.user_burn_allowance.burns_today += 1;
-    ctx.accounts.user_burn_allowance.last_burn_timestamp = now;
-
-    // Check if we should reset the pool's daily burn count
-    if ctx.accounts.platform_config.is_after_burn_reset(now)?
-        && !ctx
-            .accounts
-            .platform_config
-            .is_after_burn_reset(ctx.accounts.pool.last_burn_timestamp)?
-    {
-        ctx.accounts.pool.burns_today = 1;
-
-    // Not resetting so just increment the burn count for today.
-    } else {
-        ctx.accounts.pool.burns_today += 1;
-    }
-    ctx.accounts.pool.last_burn_timestamp = now;
-
-    let burn_amount = calculate_burn_amount(burn_bp_x100, ctx.accounts.pool.b_reserve);
-    let new_virtual_reserve = calculate_new_virtual_reserve(
-        ctx.accounts.pool.a_virtual_reserve,
-        ctx.accounts.pool.b_reserve,
-        burn_amount,
+    require_gte!(
+        burn_tier.max_daily_burns,
+        user_daily_burn_index,
+        CbmmError::BurnLimitReached
     );
 
-    let needed_topup_amount = ctx.accounts.pool.a_virtual_reserve - new_virtual_reserve;
-    let real_topup_amount = needed_topup_amount.min(ctx.accounts.pool.buyback_fees_balance);
-    ctx.accounts.pool.a_outstanding_topup += needed_topup_amount - real_topup_amount;
-    ctx.accounts.pool.a_reserve += real_topup_amount;
-    ctx.accounts.pool.buyback_fees_balance -= real_topup_amount;
-    ctx.accounts.pool.a_virtual_reserve = new_virtual_reserve;
-    ctx.accounts.pool.b_reserve -= burn_amount;
+    let requested_amount = burn_tier.burn_bp_x100;
+
+    let config = &platform_config.burn_rate_config;
+    let burn_result = ctx.accounts.pool.burn(config, requested_amount)?;
+    let topup_accrued = ctx.accounts.pool.topup()?;
+
     emit!(BurnEvent {
-        burn_amount: burn_amount,
-        topup_accrued: needed_topup_amount - real_topup_amount,
-        new_b_reserve: ctx.accounts.pool.b_reserve,
-        new_a_reserve: ctx.accounts.pool.a_reserve,
-        new_outstanding_topup: ctx.accounts.pool.a_outstanding_topup,
-        new_virtual_reserve: new_virtual_reserve,
+        burn_amount: burn_result.burn_amount,
+        topup_accrued: topup_accrued,
+        new_b_reserve: ctx.accounts.pool.base_reserve,
+        new_a_reserve: ctx.accounts.pool.quote_reserve,
+        new_virtual_reserve: ctx.accounts.pool.quote_virtual_reserve,
         new_buyback_fees_balance: ctx.accounts.pool.buyback_fees_balance,
         burner: ctx.accounts.signer.key(),
         pool: ctx.accounts.pool.key(),
@@ -117,55 +93,53 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>, pool_owner: bool) -> R
 
 #[cfg(test)]
 mod tests {
-    use crate::state::BcpmmPool;
+    use crate::state::CbmmPool;
     use crate::test_utils::{TestPool, TestRunner};
     use anchor_lang::prelude::*;
     use solana_sdk::signature::{Keypair, Signer};
 
     fn setup_test() -> (TestRunner, Keypair, Keypair, TestPool) {
         // Parameters
-        let a_reserve = 1_000_000;
-        let a_virtual_reserve = 500_000;
-        let b_reserve = 1_000_000;
-        let b_mint_decimals = 6;
+        let quote_reserve = 1_000_000;
+        let quote_virtual_reserve = 500_000;
+        let base_reserve = 1_000_000;
+        let base_mint_decimals = 6;
         let creator_fee_basis_points = 200;
         let buyback_fee_basis_points = 600;
         let platform_fee_basis_points = 200;
         let creator_fees_balance = 0;
         let buyback_fees_balance = 0;
-        let a_outstanding_topup = 0;
+        let quote_outstanding_topup = 0;
 
         let mut runner = TestRunner::new();
         let payer = Keypair::new();
 
         runner.airdrop(&payer.pubkey(), 10_000_000_000);
-        let a_mint = runner.create_mint(&payer, 9);
+        let quote_mint = runner.create_mint(&payer, 9);
         runner.create_platform_config_mock(
             &payer,
-            a_mint,
-            5,
+            quote_mint,
             5,
             5,
             10_000, // 1%
             20_000, // 2%
-            36_000, // 10AM
             creator_fee_basis_points,
             buyback_fee_basis_points,
             platform_fee_basis_points,
         );
         let pool = runner.create_pool_mock(
             &payer,
-            a_mint,
-            a_reserve,
-            a_virtual_reserve,
-            b_reserve,
-            b_mint_decimals,
+            quote_mint,
+            quote_reserve,
+            quote_virtual_reserve,
+            base_reserve,
+            base_mint_decimals,
             creator_fee_basis_points,
             buyback_fee_basis_points,
             platform_fee_basis_points,
             creator_fees_balance,
             buyback_fees_balance,
-            a_outstanding_topup,
+            quote_outstanding_topup,
         );
 
         let user = Keypair::new();
@@ -180,17 +154,27 @@ mod tests {
 
         // Get platform_config from pool
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
-        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config = pool_data.platform_config;
         let platform_config_sdk = solana_sdk::pubkey::Pubkey::from(platform_config.to_bytes());
 
         let owner_burn_allowance = runner
-            .initialize_user_burn_allowance(&pool_owner, pool_owner.pubkey(), platform_config_sdk, true)
+            .initialize_user_burn_allowance(
+                &pool_owner,
+                pool_owner.pubkey(),
+                platform_config_sdk,
+                true,
+            )
             .unwrap();
 
         // Can initialize also user burn allowance for other pools
-        let user_burn_allowance =
-            runner.initialize_user_burn_allowance(&pool_owner, pool_owner.pubkey(), platform_config_sdk, false);
+        let user_burn_allowance = runner.initialize_user_burn_allowance(
+            &pool_owner,
+            pool_owner.pubkey(),
+            platform_config_sdk,
+            false,
+        );
         assert!(user_burn_allowance.is_ok());
 
         // Burn at a certain timestamp
@@ -201,9 +185,9 @@ mod tests {
 
         // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
-        let pool_data: BcpmmPool =
-            BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        assert_eq!(pool_data.b_reserve, 980000);
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        assert_eq!(pool_data.base_reserve, 980000);
         let owner_burn_allowance_data = runner
             .get_user_burn_allowance(&owner_burn_allowance)
             .unwrap();
@@ -217,8 +201,7 @@ mod tests {
         assert_eq!(user_burn_allowance_data.burns_today, 0);
 
         // 2 percent of virtual reserve is burned and required as topup
-        assert_eq!(pool_data.a_virtual_reserve, 490000);
-        assert_eq!(pool_data.a_outstanding_topup, 10000);
+        assert_eq!(pool_data.quote_virtual_reserve, 490000);
     }
 
     #[test]
@@ -227,7 +210,8 @@ mod tests {
 
         // Get platform_config from pool
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
-        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config = pool_data.platform_config;
         let platform_config_sdk = solana_sdk::pubkey::Pubkey::from(platform_config.to_bytes());
 
@@ -242,9 +226,9 @@ mod tests {
 
         // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
-        let pool_data: BcpmmPool =
-            BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        assert_eq!(pool_data.b_reserve, 990000);
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        assert_eq!(pool_data.base_reserve, 990000);
         let user_burn_allowance_data = runner
             .get_user_burn_allowance(&user_burn_allowance)
             .unwrap();
@@ -252,8 +236,7 @@ mod tests {
         assert_eq!(user_burn_allowance_data.last_burn_timestamp, 1682899200);
 
         // 1 percent of virtual reserve is burned and required as topup
-        assert_eq!(pool_data.a_virtual_reserve, 495000);
-        assert_eq!(pool_data.a_outstanding_topup, 5000);
+        assert_eq!(pool_data.quote_virtual_reserve, 495000);
     }
 
     #[test]
@@ -262,7 +245,8 @@ mod tests {
 
         // Get platform_config from pool
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
-        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config = pool_data.platform_config;
         let platform_config_sdk = solana_sdk::pubkey::Pubkey::from(platform_config.to_bytes());
 
@@ -284,9 +268,9 @@ mod tests {
 
         // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
-        let pool_data: BcpmmPool =
-            BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        assert_eq!(pool_data.b_reserve, 990000);
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        assert_eq!(pool_data.base_reserve, 990000);
 
         // Check that user burn allowance shows 2 burns for today
         let user_burn_allowance_data = runner
@@ -302,7 +286,8 @@ mod tests {
 
         // Get platform_config from pool
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
-        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config = pool_data.platform_config;
         let platform_config_sdk = solana_sdk::pubkey::Pubkey::from(platform_config.to_bytes());
 
@@ -324,9 +309,9 @@ mod tests {
 
         // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
-        let pool_data: BcpmmPool =
-            BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        assert_eq!(pool_data.b_reserve, 990000);
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        assert_eq!(pool_data.base_reserve, 990000);
 
         // Check that user burn allowance was reset
         let user_burn_allowance_data = runner
@@ -342,7 +327,8 @@ mod tests {
 
         // Get platform_config from pool
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
-        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config = pool_data.platform_config;
         let platform_config_sdk = solana_sdk::pubkey::Pubkey::from(platform_config.to_bytes());
 
@@ -369,7 +355,8 @@ mod tests {
 
         // Get platform_config from pool
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
-        let pool_data: BcpmmPool = BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config = pool_data.platform_config;
         let platform_config_sdk = solana_sdk::pubkey::Pubkey::from(platform_config.to_bytes());
 
@@ -391,9 +378,9 @@ mod tests {
 
         // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
-        let pool_data: BcpmmPool =
-            BcpmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        assert_eq!(pool_data.b_reserve, 990000);
+        let pool_data: CbmmPool =
+            CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
+        assert_eq!(pool_data.base_reserve, 990000);
 
         // Check that user burn allowance was reset
         let user_burn_allowance_data = runner

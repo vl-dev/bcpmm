@@ -5,104 +5,113 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use solana_pubkey::Pubkey;
-use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
-
+use borsh::BorshSerialize;
+use solana_pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BcpmmPool {
-pub discriminator: [u8; 8],
-/// Bump seed
-pub bump: u8,
-/// Pool creator address
-#[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
-pub creator: Pubkey,
-/// Pool index per creator
-pub pool_index: u32,
-/// A mint address
-#[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
-pub a_mint: Pubkey,
-/// A reserve including decimals
-pub a_reserve: u64,
-/// A virtual reserve including decimals
-pub a_virtual_reserve: u64,
-pub a_outstanding_topup: u64,
-/// B mint decimals
-pub b_mint_decimals: u8,
-/// B reserve including decimals
-pub b_reserve: u64,
-/// Creator fees balance denominated in Mint A including decimals
-pub creator_fees_balance: u64,
-/// Total buyback fees accumulated in Mint A including decimals
-pub buyback_fees_balance: u64,
-/// Creator fee basis points
-pub creator_fee_basis_points: u16,
-/// Buyback fee basis points
-pub buyback_fee_basis_points: u16,
-/// Platform fee basis points
-pub platform_fee_basis_points: u16,
-/// Burn allowance for the pool
-pub burns_today: u16,
-pub last_burn_timestamp: i64,
+    pub discriminator: [u8; 8],
+    /// Bump seed
+    pub bump: u8,
+    /// Pool creator address
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub creator: Pubkey,
+    /// Pool index per creator
+    pub pool_index: u32,
+    /// A mint address
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "serde_with::As::<serde_with::DisplayFromStr>")
+    )]
+    pub quote_mint: Pubkey,
+    /// A reserve including decimals
+    pub quote_reserve: u64,
+    /// A virtual reserve including decimals
+    pub quote_virtual_reserve: u64,
+    pub quote_outstanding_topup: u64,
+    /// B mint decimals
+    pub base_mint_decimals: u8,
+    /// B reserve including decimals
+    pub base_reserve: u64,
+    /// Creator fees balance denominated in Mint A including decimals
+    pub creator_fees_balance: u64,
+    /// Total buyback fees accumulated in Mint A including decimals
+    pub buyback_fees_balance: u64,
+    /// Creator fee basis points
+    pub creator_fee_basis_points: u16,
+    /// Buyback fee basis points
+    pub buyback_fee_basis_points: u16,
+    /// Platform fee basis points
+    pub platform_fee_basis_points: u16,
+    /// Burn allowance for the pool
+    pub burns_today: u16,
+    pub last_burn_timestamp: i64,
 }
-
 
 pub const BCPMM_POOL_DISCRIMINATOR: [u8; 8] = [176, 79, 229, 1, 239, 41, 66, 21];
 
 impl BcpmmPool {
-      pub const LEN: usize = 142;
-  
-  
-  
-  #[inline(always)]
-  pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
-    let mut data = data;
-    Self::deserialize(&mut data)
-  }
+    pub const LEN: usize = 142;
+
+    #[inline(always)]
+    pub fn from_bytes(data: &[u8]) -> Result<Self, std::io::Error> {
+        let mut data = data;
+        Self::deserialize(&mut data)
+    }
 }
 
 impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for BcpmmPool {
-  type Error = std::io::Error;
+    type Error = std::io::Error;
 
-  fn try_from(account_info: &solana_account_info::AccountInfo<'a>) -> Result<Self, Self::Error> {
-      let mut data: &[u8] = &(*account_info.data).borrow();
-      Self::deserialize(&mut data)
-  }
+    fn try_from(account_info: &solana_account_info::AccountInfo<'a>) -> Result<Self, Self::Error> {
+        let mut data: &[u8] = &(*account_info.data).borrow();
+        Self::deserialize(&mut data)
+    }
 }
 
 #[cfg(feature = "fetch")]
 pub fn fetch_bcpmm_pool(
-  rpc: &solana_client::rpc_client::RpcClient,
-  address: &solana_pubkey::Pubkey,
+    rpc: &solana_client::rpc_client::RpcClient,
+    address: &solana_pubkey::Pubkey,
 ) -> Result<crate::shared::DecodedAccount<BcpmmPool>, std::io::Error> {
-  let accounts = fetch_all_bcpmm_pool(rpc, &[*address])?;
-  Ok(accounts[0].clone())
+    let accounts = fetch_all_bcpmm_pool(rpc, &[*address])?;
+    Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
 pub fn fetch_all_bcpmm_pool(
-  rpc: &solana_client::rpc_client::RpcClient,
-  addresses: &[solana_pubkey::Pubkey],
+    rpc: &solana_client::rpc_client::RpcClient,
+    addresses: &[solana_pubkey::Pubkey],
 ) -> Result<Vec<crate::shared::DecodedAccount<BcpmmPool>>, std::io::Error> {
-    let accounts = rpc.get_multiple_accounts(addresses)
-      .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    let accounts = rpc
+        .get_multiple_accounts(addresses)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::DecodedAccount<BcpmmPool>> = Vec::new();
     for i in 0..addresses.len() {
-      let address = addresses[i];
-      let account = accounts[i].as_ref()
-        .ok_or(std::io::Error::new(std::io::ErrorKind::Other, format!("Account not found: {}", address)))?;
-      let data = BcpmmPool::from_bytes(&account.data)?;
-      decoded_accounts.push(crate::shared::DecodedAccount { address, account: account.clone(), data });
+        let address = addresses[i];
+        let account = accounts[i].as_ref().ok_or(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Account not found: {}", address),
+        ))?;
+        let data = BcpmmPool::from_bytes(&account.data)?;
+        decoded_accounts.push(crate::shared::DecodedAccount {
+            address,
+            account: account.clone(),
+            data,
+        });
     }
     Ok(decoded_accounts)
 }
 
 #[cfg(feature = "fetch")]
 pub fn fetch_maybe_bcpmm_pool(
-  rpc: &solana_client::rpc_client::RpcClient,
-  address: &solana_pubkey::Pubkey,
+    rpc: &solana_client::rpc_client::RpcClient,
+    address: &solana_pubkey::Pubkey,
 ) -> Result<crate::shared::MaybeAccount<BcpmmPool>, std::io::Error> {
     let accounts = fetch_all_maybe_bcpmm_pool(rpc, &[*address])?;
     Ok(accounts[0].clone())
@@ -110,47 +119,52 @@ pub fn fetch_maybe_bcpmm_pool(
 
 #[cfg(feature = "fetch")]
 pub fn fetch_all_maybe_bcpmm_pool(
-  rpc: &solana_client::rpc_client::RpcClient,
-  addresses: &[solana_pubkey::Pubkey],
+    rpc: &solana_client::rpc_client::RpcClient,
+    addresses: &[solana_pubkey::Pubkey],
 ) -> Result<Vec<crate::shared::MaybeAccount<BcpmmPool>>, std::io::Error> {
-    let accounts = rpc.get_multiple_accounts(addresses)
-      .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    let accounts = rpc
+        .get_multiple_accounts(addresses)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     let mut decoded_accounts: Vec<crate::shared::MaybeAccount<BcpmmPool>> = Vec::new();
     for i in 0..addresses.len() {
-      let address = addresses[i];
-      if let Some(account) = accounts[i].as_ref() {
-        let data = BcpmmPool::from_bytes(&account.data)?;
-        decoded_accounts.push(crate::shared::MaybeAccount::Exists(crate::shared::DecodedAccount { address, account: account.clone(), data }));
-      } else {
-        decoded_accounts.push(crate::shared::MaybeAccount::NotFound(address));
-      }
+        let address = addresses[i];
+        if let Some(account) = accounts[i].as_ref() {
+            let data = BcpmmPool::from_bytes(&account.data)?;
+            decoded_accounts.push(crate::shared::MaybeAccount::Exists(
+                crate::shared::DecodedAccount {
+                    address,
+                    account: account.clone(),
+                    data,
+                },
+            ));
+        } else {
+            decoded_accounts.push(crate::shared::MaybeAccount::NotFound(address));
+        }
     }
-  Ok(decoded_accounts)
+    Ok(decoded_accounts)
 }
 
-  #[cfg(feature = "anchor")]
-  impl anchor_lang::AccountDeserialize for BcpmmPool {
-      fn try_deserialize_unchecked(buf: &mut &[u8]) -> anchor_lang::Result<Self> {
+#[cfg(feature = "anchor")]
+impl anchor_lang::AccountDeserialize for BcpmmPool {
+    fn try_deserialize_unchecked(buf: &mut &[u8]) -> anchor_lang::Result<Self> {
         Ok(Self::deserialize(buf)?)
-      }
-  }
+    }
+}
 
-  #[cfg(feature = "anchor")]
-  impl anchor_lang::AccountSerialize for BcpmmPool {}
+#[cfg(feature = "anchor")]
+impl anchor_lang::AccountSerialize for BcpmmPool {}
 
-  #[cfg(feature = "anchor")]
-  impl anchor_lang::Owner for BcpmmPool {
-      fn owner() -> Pubkey {
+#[cfg(feature = "anchor")]
+impl anchor_lang::Owner for BcpmmPool {
+    fn owner() -> Pubkey {
         crate::CBMM_ID
-      }
-  }
+    }
+}
 
-  #[cfg(feature = "anchor-idl-build")]
-  impl anchor_lang::IdlBuild for BcpmmPool {}
+#[cfg(feature = "anchor-idl-build")]
+impl anchor_lang::IdlBuild for BcpmmPool {}
 
-  
-  #[cfg(feature = "anchor-idl-build")]
-  impl anchor_lang::Discriminator for BcpmmPool {
+#[cfg(feature = "anchor-idl-build")]
+impl anchor_lang::Discriminator for BcpmmPool {
     const DISCRIMINATOR: &[u8] = &[0; 8];
-  }
-
+}
