@@ -1,5 +1,7 @@
 # CBMM: Constant Burn Market Maker
 
+> **⚠️ Work in Progress**: This project is currently under active development. Some features may not be fully functional, and breaking changes may occur.
+
 An experimental Solana program that enables turning off-chain activity into on-chain price impact. CBMM is a novel mathematical extension of the classic constant product market maker—we add virtual reserves and built-in burns to let you reward verifiable off-chain behavior with real token supply reduction and price appreciation.
 
 Think of it as a CPMM pool that actually burns tokens when people do off-chain stuff—not just when they trade. The math is new, the safety proofs are formal, and we're exploring whether this actually works in practice.
