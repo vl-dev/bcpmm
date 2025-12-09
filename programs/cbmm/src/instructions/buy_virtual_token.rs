@@ -172,9 +172,11 @@ mod tests {
 
         let test_pool = runner.create_pool_mock(
             &payer,
+            platform_config,
             quote_mint,
             quote_reserve,
             quote_virtual_reserve,
+            base_reserve,
             base_reserve,
             base_mint_decimals,
             creator_fee_bp,
@@ -205,17 +207,16 @@ mod tests {
         let quote_virtual_reserve = 1_000_000;
         let base_reserve = 2_000_000;
 
-        let quote_outstanding_topup = 100;
-        let creator_fees = 100;
-        let buyback_fees = 300;
-        let buyback_fees_after_topup = buyback_fees - quote_outstanding_topup;
-        let platform_fees = 100;
-        let quote_amount_after_fees =
-            quote_amount - creator_fees - buyback_fees_after_topup - platform_fees;
+        // Fees: creator=2%, buyback=6%, platform=2%, total=10%
+        let creator_fees = 100; // 2% of 5000
+        let buyback_fees = 300; // 6% of 5000
+        let platform_fees = 100; // 2% of 5000
+        let total_fees = creator_fees + buyback_fees + platform_fees; // 500
+        let quote_amount_after_fees = quote_amount - total_fees; // 5000 - 500 = 4500
 
         let calculated_base_amount_min = 8959;
         let virtual_token_account =
-            runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0, 0);
+            runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0);
 
         let result_buy = runner.buy_virtual_token(
             &payer,
@@ -226,21 +227,33 @@ mod tests {
             quote_amount,
             calculated_base_amount_min,
         );
-        result_buy.unwrap();
-        //assert!(result_buy.is_ok());
+        assert!(&result_buy.is_ok());
 
         // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
         let pool_data: CbmmPool =
             CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        assert_eq!(pool_data.quote_reserve, quote_amount_after_fees);
+        assert_eq!(
+            pool_data.quote_reserve, quote_amount_after_fees,
+            "quote_reserve is not correct"
+        );
         assert_eq!(
             pool_data.base_reserve,
-            base_reserve - calculated_base_amount_min
+            base_reserve - calculated_base_amount_min,
+            "base_reserve is not correct"
         );
-        assert_eq!(pool_data.quote_virtual_reserve, quote_virtual_reserve); // Unchanged
-        assert_eq!(pool_data.buyback_fees_balance, buyback_fees_after_topup);
-        assert_eq!(pool_data.creator_fees_balance, creator_fees);
+        assert_eq!(
+            pool_data.quote_virtual_reserve, quote_virtual_reserve,
+            "quote_virtual_reserve is not correct"
+        );
+        assert_eq!(
+            pool_data.buyback_fees_balance, buyback_fees,
+            "buyback_fees_balance is not correct"
+        );
+        assert_eq!(
+            pool_data.creator_fees_balance, creator_fees,
+            "creator_fees_balance is not correct"
+        );
     }
 
     #[test]
@@ -251,7 +264,7 @@ mod tests {
         let calculated_base_amount_min = 9157;
 
         let virtual_token_account =
-            runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0, 0);
+            runner.create_virtual_token_account_mock(payer.pubkey(), pool.pool, 0);
 
         let result_buy_min_too_high = runner.buy_virtual_token(
             &payer,
@@ -273,7 +286,7 @@ mod tests {
         let calculated_base_amount_min = 9157;
 
         let virtual_token_account_another_wallet =
-            runner.create_virtual_token_account_mock(another_wallet.pubkey(), pool.pool, 0, 0);
+            runner.create_virtual_token_account_mock(another_wallet.pubkey(), pool.pool, 0);
 
         let result_buy_another_virtual_account = runner.buy_virtual_token(
             &payer,

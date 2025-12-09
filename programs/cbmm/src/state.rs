@@ -198,7 +198,6 @@ pub struct CbmmPool {
     pub bump: u8,
     /// Pool creator address
     pub creator: Pubkey,
-    // todo maybe delete
     /// Pool index per creator
     pub pool_index: u32,
     /// Platform config used by this pool

@@ -98,7 +98,7 @@ mod tests {
         let quote_mint = runner.create_mint(&admin, 9);
         let admin_ata = runner.create_associated_token_account(&admin, quote_mint, &admin.pubkey());
 
-        runner.create_platform_config_mock(
+        let platform_config = runner.create_platform_config_mock(
             &admin,
             quote_mint,
             5,
@@ -112,9 +112,11 @@ mod tests {
 
         let pool_created = runner.create_pool_mock(
             &creator,
+            platform_config,
             quote_mint,
             0,
             1_000_000,
+            2_000_000,
             2_000_000,
             6,
             creator_fee_bp,
@@ -180,6 +182,9 @@ mod tests {
         ];
 
         let result = runner.send_instruction("claim_platform_fees", accounts, (), &[&admin]);
+        if let Err(ref e) = result {
+            eprintln!("claim_platform_fees error: {:?}", e);
+        }
         assert!(result.is_ok());
 
         // Check that platform fees_balance was subtracted from pool

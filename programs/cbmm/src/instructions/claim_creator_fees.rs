@@ -89,7 +89,7 @@ mod tests {
         let quote_mint = runner.create_mint(&owner, 9);
         let owner_ata = runner.create_associated_token_account(&owner, quote_mint, &owner.pubkey());
 
-        runner.create_platform_config_mock(&owner,
+        let platform_config = runner.create_platform_config_mock(&owner,
             quote_mint,
             5,
             5,
@@ -102,9 +102,11 @@ mod tests {
 
         let pool_created = runner.create_pool_mock(
             &owner,
+            platform_config,
             quote_mint,
             quote_reserve,
             quote_virtual_reserve,
+            base_reserve,
             base_reserve,
             base_mint_decimals,
             creator_fee_bp,
@@ -122,13 +124,9 @@ mod tests {
         (runner, owner, pool_created.pool, owner_ata, quote_mint)
     }
 
-    #[test_case(500, true)]
-    #[test_case(1000, true)]
-    #[test_case(1001, false)]
-    #[test_case(0, false)]
-    fn test_claim_creator_fees(claim_amount: u64, success: bool) {
+    #[test_case(true)]
+    fn test_claim_creator_fees(success: bool) {
         let (mut runner, owner, pool, owner_ata, quote_mint) = setup_test();
-        let initial_creator_fees = 1000;
 
         // Claim creator fees
         let result = runner.claim_creator_fees(
@@ -136,8 +134,8 @@ mod tests {
             owner_ata,
             quote_mint,
             pool,
-            claim_amount,
         );
+        println!("result: {:?}", result);
         assert!(result.is_ok() == success);
 
         if success {
@@ -146,19 +144,18 @@ mod tests {
           let pool_account = runner.svm.get_account(&pool).unwrap();
           let final_pool_data: CbmmPool =
               CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-          assert_eq!(final_pool_data.creator_fees_balance, initial_creator_fees - claim_amount);
+          assert_eq!(final_pool_data.creator_fees_balance, 0);
 
           // Check that owner ATA balance increased by the claimed amount
           let owner_ata_account = runner.svm.get_account(&owner_ata).unwrap();
           let final_owner_balance = anchor_spl::token::spl_token::state::Account::unpack(&owner_ata_account.data).unwrap().amount;
-          assert_eq!(final_owner_balance, claim_amount);
+          assert_eq!(final_owner_balance, 1000);
         }
     }
 
     #[test]
     fn test_claim_creator_fees_wrong_owner() {
         let (mut runner, _, pool, _, _) = setup_test();
-        let claim_amount = 500;
 
         let other_user = Keypair::new();
         runner.airdrop(&other_user.pubkey(), 10_000_000_000);
@@ -171,7 +168,6 @@ mod tests {
             other_user_ata,
             quote_mint,
             pool,
-            claim_amount,
         );
         assert!(result.is_err());
     }

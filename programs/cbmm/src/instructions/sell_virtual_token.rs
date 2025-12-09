@@ -137,9 +137,10 @@ mod tests {
 
     fn setup_test() -> (TestRunner, Keypair, Keypair, TestPool, Pubkey, Pubkey) {
         // Parameters
-        let quote_reserve = 5000;
-        let quote_virtual_reserve = 1_000_000;
-        let base_reserve = 2_000_000;
+        let quote_reserve = 2000;
+        let quote_virtual_reserve = 2000;
+        let base_reserve = 500;
+        let base_total_supply = 1000;
         let base_mint_decimals = 6;
         let creator_fee_bp = 200;
         let buyback_fee_bp = 600;
@@ -165,10 +166,12 @@ mod tests {
 
         let test_pool = runner.create_pool_mock(
             &payer,
+            platform_config,
             quote_mint,
             quote_reserve,
             quote_virtual_reserve,
             base_reserve,
+            base_total_supply,
             base_mint_decimals,
             creator_fee_bp,
             buyback_fee_bp,
@@ -186,18 +189,17 @@ mod tests {
 
     #[test]
     fn test_sell_virtual_token_success() {
-        let (mut runner, payer, _, pool, payer_ata, quote_mint) = setup_test();
+        let (mut runner, payer, _, pool, payer_ata, quote_mint) = setup_test();        
         
         let base_amount = 1000; // User has
         let base_sell_amount = 500;
-        let base_reserve = 2_000_000;
+        let base_total_supply = 1000;
 
         // Create virtual token account with some balance to sell
         let virtual_token_account = runner.create_virtual_token_account_mock(
             payer.pubkey(),
             pool.pool,
             base_amount, // Start with balance to sell
-            0,
         );
 
         let result_sell = runner.sell_virtual_token(
@@ -209,7 +211,8 @@ mod tests {
             base_sell_amount,
             0, // min_quote_amount = 0 for success test
         );
-        assert!(result_sell.is_ok());
+        result_sell.unwrap();
+        // assert!(result_sell.is_ok());
 
         // Check that the reserves are updated correctly
         let pool_account = runner.svm.get_account(&pool.pool).unwrap();
@@ -220,7 +223,7 @@ mod tests {
         // Topup should have happened
         // Reserve increased by topup, decreased by gross output
         // Base reserve increased by sell amount
-        assert_eq!(pool_data.base_reserve, base_reserve + base_sell_amount);
+        assert_eq!(pool_data.base_reserve, base_total_supply);
         
         // Fees
         // creator fees should increase
@@ -246,7 +249,6 @@ mod tests {
             another_wallet.pubkey(),
             pool.pool,
             base_amount - 1, // Insufficient balance
-            0,
         );
 
         let result_sell_insufficient = runner.sell_virtual_token(
@@ -272,7 +274,6 @@ mod tests {
             another_wallet.pubkey(),
             pool.pool,
             base_amount,
-            0,
         );
 
         let result_sell_wrong_owner = runner.sell_virtual_token(
@@ -298,7 +299,6 @@ mod tests {
             payer.pubkey(),
             pool.pool,
             base_amount, 
-            0,
         );
 
         // Try with impossibly high min_quote_amount

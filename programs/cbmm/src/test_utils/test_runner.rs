@@ -86,15 +86,23 @@ impl TestRunner {
 
     pub fn put_account_on_chain<T>(&mut self, account_address: &Pubkey, account_data: T) -> Pubkey
     where
-        T: anchor_lang::AccountSerialize,
+        T: anchor_lang::AnchorSerialize + anchor_lang::Discriminator,
     {
         let mut serialized_data = Vec::new();
-        account_data.try_serialize(&mut serialized_data).unwrap();
+        // Add the 8-byte discriminator first (required by Anchor)
+        serialized_data.extend_from_slice(&T::DISCRIMINATOR);
+        // Then serialize the account data using AnchorSerialize
+        anchor_lang::AnchorSerialize::serialize(&account_data, &mut serialized_data).unwrap();
+
+        // Calculate rent-exempt lamports based on account size
+        let rent = self.svm.get_sysvar::<solana_sdk::rent::Rent>();
+        let lamports = rent.minimum_balance(serialized_data.len());
+
         self.svm
             .set_account(
                 *account_address,
                 solana_sdk::account::Account {
-                    lamports: 1_000_000,
+                    lamports,
                     data: serialized_data,
                     owner: self.program_id,
                     executable: false,
@@ -133,21 +141,32 @@ impl TestRunner {
                 max_daily_burns: creator_daily_burn_allowance,
             },
         ];
-        let platform_config = cpmm_state::PlatformConfig::try_new(
-            platform_config_bump,
-            anchor_lang::prelude::Pubkey::from(creator.pubkey().to_bytes()),
-            anchor_lang::prelude::Pubkey::from(creator.pubkey().to_bytes()),
-            anchor_lang::prelude::Pubkey::from(quote_mint.to_bytes()),
-            burn_tiers,
-            creator_fee_bp,
-            buyback_fee_bp,
+
+        use crate::helpers::BurnRateConfig;
+
+        // Burn rate config values that pass validation and allow normal operations:
+        // For 10% total fees (1000 bp), total_fees_bp_x100 = 100,000
+        // Initial pool stress is 75,000 (3/4 of total fees)
+        // burn_limit must be > initial stress and < total_fees_bp_x100
+        let burn_config = BurnRateConfig::new(
+            90_000, // burn_limit_bp_x100 (90% of total fees)
+            10,     // burn_min_bp_x100
+            50,     // burn_decay_rate_per_sec_bp_x100 (max_decay = 90000/900 = 100)
+        );
+
+        // Directly create the struct to avoid Clock::get() call in try_new
+        let platform_config = cpmm_state::PlatformConfig {
+            bump: platform_config_bump,
+            admin: anchor_lang::prelude::Pubkey::new_from_array(creator.pubkey().to_bytes()),
+            creator: anchor_lang::prelude::Pubkey::new_from_array(creator.pubkey().to_bytes()),
+            quote_mint: anchor_lang::prelude::Pubkey::new_from_array(quote_mint.to_bytes()),
+            pool_creator_fee_bp: creator_fee_bp,
+            pool_topup_fee_bp: buyback_fee_bp,
             platform_fee_bp,
-            // todo as params, not hardcoded
-            500,
-            10,
-            10,
-        )
-        .unwrap();
+            burn_rate_config: burn_config,
+            burn_tiers_updated_at: 0,
+            burn_tiers,
+        };
 
         self.put_account_on_chain(&platform_config_pda, platform_config)
     }
@@ -161,25 +180,40 @@ impl TestRunner {
         last_burn_timestamp: i64,
         is_pool_owner: bool,
     ) -> Pubkey {
+        // Get platform config to read burn_tiers_updated_at
+        let platform_config_account = self.svm.get_account(&platform_config).unwrap();
+        let platform_config_data = cpmm_state::PlatformConfig::try_deserialize(
+            &mut platform_config_account.data.as_slice(),
+        )
+        .unwrap();
+
+        let burn_tier_index = if is_pool_owner { 1u8 } else { 0u8 };
+
         let (user_burn_allowance_pda, bump) = Pubkey::find_program_address(
             &[
                 cpmm_state::USER_BURN_ALLOWANCE_SEED,
                 user.as_ref(),
                 platform_config.as_ref(),
-                &[is_pool_owner as u8],
+                &[burn_tier_index],
+                platform_config_data
+                    .burn_tiers_updated_at
+                    .to_le_bytes()
+                    .as_ref(),
             ],
             &self.program_id,
         );
         let user_burn_allowance = cpmm_state::UserBurnAllowance {
             bump,
-            platform_config: anchor_lang::prelude::Pubkey::from(platform_config.to_bytes()),
-            user: anchor_lang::prelude::Pubkey::from(user.to_bytes()),
-            payer: anchor_lang::prelude::Pubkey::from(payer.to_bytes()),
+            platform_config: anchor_lang::prelude::Pubkey::new_from_array(
+                platform_config.to_bytes(),
+            ),
+            user: anchor_lang::prelude::Pubkey::new_from_array(user.to_bytes()),
+            payer: anchor_lang::prelude::Pubkey::new_from_array(payer.to_bytes()),
             burns_today,
             last_burn_timestamp,
             created_at: 0,
-            burn_tier_index: 0,
-            burn_tier_update_timestamp: 0,
+            burn_tier_index,
+            burn_tier_update_timestamp: platform_config_data.burn_tiers_updated_at,
         };
         self.put_account_on_chain(
             &Pubkey::from(user_burn_allowance_pda.to_bytes()),
@@ -239,10 +273,12 @@ impl TestRunner {
     pub fn create_pool_mock(
         &mut self,
         payer: &Keypair,
+        platform_config_pda: Pubkey,
         quote_mint: Pubkey,
         quote_reserve: u64,
         quote_virtual_reserve: u64,
         base_reserve: u64,
+        base_total_supply: u64,
         base_mint_decimals: u8,
         creator_fee_bp: u16,
         buyback_fee_bp: u16,
@@ -251,50 +287,46 @@ impl TestRunner {
         buyback_fees_balance: u64,
         _quote_outstanding_topup: u64,
     ) -> TestPool {
-        let (platform_config_pda, _platform_config_bump) = Pubkey::find_program_address(
-            &[cpmm_state::PLATFORM_CONFIG_SEED, payer.pubkey().as_ref()],
-            &self.program_id,
-        );
-
-        let platform_config = self.svm.get_account(&platform_config_pda).unwrap();
-
-        let platform_config_data =
-            cpmm_state::PlatformConfig::try_deserialize(&mut platform_config.data.as_slice())
-                .unwrap();
-
-        self.put_account_on_chain(&platform_config_pda, platform_config_data);
-
         // Setup PDAs consistent with on-chain seeds
         let (pool_pda, pool_bump) = Pubkey::find_program_address(
             &[
                 cpmm_state::CBMM_POOL_SEED,
                 POOL_INDEX.to_le_bytes().as_ref(),
                 payer.pubkey().as_ref(),
+                platform_config_pda.as_ref(),
             ],
             &self.program_id,
         );
 
         let total_fees_bp_x100 = (creator_fee_bp + buyback_fee_bp + platform_fee_bp) as u64 * 100;
 
+        // Get current clock time for burn_limiter initialization
+        let current_timestamp = self
+            .svm
+            .get_sysvar::<solana_sdk::clock::Clock>()
+            .unix_timestamp;
+
         // Create pool PDA account with CbmmPool structure
         let pool_data = cpmm_state::CbmmPool {
             bump: pool_bump,
-            creator: anchor_lang::prelude::Pubkey::from(payer.pubkey().to_bytes()),
+            creator: anchor_lang::prelude::Pubkey::new_from_array(payer.pubkey().to_bytes()),
             pool_index: POOL_INDEX,
-            platform_config: anchor_lang::prelude::Pubkey::from(platform_config_pda.to_bytes()),
-            quote_mint: anchor_lang::prelude::Pubkey::from(quote_mint.to_bytes()),
+            platform_config: anchor_lang::prelude::Pubkey::new_from_array(
+                platform_config_pda.to_bytes(),
+            ),
+            quote_mint: anchor_lang::prelude::Pubkey::new_from_array(quote_mint.to_bytes()),
             quote_reserve: quote_reserve,
             quote_virtual_reserve: quote_virtual_reserve,
             // quote_outstanding_topup removed from state
             base_mint_decimals: base_mint_decimals,
             base_reserve: base_reserve,
-            base_total_supply: base_reserve,
+            base_total_supply,
             creator_fees_balance,
             buyback_fees_balance,
             creator_fee_bp,
             buyback_fee_bp,
             platform_fee_bp,
-            burn_limiter: BurnRateLimiter::new(0, total_fees_bp_x100 * 3 / 4),
+            burn_limiter: BurnRateLimiter::new(current_timestamp, total_fees_bp_x100 * 3 / 4),
             quote_optimal_virtual_reserve: quote_virtual_reserve, // defaulting
             quote_starting_virtual_reserve: quote_virtual_reserve, // defaulting
             base_starting_total_supply: base_reserve,             // defaulting
@@ -311,7 +343,6 @@ impl TestRunner {
         owner: Pubkey,
         pool: Pubkey,
         balance: u64,
-        _fees_paid: u64,
     ) -> Pubkey {
         // Derive the VirtualTokenAccount PDA using pool + owner seeds
         let (vta_pda, vta_bump) = Pubkey::find_program_address(
@@ -326,8 +357,8 @@ impl TestRunner {
             &vta_pda,
             cpmm_state::VirtualTokenAccount {
                 bump: vta_bump,
-                pool: anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
-                owner: anchor_lang::prelude::Pubkey::from(owner.to_bytes()),
+                pool: anchor_lang::prelude::Pubkey::new_from_array(pool.to_bytes()),
+                owner: anchor_lang::prelude::Pubkey::new_from_array(owner.to_bytes()),
                 balance,
             },
         );
@@ -430,16 +461,47 @@ impl TestRunner {
         platform_config: Pubkey,
         is_pool_owner: bool,
     ) -> std::result::Result<Pubkey, TransactionError> {
-        // Derive the UserBurnAllowance PDA
+        use crate::instructions::InitializeUserBurnAllowanceArgs;
+
+        // Get platform config to read burn_tiers_updated_at
+        let platform_config_account = self.svm.get_account(&platform_config).unwrap();
+        let platform_config_data = cpmm_state::PlatformConfig::try_deserialize(
+            &mut platform_config_account.data.as_slice(),
+        )
+        .unwrap();
+
+        let burn_tier_index = if is_pool_owner { 1u8 } else { 0u8 };
+
+        // Derive the UserBurnAllowance PDA with correct seeds
         let (user_burn_allowance_pda, _bump) = Pubkey::find_program_address(
             &[
                 cpmm_state::USER_BURN_ALLOWANCE_SEED,
                 owner.as_ref(),
                 platform_config.as_ref(),
-                &[is_pool_owner as u8],
+                &[burn_tier_index],
+                platform_config_data
+                    .burn_tiers_updated_at
+                    .to_le_bytes()
+                    .as_ref(),
             ],
             &self.program_id,
         );
+
+        // Find the pool if needed
+        let pool_pda = if is_pool_owner {
+            let (pool, _) = Pubkey::find_program_address(
+                &[
+                    cpmm_state::CBMM_POOL_SEED,
+                    cpmm_state::CBMM_POOL_INDEX_SEED.to_le_bytes().as_ref(),
+                    owner.as_ref(),
+                    platform_config.as_ref(),
+                ],
+                &self.program_id,
+            );
+            pool
+        } else {
+            self.program_id // Use program_id as dummy when pool is not needed
+        };
 
         let accounts = vec![
             AccountMeta::new(payer.pubkey(), true),
@@ -447,14 +509,12 @@ impl TestRunner {
             AccountMeta::new(user_burn_allowance_pda, false),
             AccountMeta::new_readonly(platform_config, false),
             AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
+            AccountMeta::new_readonly(pool_pda, false),
         ];
 
-        self.send_instruction(
-            "initialize_user_burn_allowance",
-            accounts,
-            is_pool_owner,
-            &[payer],
-        )?;
+        let args = InitializeUserBurnAllowanceArgs { burn_tier_index };
+
+        self.send_instruction("initialize_user_burn_allowance", accounts, args, &[payer])?;
 
         Ok(user_burn_allowance_pda)
     }
@@ -464,7 +524,6 @@ impl TestRunner {
         payer: &Keypair,
         pool: Pubkey,
         user_burn_allowance: Pubkey,
-        is_pool_owner: bool,
     ) -> std::result::Result<(), TransactionError> {
         // Get platform_config from pool account
         let pool_account = self.svm.get_account(&pool).unwrap();
@@ -479,7 +538,7 @@ impl TestRunner {
             AccountMeta::new(Pubkey::from(platform_config_pda.to_bytes()), false),
         ];
 
-        self.send_instruction("burn_virtual_token", accounts, is_pool_owner, &[payer])
+        self.send_instruction("burn_virtual_token", accounts, (), &[payer])
     }
 
     pub fn get_user_burn_allowance(
@@ -527,23 +586,15 @@ impl TestRunner {
         owner_ata: Pubkey,
         mint: Pubkey,
         pool: Pubkey,
-        amount: u64,
     ) -> std::result::Result<(), TransactionError> {
         let pool_ata = anchor_spl::associated_token::get_associated_token_address(
             &anchor_lang::prelude::Pubkey::from(pool.to_bytes()),
             &anchor_lang::prelude::Pubkey::from(mint.to_bytes()),
         );
 
-        // Get platform_config from pool account
-        let pool_account = self.svm.get_account(&pool).unwrap();
-        let pool_data =
-            cpmm_state::CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
-        let platform_config_pda = pool_data.platform_config;
-
         let accounts = vec![
             AccountMeta::new(owner.pubkey(), true),
             AccountMeta::new(owner_ata, false),
-            AccountMeta::new(Pubkey::from(platform_config_pda.to_bytes()), false),
             AccountMeta::new(pool, false),
             AccountMeta::new(Pubkey::from(pool_ata.to_bytes()), false),
             AccountMeta::new(mint, false),
@@ -557,36 +608,36 @@ impl TestRunner {
         self.send_instruction("claim_creator_fees", accounts, (), &[owner])
     }
 
-    pub fn claim_platform_fees(
-        &mut self,
-        admin: &Keypair,
-        creator: Pubkey,
-        admin_ata: Pubkey,
-        mint: Pubkey,
-    ) -> std::result::Result<(), TransactionError> {
-        let platform_config_pda = Pubkey::find_program_address(
-            &[cpmm_state::PLATFORM_CONFIG_SEED, creator.as_ref()],
-            &self.program_id,
-        )
-        .0;
+    // pub fn claim_platform_fees(
+    //     &mut self,
+    //     admin: &Keypair,
+    //     creator: Pubkey,
+    //     admin_ata: Pubkey,
+    //     mint: Pubkey,
+    // ) -> std::result::Result<(), TransactionError> {
+    //     let platform_config_pda = Pubkey::find_program_address(
+    //         &[cpmm_state::PLATFORM_CONFIG_SEED, creator.as_ref()],
+    //         &self.program_id,
+    //     )
+    //     .0;
 
-        let accounts = vec![
-            AccountMeta::new(admin.pubkey(), true),
-            AccountMeta::new_readonly(creator, false),
-            AccountMeta::new(admin_ata, false),
-            AccountMeta::new(platform_config_pda, false),
-            AccountMeta::new(mint, false),
-            AccountMeta::new_readonly(
-                Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
-                false,
-            ),
-            AccountMeta::new_readonly(
-                Pubkey::from(anchor_spl::associated_token::ID.to_bytes()),
-                false,
-            ),
-            AccountMeta::new(solana_sdk_ids::system_program::ID, false),
-        ];
+    //     let accounts = vec![
+    //         AccountMeta::new(admin.pubkey(), true),
+    //         AccountMeta::new_readonly(creator, false),
+    //         AccountMeta::new(admin_ata, false),
+    //         AccountMeta::new(platform_config_pda, false),
+    //         AccountMeta::new(mint, false),
+    //         AccountMeta::new_readonly(
+    //             Pubkey::from(anchor_spl::token::spl_token::ID.to_bytes()),
+    //             false,
+    //         ),
+    //         AccountMeta::new_readonly(
+    //             Pubkey::from(anchor_spl::associated_token::ID.to_bytes()),
+    //             false,
+    //         ),
+    //         AccountMeta::new(solana_sdk_ids::system_program::ID, false),
+    //     ];
 
-        self.send_instruction("claim_platform_fees", accounts, (), &[admin])
-    }
+    //     self.send_instruction("claim_platform_fees", accounts, (), &[admin])
+    // }
 }
