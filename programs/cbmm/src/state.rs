@@ -20,14 +20,12 @@ pub const USER_BURN_ALLOWANCE_SEED: &[u8] = b"user_burn_allowance";
 pub const DEFAULT_BASE_MINT_DECIMALS: u8 = 6;
 pub const DEFAULT_BASE_MINT_RESERVE: u64 =
     1_000_000_000 * 10u64.pow(DEFAULT_BASE_MINT_DECIMALS as u32);
-pub const DEFAULT_BURN_TIERS_UPDATE_COOLDOWN_SECONDS: i64 = 86400; // 24 hours
-pub const BURN_UPDATE_COOLDOWN_PERIOD_SECONDS: i64 = 3600; // 1 hour
 pub const MIN_VIRTUAL_RESERVE: u64 = 1_000_000;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, PartialEq)]
 pub enum BurnRole {
     Anyone,                 // Permissionless - anyone can burn at this tier
-    PoolCreator,            // Only the pool creator can burn at this tier
+    PoolOwner,              // Only the pool owner (creator) can burn at this tier
     SpecificPubkey(Pubkey), // Only a specific whitelisted pubkey can burn
 }
 
@@ -47,9 +45,9 @@ pub struct PlatformConfig {
     pub creator: Pubkey,
     pub quote_mint: Pubkey,
 
-    pub pool_creator_fee_basis_points: u16,
-    pub pool_topup_fee_basis_points: u16,
-    pub platform_fee_basis_points: u16,
+    pub pool_creator_fee_bp: u16,
+    pub pool_topup_fee_bp: u16,
+    pub platform_fee_bp: u16,
 
     pub burn_rate_config: BurnRateConfig,
 
@@ -59,41 +57,120 @@ pub struct PlatformConfig {
 }
 
 impl PlatformConfig {
+    /// Maximum total fees allowed (20%)
+    pub const MAX_TOTAL_FEES_BP: u16 = 2_000;
+    /// Minimum topup fee required (1%)
+    pub const MIN_TOPUP_FEE_BP: u16 = 100;
+    /// Maximum platform fee allowed (10%)
+    pub const MAX_PLATFORM_FEE_BP: u16 = 1_000;
+    /// Time window for reaching theoretical burn limit (15 minutes in seconds)
+    pub const BURN_LIMIT_TIME_WINDOW_SECONDS: i64 = 900;
+    // 10 bp (1000 bp_x100) hard limit for unrestricted role
+    pub const MAX_DAILY_BURN_BP_X100_ANYONE: u64 = 1_000;
+
+    pub fn validate_fees_and_burn_config(
+        pool_creator_fee_bp: u16,
+        pool_topup_fee_bp: u16,
+        platform_fee_bp: u16,
+        burn_tiers: &[BurnTier],
+        burn_limit_bp_x100: u64,
+        burn_decay_rate_per_sec_bp_x100: u64,
+    ) -> Result<()> {
+        // 1. Validate fee constraints
+        let total_fees = pool_creator_fee_bp
+            .checked_add(pool_topup_fee_bp)
+            .and_then(|sum| sum.checked_add(platform_fee_bp))
+            .ok_or(CbmmError::MathOverflow)?;
+
+        require!(
+            total_fees <= Self::MAX_TOTAL_FEES_BP,
+            CbmmError::InvalidFeeBasisPoints
+        );
+        require!(
+            pool_topup_fee_bp >= Self::MIN_TOPUP_FEE_BP,
+            CbmmError::InvalidFeeBasisPoints
+        );
+        require!(
+            platform_fee_bp <= Self::MAX_PLATFORM_FEE_BP,
+            CbmmError::InvalidFeeBasisPoints
+        );
+
+        // 2. Validate burn tiers
+        let total_fees_bp_x100 = (total_fees as u64) * 100;
+
+        // Safe max is set to 3/4 of total fees percentage
+        let safe_max_bp_x100 = (total_fees_bp_x100 * 3) / 4;
+
+        for tier in burn_tiers {
+            match &tier.role {
+                BurnRole::Anyone => {
+                    require!(
+                        tier.burn_bp_x100 as u64 <= Self::MAX_DAILY_BURN_BP_X100_ANYONE,
+                        CbmmError::InvalidBurnTiers
+                    );
+                }
+                BurnRole::PoolOwner | BurnRole::SpecificPubkey(_) => {
+                    require!(
+                        tier.burn_bp_x100 as u64 <= safe_max_bp_x100,
+                        CbmmError::InvalidBurnTiers
+                    );
+                }
+            }
+        }
+
+        // 3. Validate burn rate config
+        require!(
+            burn_limit_bp_x100 < total_fees_bp_x100,
+            CbmmError::InvalidBurnTiers
+        );
+
+        // Decay should throttle to at least 15 minute full recovery
+        let max_decay = burn_limit_bp_x100 / Self::BURN_LIMIT_TIME_WINDOW_SECONDS as u64;
+
+        // Require at least some decay rate (Allow 99% tolerance downward (slower decay is safer)
+        let min_decay = max_decay / 100;
+
+        require_gte!(
+            burn_decay_rate_per_sec_bp_x100,
+            min_decay,
+            CbmmError::InvalidBurnRate
+        );
+        require_gte!(
+            max_decay,
+            burn_decay_rate_per_sec_bp_x100,
+            CbmmError::InvalidBurnRate
+        );
+
+        Ok(())
+    }
+
     pub fn try_new(
         bump: u8,
         admin: Pubkey,
         creator: Pubkey,
         quote_mint: Pubkey,
         burn_tiers: Vec<BurnTier>,
-        pool_creator_fee_basis_points: u16,
-        pool_topup_fee_basis_points: u16,
-        platform_fee_basis_points: u16,
+        pool_creator_fee_bp: u16,
+        pool_topup_fee_bp: u16,
+        platform_fee_bp: u16,
         burn_limit_bp_x100: u64,
-        burn_min_burn_bp_x100: u64,
+        burn_min_bp_x100: u64,
         burn_decay_rate_per_sec_bp_x100: u64,
     ) -> Result<Self> {
         require!(burn_tiers.len() <= 5, CbmmError::InvalidBurnTiers);
-        let total_fees =
-            pool_creator_fee_basis_points + pool_topup_fee_basis_points + platform_fee_basis_points;
-        // 1% fee minimum to be able to do reasonable burns
-        require!(
-            total_fees <= 10_000 && total_fees >= 100,
-            CbmmError::InvalidFeeBasisPoints
-        );
 
-        // check that every burn tier has the amount at most 1/10 of the total fees - keeps the burning reasonably safe
-        // todo doublecheck that 1/10 is the right number
-        require!(
-            !&burn_tiers
-                .iter()
-                .any(|tier| tier.burn_bp_x100 / 100 > total_fees as u32 / 10),
-            CbmmError::InvalidBurnTiers
-        );
+        Self::validate_fees_and_burn_config(
+            pool_creator_fee_bp,
+            pool_topup_fee_bp,
+            platform_fee_bp,
+            &burn_tiers,
+            burn_limit_bp_x100,
+            burn_decay_rate_per_sec_bp_x100,
+        )?;
 
-        // todo check that the burn config is valid
         let burn_config = BurnRateConfig::new(
             burn_limit_bp_x100,
-            burn_min_burn_bp_x100,
+            burn_min_bp_x100,
             burn_decay_rate_per_sec_bp_x100,
         );
 
@@ -105,9 +182,9 @@ impl PlatformConfig {
             burn_tiers,
             burn_tiers_updated_at: Clock::get()?.unix_timestamp,
             burn_rate_config: burn_config,
-            pool_creator_fee_basis_points,
-            pool_topup_fee_basis_points,
-            platform_fee_basis_points,
+            pool_creator_fee_bp,
+            pool_topup_fee_bp,
+            platform_fee_bp,
         })
     }
 }
@@ -121,7 +198,6 @@ pub struct CbmmPool {
     pub bump: u8,
     /// Pool creator address
     pub creator: Pubkey,
-    // todo maybe delete
     /// Pool index per creator
     pub pool_index: u32,
     /// Platform config used by this pool
@@ -155,11 +231,11 @@ pub struct CbmmPool {
     pub platform_fees_balance: u64,
 
     /// Creator fee basis points
-    pub creator_fee_basis_points: u16,
+    pub creator_fee_bp: u16,
     /// Buyback fee basis points
-    pub buyback_fee_basis_points: u16,
+    pub buyback_fee_bp: u16,
     /// Platform fee basis points
-    pub platform_fee_basis_points: u16,
+    pub platform_fee_bp: u16,
 
     /// Burn rate limiter
     pub burn_limiter: BurnRateLimiter,
@@ -183,17 +259,18 @@ impl CbmmPool {
         platform_config: Pubkey,
         quote_mint: Pubkey,
         quote_virtual_reserve: u64,
-        creator_fee_basis_points: u16,
-        buyback_fee_basis_points: u16,
-        platform_fee_basis_points: u16,
+        creator_fee_bp: u16,
+        buyback_fee_bp: u16,
+        platform_fee_bp: u16,
     ) -> Result<Self> {
         require!(quote_virtual_reserve > 0, CbmmError::InvalidVirtualReserve);
-        require!(
-            buyback_fee_basis_points > 0,
-            CbmmError::InvalidBuybackFeeBasisPoints
-        );
+        require!(buyback_fee_bp > 0, CbmmError::InvalidBuybackFeeBasisPoints);
 
-        let burn_limiter = BurnRateLimiter::new(Clock::get()?.unix_timestamp);
+        // Initial stress is 3/4 of total fees - to ensure the pool is not exploitable after creation
+        let total_fees_bp_x100 = (creator_fee_bp + buyback_fee_bp + platform_fee_bp) as u64 * 100;
+        let initial_stress_bp_x10k = total_fees_bp_x100 * 3 / 4;
+        let burn_limiter =
+            BurnRateLimiter::new(Clock::get()?.unix_timestamp, initial_stress_bp_x10k);
 
         Ok(Self {
             bump,
@@ -212,9 +289,9 @@ impl CbmmPool {
             creator_fees_balance: 0,
             buyback_fees_balance: 0,
             platform_fees_balance: 0,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            platform_fee_basis_points,
+            creator_fee_bp,
+            buyback_fee_bp,
+            platform_fee_bp,
             burn_limiter,
         })
     }
@@ -222,9 +299,9 @@ impl CbmmPool {
     pub fn collect_fees(&mut self, quote_amount: u64) -> anchor_lang::prelude::Result<u64> {
         let fees = calculate_fees(
             quote_amount,
-            self.creator_fee_basis_points,
-            self.buyback_fee_basis_points,
-            self.platform_fee_basis_points,
+            self.creator_fee_bp,
+            self.buyback_fee_bp,
+            self.platform_fee_bp,
         )?;
         self.creator_fees_balance += fees.creator_fees_amount;
         self.buyback_fees_balance += fees.buyback_fees_amount;

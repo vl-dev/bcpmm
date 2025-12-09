@@ -48,4 +48,8 @@ pub enum CbmmError {
     InvalidPlatformConfig,
     #[msg("Burn limit reached")]
     BurnLimitReached,
+    #[msg("Invalid burn tiers length")]
+    InvalidBurnTiersLength,
+    #[msg("Invalid burn rate")]
+    InvalidBurnRate,
 }

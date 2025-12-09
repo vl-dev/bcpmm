@@ -61,7 +61,7 @@ pub fn initialize_user_burn_allowance(
 
     let burn_tier = &ctx.accounts.platform_config.burn_tiers[args.burn_tier_index as usize];
     match burn_tier.role {
-        BurnRole::PoolCreator => {
+        BurnRole::PoolOwner => {
             require!(
                 ctx.accounts.pool.is_some(),
                 CbmmError::PoolCreatorBurnTierRequiresPool
