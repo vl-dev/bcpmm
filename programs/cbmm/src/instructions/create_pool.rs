@@ -64,9 +64,9 @@ pub fn create_pool(ctx: Context<CreatePool>, args: CreatePoolArgs) -> Result<()>
         ctx.accounts.platform_config.key(),
         ctx.accounts.quote_mint.key(),
         args.quote_virtual_reserve,
-        platform_config.pool_creator_fee_basis_points,
-        platform_config.pool_topup_fee_basis_points,
-        platform_config.platform_fee_basis_points,
+        platform_config.pool_creator_fee_bp,
+        platform_config.pool_topup_fee_bp,
+        platform_config.platform_fee_bp,
     )?);
     Ok(())
 }

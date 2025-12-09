@@ -139,9 +139,9 @@ mod tests {
         let quote_virtual_reserve = 1_000_000;
         let base_reserve = 2_000_000;
         let base_mint_decimals = 6;
-        let creator_fee_basis_points = 200;
-        let buyback_fee_basis_points = 600;
-        let platform_fee_basis_points = 200;
+        let creator_fee_bp = 200;
+        let buyback_fee_bp = 600;
+        let platform_fee_bp = 200;
         let creator_fees_balance = 0;
         let buyback_fees_balance = 0;
         let quote_outstanding_topup = 100;
@@ -163,9 +163,9 @@ mod tests {
             5,
             2,
             1,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            platform_fee_basis_points,
+            creator_fee_bp,
+            buyback_fee_bp,
+            platform_fee_bp,
         );
         // platform config ata
         runner.create_associated_token_account(&payer, quote_mint, &platform_config);
@@ -177,9 +177,9 @@ mod tests {
             quote_virtual_reserve,
             base_reserve,
             base_mint_decimals,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            platform_fee_basis_points,
+            creator_fee_bp,
+            buyback_fee_bp,
+            platform_fee_bp,
             creator_fees_balance,
             buyback_fees_balance,
             quote_outstanding_topup,

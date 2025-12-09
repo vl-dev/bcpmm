@@ -1,21 +1,17 @@
 use crate::state::*;
 use anchor_lang::prelude::*;
-use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::token_interface::Mint;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct InitializePlatformConfigArgs {
-    pub admin: Pubkey,
-    pub max_user_daily_burn_count: u16,
-    pub max_creator_daily_burn_count: u16,
-    pub user_burn_bp_x100: u32,
-    pub creator_burn_bp_x100: u32,
-    pub creator_fee_basis_points: u16,
-    pub topup_fee_basis_points: u16,
-    pub platform_fee_basis_points: u16,
+    pub creator_fee_bp: u16,
+    pub topup_fee_bp: u16,
+    pub platform_fee_bp: u16,
+
     pub burn_limit_bp_x100: u64,
     pub burn_min_burn_bp_x100: u64,
     pub burn_decay_rate_per_sec_bp_x100: u64,
+    pub burn_tiers: Vec<BurnTier>,
 }
 
 #[derive(Accounts)]
@@ -38,30 +34,17 @@ pub fn initialize_platform_config(
     ctx: Context<InitializePlatformConfig>,
     args: InitializePlatformConfigArgs,
 ) -> Result<()> {
-    // todo check that the args combination is valid
-    let burn_tiers = vec![
-        BurnTier {
-            burn_bp_x100: args.user_burn_bp_x100,
-            role: BurnRole::Anyone,
-            max_daily_burns: args.max_user_daily_burn_count,
-        },
-        BurnTier {
-            burn_bp_x100: args.creator_burn_bp_x100,
-            role: BurnRole::PoolCreator,
-            max_daily_burns: args.max_creator_daily_burn_count,
-        },
-    ];
     ctx.accounts
         .platform_config
         .set_inner(PlatformConfig::try_new(
             ctx.bumps.platform_config,
-            args.admin,
+            ctx.accounts.creator.key(),
             ctx.accounts.creator.key(),
             ctx.accounts.quote_mint.key(),
-            burn_tiers,
-            args.creator_fee_basis_points,
-            args.topup_fee_basis_points,
-            args.platform_fee_basis_points,
+            args.burn_tiers,
+            args.creator_fee_bp,
+            args.topup_fee_bp,
+            args.platform_fee_bp,
             args.burn_limit_bp_x100,
             args.burn_min_burn_bp_x100,
             args.burn_decay_rate_per_sec_bp_x100,

@@ -84,9 +84,9 @@ mod tests {
     ) {
         // Parameters
         let platform_fees_balance = 500;
-        let creator_fee_basis_points = 200;
-        let buyback_fee_basis_points = 600;
-        let platform_fee_basis_points = 200;
+        let creator_fee_bp = 200;
+        let buyback_fee_bp = 600;
+        let platform_fee_bp = 200;
 
         let mut runner = TestRunner::new();
         let admin = Keypair::new();
@@ -105,9 +105,9 @@ mod tests {
             5,
             2,
             1,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            platform_fee_basis_points,
+            creator_fee_bp,
+            buyback_fee_bp,
+            platform_fee_bp,
         );
 
         let pool_created = runner.create_pool_mock(
@@ -117,9 +117,9 @@ mod tests {
             1_000_000,
             2_000_000,
             6,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            platform_fee_basis_points,
+            creator_fee_bp,
+            buyback_fee_bp,
+            platform_fee_bp,
             0,
             0,
             0,

@@ -113,9 +113,9 @@ impl TestRunner {
         creator_daily_burn_allowance: u16,
         user_burn_bp_x100: u32,
         creator_burn_bp_x100: u32,
-        creator_fee_basis_points: u16,
-        buyback_fee_basis_points: u16,
-        platform_fee_basis_points: u16,
+        creator_fee_bp: u16,
+        buyback_fee_bp: u16,
+        platform_fee_bp: u16,
     ) -> Pubkey {
         let (platform_config_pda, platform_config_bump) = Pubkey::find_program_address(
             &[cpmm_state::PLATFORM_CONFIG_SEED, creator.pubkey().as_ref()],
@@ -129,7 +129,7 @@ impl TestRunner {
             },
             cpmm_state::BurnTier {
                 burn_bp_x100: creator_burn_bp_x100,
-                role: cpmm_state::BurnRole::PoolCreator,
+                role: cpmm_state::BurnRole::PoolOwner,
                 max_daily_burns: creator_daily_burn_allowance,
             },
         ];
@@ -139,9 +139,9 @@ impl TestRunner {
             anchor_lang::prelude::Pubkey::from(creator.pubkey().to_bytes()),
             anchor_lang::prelude::Pubkey::from(quote_mint.to_bytes()),
             burn_tiers,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            platform_fee_basis_points,
+            creator_fee_bp,
+            buyback_fee_bp,
+            platform_fee_bp,
             // todo as params, not hardcoded
             500,
             10,
@@ -244,9 +244,9 @@ impl TestRunner {
         quote_virtual_reserve: u64,
         base_reserve: u64,
         base_mint_decimals: u8,
-        creator_fee_basis_points: u16,
-        buyback_fee_basis_points: u16,
-        platform_fee_basis_points: u16,
+        creator_fee_bp: u16,
+        buyback_fee_bp: u16,
+        platform_fee_bp: u16,
         creator_fees_balance: u64,
         buyback_fees_balance: u64,
         _quote_outstanding_topup: u64,
@@ -274,6 +274,8 @@ impl TestRunner {
             &self.program_id,
         );
 
+        let total_fees_bp_x100 = (creator_fee_bp + buyback_fee_bp + platform_fee_bp) as u64 * 100;
+
         // Create pool PDA account with CbmmPool structure
         let pool_data = cpmm_state::CbmmPool {
             bump: pool_bump,
@@ -289,10 +291,10 @@ impl TestRunner {
             base_total_supply: base_reserve,
             creator_fees_balance,
             buyback_fees_balance,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            platform_fee_basis_points,
-            burn_limiter: BurnRateLimiter::new(0),
+            creator_fee_bp,
+            buyback_fee_bp,
+            platform_fee_bp,
+            burn_limiter: BurnRateLimiter::new(0, total_fees_bp_x100 * 3 / 4),
             quote_optimal_virtual_reserve: quote_virtual_reserve, // defaulting
             quote_starting_virtual_reserve: quote_virtual_reserve, // defaulting
             base_starting_total_supply: base_reserve,             // defaulting

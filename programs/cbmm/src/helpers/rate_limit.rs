@@ -23,25 +23,29 @@ pub enum RateLimitResult {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, Default)]
 pub struct BurnRateConfig {
-    pub limit_bp_x100: u64,
-    pub min_burn_bp_x100: u64,
+    pub burn_limit_bp_x100: u64,
+    pub burn_min_bp_x100: u64,
     pub decay_rate_per_sec_bp_x100: u64,
 }
 
 impl BurnRateConfig {
-    pub fn new(limit_bp_x100: u64, min_burn_bp_x100: u64, decay_rate_per_sec_bp_x100: u64) -> Self {
+    pub fn new(
+        burn_limit_bp_x100: u64,
+        burn_min_bp_x100: u64,
+        decay_rate_per_sec_bp_x100: u64,
+    ) -> Self {
         Self {
-            limit_bp_x100,
-            min_burn_bp_x100,
+            burn_limit_bp_x100,
+            burn_min_bp_x100,
             decay_rate_per_sec_bp_x100,
         }
     }
 }
 
 impl BurnRateLimiter {
-    pub fn new(now: i64) -> Self {
+    pub fn new(now: i64, initial_stress_bp_x10k: u64) -> Self {
         Self {
-            accumulated_stress_bp_x10k: 0,
+            accumulated_stress_bp_x10k: initial_stress_bp_x10k,
             pending_queue_shares_bp_x10k: 0,
             last_update_ts: now,
         }
@@ -106,8 +110,11 @@ impl BurnRateLimiter {
         let new_burn_x10k = (new_burn_bp_x100 as u64)
             .checked_mul(SCALING_FACTOR)
             .unwrap();
-        let soft_limit_x10k = config.limit_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
-        let min_burn_x10k = config.min_burn_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
+        let burn_limit_bp_x10k = config
+            .burn_limit_bp_x100
+            .checked_mul(SCALING_FACTOR)
+            .unwrap();
+        let min_burn_x10k = config.burn_min_bp_x100.checked_mul(SCALING_FACTOR).unwrap();
         let decay_rate_x10k = config
             .decay_rate_per_sec_bp_x100
             .checked_mul(SCALING_FACTOR)
@@ -125,7 +132,8 @@ impl BurnRateLimiter {
         self.last_update_ts = now;
 
         // Remaining linear capacity under the soft limit.
-        let available_space_x10k = soft_limit_x10k.saturating_sub(self.accumulated_stress_bp_x10k);
+        let available_space_x10k =
+            burn_limit_bp_x10k.saturating_sub(self.accumulated_stress_bp_x10k);
         if available_space_x10k < min_burn_x10k {
             return Ok(RateLimitResult::Queued);
         }

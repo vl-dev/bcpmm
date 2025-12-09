@@ -20,29 +20,26 @@ impl Fees {
 
 pub fn calculate_fees(
     quote_amount: u64,
-    creator_fee_basis_points: u16,
-    buyback_fee_basis_points: u16,
-    platform_fee_basis_points: u16,
+    creator_fee_bp: u16,
+    buyback_fee_bp: u16,
+    platform_fee_bp: u16,
 ) -> Result<Fees> {
-    if platform_fee_basis_points > 10000
-        || creator_fee_basis_points > 10000
-        || buyback_fee_basis_points > 10000
-    {
+    if platform_fee_bp > 10000 || creator_fee_bp > 10000 || buyback_fee_bp > 10000 {
         return Err(CbmmError::InvalidFeeBasisPoints.into());
     }
-    if u64::MAX / (platform_fee_basis_points as u64) < quote_amount
-        || u64::MAX / (creator_fee_basis_points as u64) < quote_amount
-        || u64::MAX / (buyback_fee_basis_points as u64) < quote_amount
+    if u64::MAX / (platform_fee_bp as u64) < quote_amount
+        || u64::MAX / (creator_fee_bp as u64) < quote_amount
+        || u64::MAX / (buyback_fee_bp as u64) < quote_amount
     {
         return Err(CbmmError::AmountTooBig.into());
     }
     // Use ceiling division for fees to avoid rounding down: ceil(x / d) = (x + d - 1) / d
     let creator_fees_amount =
-        ((quote_amount as u128 * creator_fee_basis_points as u128 + 9999) / 10000) as u64;
+        ((quote_amount as u128 * creator_fee_bp as u128 + 9999) / 10000) as u64;
     let buyback_fees_amount =
-        ((quote_amount as u128 * buyback_fee_basis_points as u128 + 9999) / 10000) as u64;
+        ((quote_amount as u128 * buyback_fee_bp as u128 + 9999) / 10000) as u64;
     let platform_fees_amount =
-        ((quote_amount as u128 * platform_fee_basis_points as u128 + 9999) / 10000) as u64;
+        ((quote_amount as u128 * platform_fee_bp as u128 + 9999) / 10000) as u64;
     Ok(Fees {
         creator_fees_amount,
         buyback_fees_amount,
@@ -152,21 +149,21 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_fees_creator_fee_basis_points_overflow() {
+    fn test_calculate_fees_creator_fee_bp_overflow() {
         let result = calculate_fees(1_000_000_000, 10000, 10001, 10000);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), CbmmError::InvalidFeeBasisPoints.into());
     }
 
     #[test]
-    fn test_calculate_fees_buyback_fee_basis_points_overflow() {
+    fn test_calculate_fees_buyback_fee_bp_overflow() {
         let result = calculate_fees(1_000_000_000, 10001, 10000, 10000);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), CbmmError::InvalidFeeBasisPoints.into());
     }
 
     #[test]
-    fn test_calculate_fees_platform_fee_basis_points_overflow() {
+    fn test_calculate_fees_platform_fee_bp_overflow() {
         let result = calculate_fees(1_000_000_000, 10000, 10000, 10001);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), CbmmError::InvalidFeeBasisPoints.into());

@@ -1,5 +1,4 @@
 use crate::errors::CbmmError;
-use crate::helpers::{calculate_burn_amount, calculate_new_virtual_reserve_after_burn};
 use crate::state::*;
 use anchor_lang::prelude::*;
 
@@ -62,7 +61,7 @@ pub fn burn_virtual_token(ctx: Context<BurnVirtualToken>) -> Result<()> {
     );
     let burn_tier = &platform_config.burn_tiers[burn_tier_index as usize];
 
-    if let BurnRole::PoolCreator = burn_tier.role {
+    if let BurnRole::PoolOwner = burn_tier.role {
         require_keys_eq!(ctx.accounts.pool.creator, ctx.accounts.signer.key(), CbmmError::InvalidPoolCreator);
     }
 
@@ -104,9 +103,9 @@ mod tests {
         let quote_virtual_reserve = 500_000;
         let base_reserve = 1_000_000;
         let base_mint_decimals = 6;
-        let creator_fee_basis_points = 200;
-        let buyback_fee_basis_points = 600;
-        let platform_fee_basis_points = 200;
+        let creator_fee_bp = 200;
+        let buyback_fee_bp = 600;
+        let platform_fee_bp = 200;
         let creator_fees_balance = 0;
         let buyback_fees_balance = 0;
         let quote_outstanding_topup = 0;
@@ -123,9 +122,9 @@ mod tests {
             5,
             10_000, // 1%
             20_000, // 2%
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            platform_fee_basis_points,
+            creator_fee_bp,
+            buyback_fee_bp,
+            platform_fee_bp,
         );
         let pool = runner.create_pool_mock(
             &payer,
@@ -134,9 +133,9 @@ mod tests {
             quote_virtual_reserve,
             base_reserve,
             base_mint_decimals,
-            creator_fee_basis_points,
-            buyback_fee_basis_points,
-            platform_fee_basis_points,
+            creator_fee_bp,
+            buyback_fee_bp,
+            platform_fee_bp,
             creator_fees_balance,
             buyback_fees_balance,
             quote_outstanding_topup,
