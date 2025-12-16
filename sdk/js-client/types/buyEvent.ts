@@ -21,50 +21,35 @@ import {
 } from '@solana/kit';
 
 export type BuyEvent = {
-  aInput: bigint;
-  bOutput: bigint;
-  creatorFees: bigint;
-  buybackFees: bigint;
-  platformFees: bigint;
+  quoteInput: bigint;
+  baseOutput: bigint;
+  fees: bigint;
   topupPaid: bigint;
-  newBReserve: bigint;
-  newAReserve: bigint;
-  newOutstandingTopup: bigint;
-  newCreatorFeesBalance: bigint;
-  newBuybackFeesBalance: bigint;
+  newBaseReserve: bigint;
+  newQuoteReserve: bigint;
   buyer: Address;
   pool: Address;
 };
 
 export type BuyEventArgs = {
-  aInput: number | bigint;
-  bOutput: number | bigint;
-  creatorFees: number | bigint;
-  buybackFees: number | bigint;
-  platformFees: number | bigint;
+  quoteInput: number | bigint;
+  baseOutput: number | bigint;
+  fees: number | bigint;
   topupPaid: number | bigint;
-  newBReserve: number | bigint;
-  newAReserve: number | bigint;
-  newOutstandingTopup: number | bigint;
-  newCreatorFeesBalance: number | bigint;
-  newBuybackFeesBalance: number | bigint;
+  newBaseReserve: number | bigint;
+  newQuoteReserve: number | bigint;
   buyer: Address;
   pool: Address;
 };
 
 export function getBuyEventEncoder(): FixedSizeEncoder<BuyEventArgs> {
   return getStructEncoder([
-    ['aInput', getU64Encoder()],
-    ['bOutput', getU64Encoder()],
-    ['creatorFees', getU64Encoder()],
-    ['buybackFees', getU64Encoder()],
-    ['platformFees', getU64Encoder()],
+    ['quoteInput', getU64Encoder()],
+    ['baseOutput', getU64Encoder()],
+    ['fees', getU64Encoder()],
     ['topupPaid', getU64Encoder()],
-    ['newBReserve', getU64Encoder()],
-    ['newAReserve', getU64Encoder()],
-    ['newOutstandingTopup', getU64Encoder()],
-    ['newCreatorFeesBalance', getU64Encoder()],
-    ['newBuybackFeesBalance', getU64Encoder()],
+    ['newBaseReserve', getU64Encoder()],
+    ['newQuoteReserve', getU64Encoder()],
     ['buyer', getAddressEncoder()],
     ['pool', getAddressEncoder()],
   ]);
@@ -72,17 +57,12 @@ export function getBuyEventEncoder(): FixedSizeEncoder<BuyEventArgs> {
 
 export function getBuyEventDecoder(): FixedSizeDecoder<BuyEvent> {
   return getStructDecoder([
-    ['aInput', getU64Decoder()],
-    ['bOutput', getU64Decoder()],
-    ['creatorFees', getU64Decoder()],
-    ['buybackFees', getU64Decoder()],
-    ['platformFees', getU64Decoder()],
+    ['quoteInput', getU64Decoder()],
+    ['baseOutput', getU64Decoder()],
+    ['fees', getU64Decoder()],
     ['topupPaid', getU64Decoder()],
-    ['newBReserve', getU64Decoder()],
-    ['newAReserve', getU64Decoder()],
-    ['newOutstandingTopup', getU64Decoder()],
-    ['newCreatorFeesBalance', getU64Decoder()],
-    ['newBuybackFeesBalance', getU64Decoder()],
+    ['newBaseReserve', getU64Decoder()],
+    ['newQuoteReserve', getU64Decoder()],
     ['buyer', getAddressDecoder()],
     ['pool', getAddressDecoder()],
   ]);

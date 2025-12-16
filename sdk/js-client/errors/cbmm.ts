@@ -44,21 +44,57 @@ export const CBMM_ERROR__UNDERFLOW = 0x177c; // 6012
 export const CBMM_ERROR__INVALID_POOL_OWNER = 0x177d; // 6013
 /** InvalidMint: Invalid mint */
 export const CBMM_ERROR__INVALID_MINT = 0x177e; // 6014
+/** InvalidPlatformAdmin: Invalid platform admin */
+export const CBMM_ERROR__INVALID_PLATFORM_ADMIN = 0x177f; // 6015
+/** InvalidBurnTiers: Invalid burn tiers */
+export const CBMM_ERROR__INVALID_BURN_TIERS = 0x1780; // 6016
+/** MathOverflow: Math overflow */
+export const CBMM_ERROR__MATH_OVERFLOW = 0x1781; // 6017
+/** InvalidBurnTierIndex: Invalid burn tier index */
+export const CBMM_ERROR__INVALID_BURN_TIER_INDEX = 0x1782; // 6018
+/** PoolCreatorBurnTierRequiresPool: Pool creator burn tier requires pool */
+export const CBMM_ERROR__POOL_CREATOR_BURN_TIER_REQUIRES_POOL = 0x1783; // 6019
+/** InvalidPoolCreator: Invalid pool creator */
+export const CBMM_ERROR__INVALID_POOL_CREATOR = 0x1784; // 6020
+/** InvalidPlatformConfig: Invalid platform config */
+export const CBMM_ERROR__INVALID_PLATFORM_CONFIG = 0x1785; // 6021
+/** BurnLimitReached: Burn limit reached */
+export const CBMM_ERROR__BURN_LIMIT_REACHED = 0x1786; // 6022
+/** InvalidBurnTiersLength: Invalid burn tiers length */
+export const CBMM_ERROR__INVALID_BURN_TIERS_LENGTH = 0x1787; // 6023
+/** InvalidBurnRate: Invalid burn rate */
+export const CBMM_ERROR__INVALID_BURN_RATE = 0x1788; // 6024
+/** InvalidBurnAuthority: Invalid or missing burn authority */
+export const CBMM_ERROR__INVALID_BURN_AUTHORITY = 0x1789; // 6025
+/** BurnTiersUpdatedTooRecently: Burn tiers were updated too recently */
+export const CBMM_ERROR__BURN_TIERS_UPDATED_TOO_RECENTLY = 0x178a; // 6026
 
 export type CbmmError =
   | typeof CBMM_ERROR__AMOUNT_TOO_BIG
   | typeof CBMM_ERROR__AMOUNT_TOO_SMALL
+  | typeof CBMM_ERROR__BURN_LIMIT_REACHED
+  | typeof CBMM_ERROR__BURN_TIERS_UPDATED_TOO_RECENTLY
   | typeof CBMM_ERROR__CANNOT_CLOSE_ACTIVE_BURN_ALLOWANCE
   | typeof CBMM_ERROR__INSUFFICIENT_BURN_ALLOWANCE
   | typeof CBMM_ERROR__INSUFFICIENT_VIRTUAL_TOKEN_BALANCE
   | typeof CBMM_ERROR__INVALID_BURN_ACCOUNT_PAYER
+  | typeof CBMM_ERROR__INVALID_BURN_AUTHORITY
+  | typeof CBMM_ERROR__INVALID_BURN_RATE
+  | typeof CBMM_ERROR__INVALID_BURN_TIER_INDEX
+  | typeof CBMM_ERROR__INVALID_BURN_TIERS
+  | typeof CBMM_ERROR__INVALID_BURN_TIERS_LENGTH
   | typeof CBMM_ERROR__INVALID_BUYBACK_FEE_BASIS_POINTS
   | typeof CBMM_ERROR__INVALID_FEE_BASIS_POINTS
   | typeof CBMM_ERROR__INVALID_MINT
   | typeof CBMM_ERROR__INVALID_OWNER
+  | typeof CBMM_ERROR__INVALID_PLATFORM_ADMIN
+  | typeof CBMM_ERROR__INVALID_PLATFORM_CONFIG
+  | typeof CBMM_ERROR__INVALID_POOL_CREATOR
   | typeof CBMM_ERROR__INVALID_POOL_OWNER
   | typeof CBMM_ERROR__INVALID_VIRTUAL_RESERVE
+  | typeof CBMM_ERROR__MATH_OVERFLOW
   | typeof CBMM_ERROR__NONZERO_BALANCE
+  | typeof CBMM_ERROR__POOL_CREATOR_BURN_TIER_REQUIRES_POOL
   | typeof CBMM_ERROR__SLIPPAGE_EXCEEDED
   | typeof CBMM_ERROR__UNDERFLOW;
 
@@ -67,17 +103,29 @@ if (process.env.NODE_ENV !== 'production') {
   cbmmErrorMessages = {
     [CBMM_ERROR__AMOUNT_TOO_BIG]: `Amount too big`,
     [CBMM_ERROR__AMOUNT_TOO_SMALL]: `Amount too small`,
+    [CBMM_ERROR__BURN_LIMIT_REACHED]: `Burn limit reached`,
+    [CBMM_ERROR__BURN_TIERS_UPDATED_TOO_RECENTLY]: `Burn tiers were updated too recently`,
     [CBMM_ERROR__CANNOT_CLOSE_ACTIVE_BURN_ALLOWANCE]: `Cannot close active burn allowance`,
     [CBMM_ERROR__INSUFFICIENT_BURN_ALLOWANCE]: `Insufficient burn allowance`,
     [CBMM_ERROR__INSUFFICIENT_VIRTUAL_TOKEN_BALANCE]: `Insufficient virtual token balance`,
     [CBMM_ERROR__INVALID_BURN_ACCOUNT_PAYER]: `Invalid burn account payer`,
+    [CBMM_ERROR__INVALID_BURN_AUTHORITY]: `Invalid or missing burn authority`,
+    [CBMM_ERROR__INVALID_BURN_RATE]: `Invalid burn rate`,
+    [CBMM_ERROR__INVALID_BURN_TIER_INDEX]: `Invalid burn tier index`,
+    [CBMM_ERROR__INVALID_BURN_TIERS]: `Invalid burn tiers`,
+    [CBMM_ERROR__INVALID_BURN_TIERS_LENGTH]: `Invalid burn tiers length`,
     [CBMM_ERROR__INVALID_BUYBACK_FEE_BASIS_POINTS]: `Invalid buyback fee basis points`,
     [CBMM_ERROR__INVALID_FEE_BASIS_POINTS]: `Invalid fee basis points`,
     [CBMM_ERROR__INVALID_MINT]: `Invalid mint`,
     [CBMM_ERROR__INVALID_OWNER]: `Invalid owner`,
+    [CBMM_ERROR__INVALID_PLATFORM_ADMIN]: `Invalid platform admin`,
+    [CBMM_ERROR__INVALID_PLATFORM_CONFIG]: `Invalid platform config`,
+    [CBMM_ERROR__INVALID_POOL_CREATOR]: `Invalid pool creator`,
     [CBMM_ERROR__INVALID_POOL_OWNER]: `Invalid pool owner`,
     [CBMM_ERROR__INVALID_VIRTUAL_RESERVE]: `Invalid virtual reserve`,
+    [CBMM_ERROR__MATH_OVERFLOW]: `Math overflow`,
     [CBMM_ERROR__NONZERO_BALANCE]: `Nonzero balance`,
+    [CBMM_ERROR__POOL_CREATOR_BURN_TIER_REQUIRES_POOL]: `Pool creator burn tier requires pool`,
     [CBMM_ERROR__SLIPPAGE_EXCEEDED]: `Slippage exceeded`,
     [CBMM_ERROR__UNDERFLOW]: `Underflow`,
   };

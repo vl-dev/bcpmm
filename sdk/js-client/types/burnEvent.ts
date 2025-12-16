@@ -25,7 +25,6 @@ export type BurnEvent = {
   topupAccrued: bigint;
   newBReserve: bigint;
   newAReserve: bigint;
-  newOutstandingTopup: bigint;
   newVirtualReserve: bigint;
   newBuybackFeesBalance: bigint;
   burner: Address;
@@ -37,7 +36,6 @@ export type BurnEventArgs = {
   topupAccrued: number | bigint;
   newBReserve: number | bigint;
   newAReserve: number | bigint;
-  newOutstandingTopup: number | bigint;
   newVirtualReserve: number | bigint;
   newBuybackFeesBalance: number | bigint;
   burner: Address;
@@ -50,7 +48,6 @@ export function getBurnEventEncoder(): FixedSizeEncoder<BurnEventArgs> {
     ['topupAccrued', getU64Encoder()],
     ['newBReserve', getU64Encoder()],
     ['newAReserve', getU64Encoder()],
-    ['newOutstandingTopup', getU64Encoder()],
     ['newVirtualReserve', getU64Encoder()],
     ['newBuybackFeesBalance', getU64Encoder()],
     ['burner', getAddressEncoder()],
@@ -64,7 +61,6 @@ export function getBurnEventDecoder(): FixedSizeDecoder<BurnEvent> {
     ['topupAccrued', getU64Decoder()],
     ['newBReserve', getU64Decoder()],
     ['newAReserve', getU64Decoder()],
-    ['newOutstandingTopup', getU64Decoder()],
     ['newVirtualReserve', getU64Decoder()],
     ['newBuybackFeesBalance', getU64Decoder()],
     ['burner', getAddressDecoder()],

@@ -16,8 +16,6 @@ import {
   getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
-  getU64Decoder,
-  getU64Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -55,10 +53,9 @@ export type ClaimCreatorFeesInstruction<
   TProgram extends string = typeof CBMM_PROGRAM_ADDRESS,
   TAccountOwner extends string | AccountMeta<string> = string,
   TAccountOwnerAta extends string | AccountMeta<string> = string,
-  TAccountCentralState extends string | AccountMeta<string> = string,
   TAccountPool extends string | AccountMeta<string> = string,
   TAccountPoolAta extends string | AccountMeta<string> = string,
-  TAccountAMint extends string | AccountMeta<string> = string,
+  TAccountQuoteMint extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends
     | string
     | AccountMeta<string> = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
@@ -77,18 +74,15 @@ export type ClaimCreatorFeesInstruction<
       TAccountOwnerAta extends string
         ? WritableAccount<TAccountOwnerAta>
         : TAccountOwnerAta,
-      TAccountCentralState extends string
-        ? WritableAccount<TAccountCentralState>
-        : TAccountCentralState,
       TAccountPool extends string
         ? WritableAccount<TAccountPool>
         : TAccountPool,
       TAccountPoolAta extends string
         ? WritableAccount<TAccountPoolAta>
         : TAccountPoolAta,
-      TAccountAMint extends string
-        ? ReadonlyAccount<TAccountAMint>
-        : TAccountAMint,
+      TAccountQuoteMint extends string
+        ? ReadonlyAccount<TAccountQuoteMint>
+        : TAccountQuoteMint,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
@@ -101,17 +95,13 @@ export type ClaimCreatorFeesInstruction<
 
 export type ClaimCreatorFeesInstructionData = {
   discriminator: ReadonlyUint8Array;
-  amount: bigint;
 };
 
-export type ClaimCreatorFeesInstructionDataArgs = { amount: number | bigint };
+export type ClaimCreatorFeesInstructionDataArgs = {};
 
 export function getClaimCreatorFeesInstructionDataEncoder(): FixedSizeEncoder<ClaimCreatorFeesInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([
-      ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
-      ['amount', getU64Encoder()],
-    ]),
+    getStructEncoder([['discriminator', fixEncoderSize(getBytesEncoder(), 8)]]),
     (value) => ({ ...value, discriminator: CLAIM_CREATOR_FEES_DISCRIMINATOR })
   );
 }
@@ -119,7 +109,6 @@ export function getClaimCreatorFeesInstructionDataEncoder(): FixedSizeEncoder<Cl
 export function getClaimCreatorFeesInstructionDataDecoder(): FixedSizeDecoder<ClaimCreatorFeesInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-    ['amount', getU64Decoder()],
   ]);
 }
 
@@ -136,31 +125,27 @@ export function getClaimCreatorFeesInstructionDataCodec(): FixedSizeCodec<
 export type ClaimCreatorFeesAsyncInput<
   TAccountOwner extends string = string,
   TAccountOwnerAta extends string = string,
-  TAccountCentralState extends string = string,
   TAccountPool extends string = string,
   TAccountPoolAta extends string = string,
-  TAccountAMint extends string = string,
+  TAccountQuoteMint extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   owner: TransactionSigner<TAccountOwner>;
   ownerAta?: Address<TAccountOwnerAta>;
-  centralState?: Address<TAccountCentralState>;
   pool: Address<TAccountPool>;
   poolAta?: Address<TAccountPoolAta>;
-  aMint: Address<TAccountAMint>;
+  quoteMint: Address<TAccountQuoteMint>;
   tokenProgram?: Address<TAccountTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
-  amount: ClaimCreatorFeesInstructionDataArgs['amount'];
 };
 
 export async function getClaimCreatorFeesInstructionAsync<
   TAccountOwner extends string,
   TAccountOwnerAta extends string,
-  TAccountCentralState extends string,
   TAccountPool extends string,
   TAccountPoolAta extends string,
-  TAccountAMint extends string,
+  TAccountQuoteMint extends string,
   TAccountTokenProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof CBMM_PROGRAM_ADDRESS,
@@ -168,10 +153,9 @@ export async function getClaimCreatorFeesInstructionAsync<
   input: ClaimCreatorFeesAsyncInput<
     TAccountOwner,
     TAccountOwnerAta,
-    TAccountCentralState,
     TAccountPool,
     TAccountPoolAta,
-    TAccountAMint,
+    TAccountQuoteMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >,
@@ -181,10 +165,9 @@ export async function getClaimCreatorFeesInstructionAsync<
     TProgramAddress,
     TAccountOwner,
     TAccountOwnerAta,
-    TAccountCentralState,
     TAccountPool,
     TAccountPoolAta,
-    TAccountAMint,
+    TAccountQuoteMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >
@@ -196,10 +179,9 @@ export async function getClaimCreatorFeesInstructionAsync<
   const originalAccounts = {
     owner: { value: input.owner ?? null, isWritable: true },
     ownerAta: { value: input.ownerAta ?? null, isWritable: true },
-    centralState: { value: input.centralState ?? null, isWritable: true },
     pool: { value: input.pool ?? null, isWritable: true },
     poolAta: { value: input.poolAta ?? null, isWritable: true },
-    aMint: { value: input.aMint ?? null, isWritable: false },
+    quoteMint: { value: input.quoteMint ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
@@ -207,9 +189,6 @@ export async function getClaimCreatorFeesInstructionAsync<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
-
-  // Original args.
-  const args = { ...input };
 
   // Resolve default values.
   if (!accounts.tokenProgram.value) {
@@ -223,19 +202,7 @@ export async function getClaimCreatorFeesInstructionAsync<
       seeds: [
         getAddressEncoder().encode(expectAddress(accounts.owner.value)),
         getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
-        getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
-      ],
-    });
-  }
-  if (!accounts.centralState.value) {
-    accounts.centralState.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            99, 101, 110, 116, 114, 97, 108, 95, 115, 116, 97, 116, 101,
-          ])
-        ),
+        getAddressEncoder().encode(expectAddress(accounts.quoteMint.value)),
       ],
     });
   }
@@ -246,7 +213,7 @@ export async function getClaimCreatorFeesInstructionAsync<
       seeds: [
         getAddressEncoder().encode(expectAddress(accounts.pool.value)),
         getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
-        getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
+        getAddressEncoder().encode(expectAddress(accounts.quoteMint.value)),
       ],
     });
   }
@@ -260,25 +227,21 @@ export async function getClaimCreatorFeesInstructionAsync<
     accounts: [
       getAccountMeta(accounts.owner),
       getAccountMeta(accounts.ownerAta),
-      getAccountMeta(accounts.centralState),
       getAccountMeta(accounts.pool),
       getAccountMeta(accounts.poolAta),
-      getAccountMeta(accounts.aMint),
+      getAccountMeta(accounts.quoteMint),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.systemProgram),
     ],
-    data: getClaimCreatorFeesInstructionDataEncoder().encode(
-      args as ClaimCreatorFeesInstructionDataArgs
-    ),
+    data: getClaimCreatorFeesInstructionDataEncoder().encode({}),
     programAddress,
   } as ClaimCreatorFeesInstruction<
     TProgramAddress,
     TAccountOwner,
     TAccountOwnerAta,
-    TAccountCentralState,
     TAccountPool,
     TAccountPoolAta,
-    TAccountAMint,
+    TAccountQuoteMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >);
@@ -287,31 +250,27 @@ export async function getClaimCreatorFeesInstructionAsync<
 export type ClaimCreatorFeesInput<
   TAccountOwner extends string = string,
   TAccountOwnerAta extends string = string,
-  TAccountCentralState extends string = string,
   TAccountPool extends string = string,
   TAccountPoolAta extends string = string,
-  TAccountAMint extends string = string,
+  TAccountQuoteMint extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   owner: TransactionSigner<TAccountOwner>;
   ownerAta: Address<TAccountOwnerAta>;
-  centralState: Address<TAccountCentralState>;
   pool: Address<TAccountPool>;
   poolAta: Address<TAccountPoolAta>;
-  aMint: Address<TAccountAMint>;
+  quoteMint: Address<TAccountQuoteMint>;
   tokenProgram?: Address<TAccountTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
-  amount: ClaimCreatorFeesInstructionDataArgs['amount'];
 };
 
 export function getClaimCreatorFeesInstruction<
   TAccountOwner extends string,
   TAccountOwnerAta extends string,
-  TAccountCentralState extends string,
   TAccountPool extends string,
   TAccountPoolAta extends string,
-  TAccountAMint extends string,
+  TAccountQuoteMint extends string,
   TAccountTokenProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof CBMM_PROGRAM_ADDRESS,
@@ -319,10 +278,9 @@ export function getClaimCreatorFeesInstruction<
   input: ClaimCreatorFeesInput<
     TAccountOwner,
     TAccountOwnerAta,
-    TAccountCentralState,
     TAccountPool,
     TAccountPoolAta,
-    TAccountAMint,
+    TAccountQuoteMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >,
@@ -331,10 +289,9 @@ export function getClaimCreatorFeesInstruction<
   TProgramAddress,
   TAccountOwner,
   TAccountOwnerAta,
-  TAccountCentralState,
   TAccountPool,
   TAccountPoolAta,
-  TAccountAMint,
+  TAccountQuoteMint,
   TAccountTokenProgram,
   TAccountSystemProgram
 > {
@@ -345,10 +302,9 @@ export function getClaimCreatorFeesInstruction<
   const originalAccounts = {
     owner: { value: input.owner ?? null, isWritable: true },
     ownerAta: { value: input.ownerAta ?? null, isWritable: true },
-    centralState: { value: input.centralState ?? null, isWritable: true },
     pool: { value: input.pool ?? null, isWritable: true },
     poolAta: { value: input.poolAta ?? null, isWritable: true },
-    aMint: { value: input.aMint ?? null, isWritable: false },
+    quoteMint: { value: input.quoteMint ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
@@ -356,9 +312,6 @@ export function getClaimCreatorFeesInstruction<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
-
-  // Original args.
-  const args = { ...input };
 
   // Resolve default values.
   if (!accounts.tokenProgram.value) {
@@ -375,25 +328,21 @@ export function getClaimCreatorFeesInstruction<
     accounts: [
       getAccountMeta(accounts.owner),
       getAccountMeta(accounts.ownerAta),
-      getAccountMeta(accounts.centralState),
       getAccountMeta(accounts.pool),
       getAccountMeta(accounts.poolAta),
-      getAccountMeta(accounts.aMint),
+      getAccountMeta(accounts.quoteMint),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.systemProgram),
     ],
-    data: getClaimCreatorFeesInstructionDataEncoder().encode(
-      args as ClaimCreatorFeesInstructionDataArgs
-    ),
+    data: getClaimCreatorFeesInstructionDataEncoder().encode({}),
     programAddress,
   } as ClaimCreatorFeesInstruction<
     TProgramAddress,
     TAccountOwner,
     TAccountOwnerAta,
-    TAccountCentralState,
     TAccountPool,
     TAccountPoolAta,
-    TAccountAMint,
+    TAccountQuoteMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >);
@@ -407,12 +356,11 @@ export type ParsedClaimCreatorFeesInstruction<
   accounts: {
     owner: TAccountMetas[0];
     ownerAta: TAccountMetas[1];
-    centralState: TAccountMetas[2];
-    pool: TAccountMetas[3];
-    poolAta: TAccountMetas[4];
-    aMint: TAccountMetas[5];
-    tokenProgram: TAccountMetas[6];
-    systemProgram: TAccountMetas[7];
+    pool: TAccountMetas[2];
+    poolAta: TAccountMetas[3];
+    quoteMint: TAccountMetas[4];
+    tokenProgram: TAccountMetas[5];
+    systemProgram: TAccountMetas[6];
   };
   data: ClaimCreatorFeesInstructionData;
 };
@@ -425,7 +373,7 @@ export function parseClaimCreatorFeesInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>
 ): ParsedClaimCreatorFeesInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 8) {
+  if (instruction.accounts.length < 7) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
   }
@@ -440,10 +388,9 @@ export function parseClaimCreatorFeesInstruction<
     accounts: {
       owner: getNextAccount(),
       ownerAta: getNextAccount(),
-      centralState: getNextAccount(),
       pool: getNextAccount(),
       poolAta: getNextAccount(),
-      aMint: getNextAccount(),
+      quoteMint: getNextAccount(),
       tokenProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },

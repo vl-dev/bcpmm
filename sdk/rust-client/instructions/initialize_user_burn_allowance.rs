@@ -23,13 +23,18 @@ pub struct InitializeUserBurnAllowance {
           pub owner: solana_pubkey::Pubkey,
           
               
-          pub central_state: solana_pubkey::Pubkey,
-          
-              
           pub user_burn_allowance: solana_pubkey::Pubkey,
           
               
+          pub platform_config: solana_pubkey::Pubkey,
+          
+              
           pub system_program: solana_pubkey::Pubkey,
+                /// Optional pool account - only needed if requesting a pool creator burn tier
+
+    
+              
+          pub pool: Option<solana_pubkey::Pubkey>,
       }
 
 impl InitializeUserBurnAllowance {
@@ -39,7 +44,7 @@ impl InitializeUserBurnAllowance {
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
   pub fn instruction_with_remaining_accounts(&self, args: InitializeUserBurnAllowanceInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(5+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(6+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.payer,
             true
@@ -48,19 +53,30 @@ impl InitializeUserBurnAllowance {
             self.owner,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.central_state,
-            false
-          ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             self.user_burn_allowance,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.platform_config,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.system_program,
             false
           ));
-                      accounts.extend_from_slice(remaining_accounts);
+                                                      if let Some(pool) = self.pool {
+              accounts.push(solana_instruction::AccountMeta::new_readonly(
+                pool,
+                false,
+              ));
+            } else {
+              accounts.push(solana_instruction::AccountMeta::new_readonly(
+                crate::CBMM_ID,
+                false,
+              ));
+            }
+                                accounts.extend_from_slice(remaining_accounts);
     let mut data = InitializeUserBurnAllowanceInstructionData::new().try_to_vec().unwrap();
           let mut args = args.try_to_vec().unwrap();
       data.append(&mut args);
@@ -100,7 +116,7 @@ impl Default for InitializeUserBurnAllowanceInstructionData {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
  pub struct InitializeUserBurnAllowanceInstructionArgs {
-                  pub pool_owner: bool,
+                  pub burn_tier_index: u8,
       }
 
 impl InitializeUserBurnAllowanceInstructionArgs {
@@ -116,17 +132,19 @@ impl InitializeUserBurnAllowanceInstructionArgs {
 ///
                       ///   0. `[writable, signer]` payer
           ///   1. `[]` owner
-          ///   2. `[]` central_state
-                ///   3. `[writable]` user_burn_allowance
+                ///   2. `[writable]` user_burn_allowance
+          ///   3. `[]` platform_config
                 ///   4. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                ///   5. `[optional]` pool
 #[derive(Clone, Debug, Default)]
 pub struct InitializeUserBurnAllowanceBuilder {
             payer: Option<solana_pubkey::Pubkey>,
                 owner: Option<solana_pubkey::Pubkey>,
-                central_state: Option<solana_pubkey::Pubkey>,
                 user_burn_allowance: Option<solana_pubkey::Pubkey>,
+                platform_config: Option<solana_pubkey::Pubkey>,
                 system_program: Option<solana_pubkey::Pubkey>,
-                        pool_owner: Option<bool>,
+                pool: Option<solana_pubkey::Pubkey>,
+                        burn_tier_index: Option<u8>,
         __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -146,13 +164,13 @@ impl InitializeUserBurnAllowanceBuilder {
                     self
     }
             #[inline(always)]
-    pub fn central_state(&mut self, central_state: solana_pubkey::Pubkey) -> &mut Self {
-                        self.central_state = Some(central_state);
+    pub fn user_burn_allowance(&mut self, user_burn_allowance: solana_pubkey::Pubkey) -> &mut Self {
+                        self.user_burn_allowance = Some(user_burn_allowance);
                     self
     }
             #[inline(always)]
-    pub fn user_burn_allowance(&mut self, user_burn_allowance: solana_pubkey::Pubkey) -> &mut Self {
-                        self.user_burn_allowance = Some(user_burn_allowance);
+    pub fn platform_config(&mut self, platform_config: solana_pubkey::Pubkey) -> &mut Self {
+                        self.platform_config = Some(platform_config);
                     self
     }
             /// `[optional account, default to '11111111111111111111111111111111']`
@@ -161,9 +179,16 @@ impl InitializeUserBurnAllowanceBuilder {
                         self.system_program = Some(system_program);
                     self
     }
+            /// `[optional account]`
+/// Optional pool account - only needed if requesting a pool creator burn tier
+#[inline(always)]
+    pub fn pool(&mut self, pool: Option<solana_pubkey::Pubkey>) -> &mut Self {
+                        self.pool = pool;
+                    self
+    }
                     #[inline(always)]
-      pub fn pool_owner(&mut self, pool_owner: bool) -> &mut Self {
-        self.pool_owner = Some(pool_owner);
+      pub fn burn_tier_index(&mut self, burn_tier_index: u8) -> &mut Self {
+        self.burn_tier_index = Some(burn_tier_index);
         self
       }
         /// Add an additional account to the instruction.
@@ -183,12 +208,13 @@ impl InitializeUserBurnAllowanceBuilder {
     let accounts = InitializeUserBurnAllowance {
                               payer: self.payer.expect("payer is not set"),
                                         owner: self.owner.expect("owner is not set"),
-                                        central_state: self.central_state.expect("central_state is not set"),
                                         user_burn_allowance: self.user_burn_allowance.expect("user_burn_allowance is not set"),
+                                        platform_config: self.platform_config.expect("platform_config is not set"),
                                         system_program: self.system_program.unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
+                                        pool: self.pool,
                       };
           let args = InitializeUserBurnAllowanceInstructionArgs {
-                                                              pool_owner: self.pool_owner.clone().expect("pool_owner is not set"),
+                                                              burn_tier_index: self.burn_tier_index.clone().expect("burn_tier_index is not set"),
                                     };
     
     accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -207,13 +233,18 @@ impl InitializeUserBurnAllowanceBuilder {
               pub owner: &'b solana_account_info::AccountInfo<'a>,
                 
                     
-              pub central_state: &'b solana_account_info::AccountInfo<'a>,
-                
-                    
               pub user_burn_allowance: &'b solana_account_info::AccountInfo<'a>,
                 
                     
+              pub platform_config: &'b solana_account_info::AccountInfo<'a>,
+                
+                    
               pub system_program: &'b solana_account_info::AccountInfo<'a>,
+                        /// Optional pool account - only needed if requesting a pool creator burn tier
+
+      
+                    
+              pub pool: Option<&'b solana_account_info::AccountInfo<'a>>,
             }
 
 /// `initialize_user_burn_allowance` CPI instruction.
@@ -230,13 +261,18 @@ pub struct InitializeUserBurnAllowanceCpi<'a, 'b> {
           pub owner: &'b solana_account_info::AccountInfo<'a>,
           
               
-          pub central_state: &'b solana_account_info::AccountInfo<'a>,
-          
-              
           pub user_burn_allowance: &'b solana_account_info::AccountInfo<'a>,
           
               
+          pub platform_config: &'b solana_account_info::AccountInfo<'a>,
+          
+              
           pub system_program: &'b solana_account_info::AccountInfo<'a>,
+                /// Optional pool account - only needed if requesting a pool creator burn tier
+
+    
+              
+          pub pool: Option<&'b solana_account_info::AccountInfo<'a>>,
             /// The arguments for the instruction.
     pub __args: InitializeUserBurnAllowanceInstructionArgs,
   }
@@ -251,9 +287,10 @@ impl<'a, 'b> InitializeUserBurnAllowanceCpi<'a, 'b> {
       __program: program,
               payer: accounts.payer,
               owner: accounts.owner,
-              central_state: accounts.central_state,
               user_burn_allowance: accounts.user_burn_allowance,
+              platform_config: accounts.platform_config,
               system_program: accounts.system_program,
+              pool: accounts.pool,
                     __args: args,
           }
   }
@@ -277,7 +314,7 @@ impl<'a, 'b> InitializeUserBurnAllowanceCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(5+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(6+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.payer.key,
             true
@@ -286,18 +323,29 @@ impl<'a, 'b> InitializeUserBurnAllowanceCpi<'a, 'b> {
             *self.owner.key,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.central_state.key,
-            false
-          ));
                                           accounts.push(solana_instruction::AccountMeta::new(
             *self.user_burn_allowance.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.platform_config.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.system_program.key,
             false
           ));
+                                          if let Some(pool) = self.pool {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+              *pool.key,
+              false,
+            ));
+          } else {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+              crate::CBMM_ID,
+              false,
+            ));
+          }
                       remaining_accounts.iter().for_each(|remaining_account| {
       accounts.push(solana_instruction::AccountMeta {
           pubkey: *remaining_account.0.key,
@@ -314,13 +362,16 @@ impl<'a, 'b> InitializeUserBurnAllowanceCpi<'a, 'b> {
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(6 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(7 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.payer.clone());
                         account_infos.push(self.owner.clone());
-                        account_infos.push(self.central_state.clone());
                         account_infos.push(self.user_burn_allowance.clone());
+                        account_infos.push(self.platform_config.clone());
                         account_infos.push(self.system_program.clone());
+                        if let Some(pool) = self.pool {
+          account_infos.push(pool.clone());
+        }
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
     if signers_seeds.is_empty() {
@@ -337,9 +388,10 @@ impl<'a, 'b> InitializeUserBurnAllowanceCpi<'a, 'b> {
 ///
                       ///   0. `[writable, signer]` payer
           ///   1. `[]` owner
-          ///   2. `[]` central_state
-                ///   3. `[writable]` user_burn_allowance
+                ///   2. `[writable]` user_burn_allowance
+          ///   3. `[]` platform_config
           ///   4. `[]` system_program
+                ///   5. `[optional]` pool
 #[derive(Clone, Debug)]
 pub struct InitializeUserBurnAllowanceCpiBuilder<'a, 'b> {
   instruction: Box<InitializeUserBurnAllowanceCpiBuilderInstruction<'a, 'b>>,
@@ -351,10 +403,11 @@ impl<'a, 'b> InitializeUserBurnAllowanceCpiBuilder<'a, 'b> {
       __program: program,
               payer: None,
               owner: None,
-              central_state: None,
               user_burn_allowance: None,
+              platform_config: None,
               system_program: None,
-                                            pool_owner: None,
+              pool: None,
+                                            burn_tier_index: None,
                     __remaining_accounts: Vec::new(),
     });
     Self { instruction }
@@ -371,13 +424,13 @@ impl<'a, 'b> InitializeUserBurnAllowanceCpiBuilder<'a, 'b> {
                     self
     }
       #[inline(always)]
-    pub fn central_state(&mut self, central_state: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.central_state = Some(central_state);
+    pub fn user_burn_allowance(&mut self, user_burn_allowance: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.user_burn_allowance = Some(user_burn_allowance);
                     self
     }
       #[inline(always)]
-    pub fn user_burn_allowance(&mut self, user_burn_allowance: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.user_burn_allowance = Some(user_burn_allowance);
+    pub fn platform_config(&mut self, platform_config: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.platform_config = Some(platform_config);
                     self
     }
       #[inline(always)]
@@ -385,9 +438,16 @@ impl<'a, 'b> InitializeUserBurnAllowanceCpiBuilder<'a, 'b> {
                         self.instruction.system_program = Some(system_program);
                     self
     }
+      /// `[optional account]`
+/// Optional pool account - only needed if requesting a pool creator burn tier
+#[inline(always)]
+    pub fn pool(&mut self, pool: Option<&'b solana_account_info::AccountInfo<'a>>) -> &mut Self {
+                        self.instruction.pool = pool;
+                    self
+    }
                     #[inline(always)]
-      pub fn pool_owner(&mut self, pool_owner: bool) -> &mut Self {
-        self.instruction.pool_owner = Some(pool_owner);
+      pub fn burn_tier_index(&mut self, burn_tier_index: u8) -> &mut Self {
+        self.instruction.burn_tier_index = Some(burn_tier_index);
         self
       }
         /// Add an additional account to the instruction.
@@ -413,7 +473,7 @@ impl<'a, 'b> InitializeUserBurnAllowanceCpiBuilder<'a, 'b> {
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
           let args = InitializeUserBurnAllowanceInstructionArgs {
-                                                              pool_owner: self.instruction.pool_owner.clone().expect("pool_owner is not set"),
+                                                              burn_tier_index: self.instruction.burn_tier_index.clone().expect("burn_tier_index is not set"),
                                     };
         let instruction = InitializeUserBurnAllowanceCpi {
         __program: self.instruction.__program,
@@ -422,11 +482,13 @@ impl<'a, 'b> InitializeUserBurnAllowanceCpiBuilder<'a, 'b> {
                   
           owner: self.instruction.owner.expect("owner is not set"),
                   
-          central_state: self.instruction.central_state.expect("central_state is not set"),
-                  
           user_burn_allowance: self.instruction.user_burn_allowance.expect("user_burn_allowance is not set"),
                   
+          platform_config: self.instruction.platform_config.expect("platform_config is not set"),
+                  
           system_program: self.instruction.system_program.expect("system_program is not set"),
+                  
+          pool: self.instruction.pool,
                           __args: args,
             };
     instruction.invoke_signed_with_remaining_accounts(signers_seeds, &self.instruction.__remaining_accounts)
@@ -438,10 +500,11 @@ struct InitializeUserBurnAllowanceCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
             payer: Option<&'b solana_account_info::AccountInfo<'a>>,
                 owner: Option<&'b solana_account_info::AccountInfo<'a>>,
-                central_state: Option<&'b solana_account_info::AccountInfo<'a>>,
                 user_burn_allowance: Option<&'b solana_account_info::AccountInfo<'a>>,
+                platform_config: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        pool_owner: Option<bool>,
+                pool: Option<&'b solana_account_info::AccountInfo<'a>>,
+                        burn_tier_index: Option<u8>,
         /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

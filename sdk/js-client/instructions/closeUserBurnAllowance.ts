@@ -10,11 +10,8 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
-  getBooleanDecoder,
-  getBooleanEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   transformEncoder,
@@ -47,8 +44,8 @@ export type CloseUserBurnAllowanceInstruction<
   TProgram extends string = typeof CBMM_PROGRAM_ADDRESS,
   TAccountOwner extends string | AccountMeta<string> = string,
   TAccountUserBurnAllowance extends string | AccountMeta<string> = string,
+  TAccountPlatformConfig extends string | AccountMeta<string> = string,
   TAccountBurnAllowanceOpenPayer extends string | AccountMeta<string> = string,
-  TAccountCentralState extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -60,29 +57,25 @@ export type CloseUserBurnAllowanceInstruction<
       TAccountUserBurnAllowance extends string
         ? WritableAccount<TAccountUserBurnAllowance>
         : TAccountUserBurnAllowance,
+      TAccountPlatformConfig extends string
+        ? ReadonlyAccount<TAccountPlatformConfig>
+        : TAccountPlatformConfig,
       TAccountBurnAllowanceOpenPayer extends string
         ? ReadonlyAccount<TAccountBurnAllowanceOpenPayer>
         : TAccountBurnAllowanceOpenPayer,
-      TAccountCentralState extends string
-        ? ReadonlyAccount<TAccountCentralState>
-        : TAccountCentralState,
       ...TRemainingAccounts,
     ]
   >;
 
 export type CloseUserBurnAllowanceInstructionData = {
   discriminator: ReadonlyUint8Array;
-  poolOwner: boolean;
 };
 
-export type CloseUserBurnAllowanceInstructionDataArgs = { poolOwner: boolean };
+export type CloseUserBurnAllowanceInstructionDataArgs = {};
 
 export function getCloseUserBurnAllowanceInstructionDataEncoder(): FixedSizeEncoder<CloseUserBurnAllowanceInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([
-      ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
-      ['poolOwner', getBooleanEncoder()],
-    ]),
+    getStructEncoder([['discriminator', fixEncoderSize(getBytesEncoder(), 8)]]),
     (value) => ({
       ...value,
       discriminator: CLOSE_USER_BURN_ALLOWANCE_DISCRIMINATOR,
@@ -93,7 +86,6 @@ export function getCloseUserBurnAllowanceInstructionDataEncoder(): FixedSizeEnco
 export function getCloseUserBurnAllowanceInstructionDataDecoder(): FixedSizeDecoder<CloseUserBurnAllowanceInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-    ['poolOwner', getBooleanDecoder()],
   ]);
 }
 
@@ -107,136 +99,39 @@ export function getCloseUserBurnAllowanceInstructionDataCodec(): FixedSizeCodec<
   );
 }
 
-export type CloseUserBurnAllowanceAsyncInput<
-  TAccountOwner extends string = string,
-  TAccountUserBurnAllowance extends string = string,
-  TAccountBurnAllowanceOpenPayer extends string = string,
-  TAccountCentralState extends string = string,
-> = {
-  /** The user whose burn allowance is being closed */
-  owner: Address<TAccountOwner>;
-  userBurnAllowance: Address<TAccountUserBurnAllowance>;
-  burnAllowanceOpenPayer: Address<TAccountBurnAllowanceOpenPayer>;
-  centralState?: Address<TAccountCentralState>;
-  poolOwner: CloseUserBurnAllowanceInstructionDataArgs['poolOwner'];
-};
-
-export async function getCloseUserBurnAllowanceInstructionAsync<
-  TAccountOwner extends string,
-  TAccountUserBurnAllowance extends string,
-  TAccountBurnAllowanceOpenPayer extends string,
-  TAccountCentralState extends string,
-  TProgramAddress extends Address = typeof CBMM_PROGRAM_ADDRESS,
->(
-  input: CloseUserBurnAllowanceAsyncInput<
-    TAccountOwner,
-    TAccountUserBurnAllowance,
-    TAccountBurnAllowanceOpenPayer,
-    TAccountCentralState
-  >,
-  config?: { programAddress?: TProgramAddress }
-): Promise<
-  CloseUserBurnAllowanceInstruction<
-    TProgramAddress,
-    TAccountOwner,
-    TAccountUserBurnAllowance,
-    TAccountBurnAllowanceOpenPayer,
-    TAccountCentralState
-  >
-> {
-  // Program address.
-  const programAddress = config?.programAddress ?? CBMM_PROGRAM_ADDRESS;
-
-  // Original accounts.
-  const originalAccounts = {
-    owner: { value: input.owner ?? null, isWritable: false },
-    userBurnAllowance: {
-      value: input.userBurnAllowance ?? null,
-      isWritable: true,
-    },
-    burnAllowanceOpenPayer: {
-      value: input.burnAllowanceOpenPayer ?? null,
-      isWritable: false,
-    },
-    centralState: { value: input.centralState ?? null, isWritable: false },
-  };
-  const accounts = originalAccounts as Record<
-    keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
-
-  // Original args.
-  const args = { ...input };
-
-  // Resolve default values.
-  if (!accounts.centralState.value) {
-    accounts.centralState.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            99, 101, 110, 116, 114, 97, 108, 95, 115, 116, 97, 116, 101,
-          ])
-        ),
-      ],
-    });
-  }
-
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
-  return Object.freeze({
-    accounts: [
-      getAccountMeta(accounts.owner),
-      getAccountMeta(accounts.userBurnAllowance),
-      getAccountMeta(accounts.burnAllowanceOpenPayer),
-      getAccountMeta(accounts.centralState),
-    ],
-    data: getCloseUserBurnAllowanceInstructionDataEncoder().encode(
-      args as CloseUserBurnAllowanceInstructionDataArgs
-    ),
-    programAddress,
-  } as CloseUserBurnAllowanceInstruction<
-    TProgramAddress,
-    TAccountOwner,
-    TAccountUserBurnAllowance,
-    TAccountBurnAllowanceOpenPayer,
-    TAccountCentralState
-  >);
-}
-
 export type CloseUserBurnAllowanceInput<
   TAccountOwner extends string = string,
   TAccountUserBurnAllowance extends string = string,
+  TAccountPlatformConfig extends string = string,
   TAccountBurnAllowanceOpenPayer extends string = string,
-  TAccountCentralState extends string = string,
 > = {
   /** The user whose burn allowance is being closed */
   owner: Address<TAccountOwner>;
   userBurnAllowance: Address<TAccountUserBurnAllowance>;
+  platformConfig: Address<TAccountPlatformConfig>;
   burnAllowanceOpenPayer: Address<TAccountBurnAllowanceOpenPayer>;
-  centralState: Address<TAccountCentralState>;
-  poolOwner: CloseUserBurnAllowanceInstructionDataArgs['poolOwner'];
 };
 
 export function getCloseUserBurnAllowanceInstruction<
   TAccountOwner extends string,
   TAccountUserBurnAllowance extends string,
+  TAccountPlatformConfig extends string,
   TAccountBurnAllowanceOpenPayer extends string,
-  TAccountCentralState extends string,
   TProgramAddress extends Address = typeof CBMM_PROGRAM_ADDRESS,
 >(
   input: CloseUserBurnAllowanceInput<
     TAccountOwner,
     TAccountUserBurnAllowance,
-    TAccountBurnAllowanceOpenPayer,
-    TAccountCentralState
+    TAccountPlatformConfig,
+    TAccountBurnAllowanceOpenPayer
   >,
   config?: { programAddress?: TProgramAddress }
 ): CloseUserBurnAllowanceInstruction<
   TProgramAddress,
   TAccountOwner,
   TAccountUserBurnAllowance,
-  TAccountBurnAllowanceOpenPayer,
-  TAccountCentralState
+  TAccountPlatformConfig,
+  TAccountBurnAllowanceOpenPayer
 > {
   // Program address.
   const programAddress = config?.programAddress ?? CBMM_PROGRAM_ADDRESS;
@@ -248,38 +143,33 @@ export function getCloseUserBurnAllowanceInstruction<
       value: input.userBurnAllowance ?? null,
       isWritable: true,
     },
+    platformConfig: { value: input.platformConfig ?? null, isWritable: false },
     burnAllowanceOpenPayer: {
       value: input.burnAllowanceOpenPayer ?? null,
       isWritable: false,
     },
-    centralState: { value: input.centralState ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
 
-  // Original args.
-  const args = { ...input };
-
   const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.owner),
       getAccountMeta(accounts.userBurnAllowance),
+      getAccountMeta(accounts.platformConfig),
       getAccountMeta(accounts.burnAllowanceOpenPayer),
-      getAccountMeta(accounts.centralState),
     ],
-    data: getCloseUserBurnAllowanceInstructionDataEncoder().encode(
-      args as CloseUserBurnAllowanceInstructionDataArgs
-    ),
+    data: getCloseUserBurnAllowanceInstructionDataEncoder().encode({}),
     programAddress,
   } as CloseUserBurnAllowanceInstruction<
     TProgramAddress,
     TAccountOwner,
     TAccountUserBurnAllowance,
-    TAccountBurnAllowanceOpenPayer,
-    TAccountCentralState
+    TAccountPlatformConfig,
+    TAccountBurnAllowanceOpenPayer
   >);
 }
 
@@ -292,8 +182,8 @@ export type ParsedCloseUserBurnAllowanceInstruction<
     /** The user whose burn allowance is being closed */
     owner: TAccountMetas[0];
     userBurnAllowance: TAccountMetas[1];
-    burnAllowanceOpenPayer: TAccountMetas[2];
-    centralState: TAccountMetas[3];
+    platformConfig: TAccountMetas[2];
+    burnAllowanceOpenPayer: TAccountMetas[3];
   };
   data: CloseUserBurnAllowanceInstructionData;
 };
@@ -321,8 +211,8 @@ export function parseCloseUserBurnAllowanceInstruction<
     accounts: {
       owner: getNextAccount(),
       userBurnAllowance: getNextAccount(),
+      platformConfig: getNextAccount(),
       burnAllowanceOpenPayer: getNextAccount(),
-      centralState: getNextAccount(),
     },
     data: getCloseUserBurnAllowanceInstructionDataDecoder().decode(
       instruction.data

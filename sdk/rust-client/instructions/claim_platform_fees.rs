@@ -8,20 +8,17 @@
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
-pub const BUY_VIRTUAL_TOKEN_DISCRIMINATOR: [u8; 8] = [179, 132, 87, 155, 223, 190, 20, 113];
+pub const CLAIM_PLATFORM_FEES_DISCRIMINATOR: [u8; 8] = [159, 129, 37, 35, 170, 99, 163, 16];
 
 /// Accounts.
 #[derive(Debug)]
-pub struct BuyVirtualToken {
+pub struct ClaimPlatformFees {
       
               
-          pub payer: solana_pubkey::Pubkey,
+          pub admin: solana_pubkey::Pubkey,
           
               
-          pub payer_ata: solana_pubkey::Pubkey,
-          
-              
-          pub virtual_token_account: solana_pubkey::Pubkey,
+          pub admin_ata: solana_pubkey::Pubkey,
           
               
           pub pool: solana_pubkey::Pubkey,
@@ -39,27 +36,26 @@ pub struct BuyVirtualToken {
           pub token_program: solana_pubkey::Pubkey,
           
               
+          pub associated_token_program: solana_pubkey::Pubkey,
+          
+              
           pub system_program: solana_pubkey::Pubkey,
       }
 
-impl BuyVirtualToken {
-  pub fn instruction(&self, args: BuyVirtualTokenInstructionArgs) -> solana_instruction::Instruction {
-    self.instruction_with_remaining_accounts(args, &[])
+impl ClaimPlatformFees {
+  pub fn instruction(&self) -> solana_instruction::Instruction {
+    self.instruction_with_remaining_accounts(&[])
   }
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
-  pub fn instruction_with_remaining_accounts(&self, args: BuyVirtualTokenInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
+  pub fn instruction_with_remaining_accounts(&self, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
     let mut accounts = Vec::with_capacity(9+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
-            self.payer,
+            self.admin,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            self.payer_ata,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.virtual_token_account,
+            self.admin_ata,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
@@ -83,13 +79,15 @@ impl BuyVirtualToken {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.associated_token_program,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.system_program,
             false
           ));
                       accounts.extend_from_slice(remaining_accounts);
-    let mut data = BuyVirtualTokenInstructionData::new().try_to_vec().unwrap();
-          let mut args = args.try_to_vec().unwrap();
-      data.append(&mut args);
+    let data = ClaimPlatformFeesInstructionData::new().try_to_vec().unwrap();
     
     solana_instruction::Instruction {
       program_id: crate::CBMM_ID,
@@ -101,15 +99,15 @@ impl BuyVirtualToken {
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
- pub struct BuyVirtualTokenInstructionData {
+ pub struct ClaimPlatformFeesInstructionData {
             discriminator: [u8; 8],
-                  }
+      }
 
-impl BuyVirtualTokenInstructionData {
+impl ClaimPlatformFeesInstructionData {
   pub fn new() -> Self {
     Self {
-                        discriminator: [179, 132, 87, 155, 223, 190, 20, 113],
-                                              }
+                        discriminator: [159, 129, 37, 35, 170, 99, 163, 16],
+                  }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -117,72 +115,53 @@ impl BuyVirtualTokenInstructionData {
   }
   }
 
-impl Default for BuyVirtualTokenInstructionData {
+impl Default for ClaimPlatformFeesInstructionData {
   fn default() -> Self {
     Self::new()
   }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
- pub struct BuyVirtualTokenInstructionArgs {
-                  pub quote_amount: u64,
-                pub base_amount_min: u64,
-      }
-
-impl BuyVirtualTokenInstructionArgs {
-  pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-    borsh::to_vec(self)
-  }
-}
 
 
-/// Instruction builder for `BuyVirtualToken`.
+/// Instruction builder for `ClaimPlatformFees`.
 ///
 /// ### Accounts:
 ///
-                      ///   0. `[writable, signer]` payer
-                ///   1. `[writable]` payer_ata
-                ///   2. `[writable]` virtual_token_account
-                ///   3. `[writable]` pool
-                ///   4. `[writable]` pool_ata
-          ///   5. `[]` platform_config
-          ///   6. `[]` quote_mint
-                ///   7. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+                      ///   0. `[writable, signer]` admin
+                ///   1. `[writable]` admin_ata
+                ///   2. `[writable]` pool
+                ///   3. `[writable]` pool_ata
+          ///   4. `[]` platform_config
+          ///   5. `[]` quote_mint
+                ///   6. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+                ///   7. `[optional]` associated_token_program (default to `ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL`)
                 ///   8. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
-pub struct BuyVirtualTokenBuilder {
-            payer: Option<solana_pubkey::Pubkey>,
-                payer_ata: Option<solana_pubkey::Pubkey>,
-                virtual_token_account: Option<solana_pubkey::Pubkey>,
+pub struct ClaimPlatformFeesBuilder {
+            admin: Option<solana_pubkey::Pubkey>,
+                admin_ata: Option<solana_pubkey::Pubkey>,
                 pool: Option<solana_pubkey::Pubkey>,
                 pool_ata: Option<solana_pubkey::Pubkey>,
                 platform_config: Option<solana_pubkey::Pubkey>,
                 quote_mint: Option<solana_pubkey::Pubkey>,
                 token_program: Option<solana_pubkey::Pubkey>,
+                associated_token_program: Option<solana_pubkey::Pubkey>,
                 system_program: Option<solana_pubkey::Pubkey>,
-                        quote_amount: Option<u64>,
-                base_amount_min: Option<u64>,
-        __remaining_accounts: Vec<solana_instruction::AccountMeta>,
+                __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
-impl BuyVirtualTokenBuilder {
+impl ClaimPlatformFeesBuilder {
   pub fn new() -> Self {
     Self::default()
   }
             #[inline(always)]
-    pub fn payer(&mut self, payer: solana_pubkey::Pubkey) -> &mut Self {
-                        self.payer = Some(payer);
+    pub fn admin(&mut self, admin: solana_pubkey::Pubkey) -> &mut Self {
+                        self.admin = Some(admin);
                     self
     }
             #[inline(always)]
-    pub fn payer_ata(&mut self, payer_ata: solana_pubkey::Pubkey) -> &mut Self {
-                        self.payer_ata = Some(payer_ata);
-                    self
-    }
-            #[inline(always)]
-    pub fn virtual_token_account(&mut self, virtual_token_account: solana_pubkey::Pubkey) -> &mut Self {
-                        self.virtual_token_account = Some(virtual_token_account);
+    pub fn admin_ata(&mut self, admin_ata: solana_pubkey::Pubkey) -> &mut Self {
+                        self.admin_ata = Some(admin_ata);
                     self
     }
             #[inline(always)]
@@ -211,23 +190,19 @@ impl BuyVirtualTokenBuilder {
                         self.token_program = Some(token_program);
                     self
     }
+            /// `[optional account, default to 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL']`
+#[inline(always)]
+    pub fn associated_token_program(&mut self, associated_token_program: solana_pubkey::Pubkey) -> &mut Self {
+                        self.associated_token_program = Some(associated_token_program);
+                    self
+    }
             /// `[optional account, default to '11111111111111111111111111111111']`
 #[inline(always)]
     pub fn system_program(&mut self, system_program: solana_pubkey::Pubkey) -> &mut Self {
                         self.system_program = Some(system_program);
                     self
     }
-                    #[inline(always)]
-      pub fn quote_amount(&mut self, quote_amount: u64) -> &mut Self {
-        self.quote_amount = Some(quote_amount);
-        self
-      }
-                #[inline(always)]
-      pub fn base_amount_min(&mut self, base_amount_min: u64) -> &mut Self {
-        self.base_amount_min = Some(base_amount_min);
-        self
-      }
-        /// Add an additional account to the instruction.
+            /// Add an additional account to the instruction.
   #[inline(always)]
   pub fn add_remaining_account(&mut self, account: solana_instruction::AccountMeta) -> &mut Self {
     self.__remaining_accounts.push(account);
@@ -241,37 +216,30 @@ impl BuyVirtualTokenBuilder {
   }
   #[allow(clippy::clone_on_copy)]
   pub fn instruction(&self) -> solana_instruction::Instruction {
-    let accounts = BuyVirtualToken {
-                              payer: self.payer.expect("payer is not set"),
-                                        payer_ata: self.payer_ata.expect("payer_ata is not set"),
-                                        virtual_token_account: self.virtual_token_account.expect("virtual_token_account is not set"),
+    let accounts = ClaimPlatformFees {
+                              admin: self.admin.expect("admin is not set"),
+                                        admin_ata: self.admin_ata.expect("admin_ata is not set"),
                                         pool: self.pool.expect("pool is not set"),
                                         pool_ata: self.pool_ata.expect("pool_ata is not set"),
                                         platform_config: self.platform_config.expect("platform_config is not set"),
                                         quote_mint: self.quote_mint.expect("quote_mint is not set"),
                                         token_program: self.token_program.unwrap_or(solana_pubkey::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")),
+                                        associated_token_program: self.associated_token_program.unwrap_or(solana_pubkey::pubkey!("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")),
                                         system_program: self.system_program.unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
                       };
-          let args = BuyVirtualTokenInstructionArgs {
-                                                              quote_amount: self.quote_amount.clone().expect("quote_amount is not set"),
-                                                                  base_amount_min: self.base_amount_min.clone().expect("base_amount_min is not set"),
-                                    };
     
-    accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
+    accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
   }
 }
 
-  /// `buy_virtual_token` CPI accounts.
-  pub struct BuyVirtualTokenCpiAccounts<'a, 'b> {
+  /// `claim_platform_fees` CPI accounts.
+  pub struct ClaimPlatformFeesCpiAccounts<'a, 'b> {
           
                     
-              pub payer: &'b solana_account_info::AccountInfo<'a>,
+              pub admin: &'b solana_account_info::AccountInfo<'a>,
                 
                     
-              pub payer_ata: &'b solana_account_info::AccountInfo<'a>,
-                
-                    
-              pub virtual_token_account: &'b solana_account_info::AccountInfo<'a>,
+              pub admin_ata: &'b solana_account_info::AccountInfo<'a>,
                 
                     
               pub pool: &'b solana_account_info::AccountInfo<'a>,
@@ -289,22 +257,22 @@ impl BuyVirtualTokenBuilder {
               pub token_program: &'b solana_account_info::AccountInfo<'a>,
                 
                     
+              pub associated_token_program: &'b solana_account_info::AccountInfo<'a>,
+                
+                    
               pub system_program: &'b solana_account_info::AccountInfo<'a>,
             }
 
-/// `buy_virtual_token` CPI instruction.
-pub struct BuyVirtualTokenCpi<'a, 'b> {
+/// `claim_platform_fees` CPI instruction.
+pub struct ClaimPlatformFeesCpi<'a, 'b> {
   /// The program to invoke.
   pub __program: &'b solana_account_info::AccountInfo<'a>,
       
               
-          pub payer: &'b solana_account_info::AccountInfo<'a>,
+          pub admin: &'b solana_account_info::AccountInfo<'a>,
           
               
-          pub payer_ata: &'b solana_account_info::AccountInfo<'a>,
-          
-              
-          pub virtual_token_account: &'b solana_account_info::AccountInfo<'a>,
+          pub admin_ata: &'b solana_account_info::AccountInfo<'a>,
           
               
           pub pool: &'b solana_account_info::AccountInfo<'a>,
@@ -322,30 +290,29 @@ pub struct BuyVirtualTokenCpi<'a, 'b> {
           pub token_program: &'b solana_account_info::AccountInfo<'a>,
           
               
+          pub associated_token_program: &'b solana_account_info::AccountInfo<'a>,
+          
+              
           pub system_program: &'b solana_account_info::AccountInfo<'a>,
-            /// The arguments for the instruction.
-    pub __args: BuyVirtualTokenInstructionArgs,
-  }
+        }
 
-impl<'a, 'b> BuyVirtualTokenCpi<'a, 'b> {
+impl<'a, 'b> ClaimPlatformFeesCpi<'a, 'b> {
   pub fn new(
     program: &'b solana_account_info::AccountInfo<'a>,
-          accounts: BuyVirtualTokenCpiAccounts<'a, 'b>,
-              args: BuyVirtualTokenInstructionArgs,
-      ) -> Self {
+          accounts: ClaimPlatformFeesCpiAccounts<'a, 'b>,
+          ) -> Self {
     Self {
       __program: program,
-              payer: accounts.payer,
-              payer_ata: accounts.payer_ata,
-              virtual_token_account: accounts.virtual_token_account,
+              admin: accounts.admin,
+              admin_ata: accounts.admin_ata,
               pool: accounts.pool,
               pool_ata: accounts.pool_ata,
               platform_config: accounts.platform_config,
               quote_mint: accounts.quote_mint,
               token_program: accounts.token_program,
+              associated_token_program: accounts.associated_token_program,
               system_program: accounts.system_program,
-                    __args: args,
-          }
+                }
   }
   #[inline(always)]
   pub fn invoke(&self) -> solana_program_error::ProgramResult {
@@ -369,15 +336,11 @@ impl<'a, 'b> BuyVirtualTokenCpi<'a, 'b> {
   ) -> solana_program_error::ProgramResult {
     let mut accounts = Vec::with_capacity(9+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
-            *self.payer.key,
+            *self.admin.key,
             true
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
-            *self.payer_ata.key,
-            false
-          ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.virtual_token_account.key,
+            *self.admin_ata.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new(
@@ -401,6 +364,10 @@ impl<'a, 'b> BuyVirtualTokenCpi<'a, 'b> {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.associated_token_program.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.system_program.key,
             false
           ));
@@ -411,9 +378,7 @@ impl<'a, 'b> BuyVirtualTokenCpi<'a, 'b> {
           is_writable: remaining_account.2,
       })
     });
-    let mut data = BuyVirtualTokenInstructionData::new().try_to_vec().unwrap();
-          let mut args = self.__args.try_to_vec().unwrap();
-      data.append(&mut args);
+    let data = ClaimPlatformFeesInstructionData::new().try_to_vec().unwrap();
     
     let instruction = solana_instruction::Instruction {
       program_id: crate::CBMM_ID,
@@ -422,14 +387,14 @@ impl<'a, 'b> BuyVirtualTokenCpi<'a, 'b> {
     };
     let mut account_infos = Vec::with_capacity(10 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
-                  account_infos.push(self.payer.clone());
-                        account_infos.push(self.payer_ata.clone());
-                        account_infos.push(self.virtual_token_account.clone());
+                  account_infos.push(self.admin.clone());
+                        account_infos.push(self.admin_ata.clone());
                         account_infos.push(self.pool.clone());
                         account_infos.push(self.pool_ata.clone());
                         account_infos.push(self.platform_config.clone());
                         account_infos.push(self.quote_mint.clone());
                         account_infos.push(self.token_program.clone());
+                        account_infos.push(self.associated_token_program.clone());
                         account_infos.push(self.system_program.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
@@ -441,56 +406,49 @@ impl<'a, 'b> BuyVirtualTokenCpi<'a, 'b> {
   }
 }
 
-/// Instruction builder for `BuyVirtualToken` via CPI.
+/// Instruction builder for `ClaimPlatformFees` via CPI.
 ///
 /// ### Accounts:
 ///
-                      ///   0. `[writable, signer]` payer
-                ///   1. `[writable]` payer_ata
-                ///   2. `[writable]` virtual_token_account
-                ///   3. `[writable]` pool
-                ///   4. `[writable]` pool_ata
-          ///   5. `[]` platform_config
-          ///   6. `[]` quote_mint
-          ///   7. `[]` token_program
+                      ///   0. `[writable, signer]` admin
+                ///   1. `[writable]` admin_ata
+                ///   2. `[writable]` pool
+                ///   3. `[writable]` pool_ata
+          ///   4. `[]` platform_config
+          ///   5. `[]` quote_mint
+          ///   6. `[]` token_program
+          ///   7. `[]` associated_token_program
           ///   8. `[]` system_program
 #[derive(Clone, Debug)]
-pub struct BuyVirtualTokenCpiBuilder<'a, 'b> {
-  instruction: Box<BuyVirtualTokenCpiBuilderInstruction<'a, 'b>>,
+pub struct ClaimPlatformFeesCpiBuilder<'a, 'b> {
+  instruction: Box<ClaimPlatformFeesCpiBuilderInstruction<'a, 'b>>,
 }
 
-impl<'a, 'b> BuyVirtualTokenCpiBuilder<'a, 'b> {
+impl<'a, 'b> ClaimPlatformFeesCpiBuilder<'a, 'b> {
   pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
-    let instruction = Box::new(BuyVirtualTokenCpiBuilderInstruction {
+    let instruction = Box::new(ClaimPlatformFeesCpiBuilderInstruction {
       __program: program,
-              payer: None,
-              payer_ata: None,
-              virtual_token_account: None,
+              admin: None,
+              admin_ata: None,
               pool: None,
               pool_ata: None,
               platform_config: None,
               quote_mint: None,
               token_program: None,
+              associated_token_program: None,
               system_program: None,
-                                            quote_amount: None,
-                                base_amount_min: None,
-                    __remaining_accounts: Vec::new(),
+                                __remaining_accounts: Vec::new(),
     });
     Self { instruction }
   }
       #[inline(always)]
-    pub fn payer(&mut self, payer: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.payer = Some(payer);
+    pub fn admin(&mut self, admin: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.admin = Some(admin);
                     self
     }
       #[inline(always)]
-    pub fn payer_ata(&mut self, payer_ata: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.payer_ata = Some(payer_ata);
-                    self
-    }
-      #[inline(always)]
-    pub fn virtual_token_account(&mut self, virtual_token_account: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.virtual_token_account = Some(virtual_token_account);
+    pub fn admin_ata(&mut self, admin_ata: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.admin_ata = Some(admin_ata);
                     self
     }
       #[inline(always)]
@@ -519,21 +477,16 @@ impl<'a, 'b> BuyVirtualTokenCpiBuilder<'a, 'b> {
                     self
     }
       #[inline(always)]
+    pub fn associated_token_program(&mut self, associated_token_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.associated_token_program = Some(associated_token_program);
+                    self
+    }
+      #[inline(always)]
     pub fn system_program(&mut self, system_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.system_program = Some(system_program);
                     self
     }
-                    #[inline(always)]
-      pub fn quote_amount(&mut self, quote_amount: u64) -> &mut Self {
-        self.instruction.quote_amount = Some(quote_amount);
-        self
-      }
-                #[inline(always)]
-      pub fn base_amount_min(&mut self, base_amount_min: u64) -> &mut Self {
-        self.instruction.base_amount_min = Some(base_amount_min);
-        self
-      }
-        /// Add an additional account to the instruction.
+            /// Add an additional account to the instruction.
   #[inline(always)]
   pub fn add_remaining_account(&mut self, account: &'b solana_account_info::AccountInfo<'a>, is_writable: bool, is_signer: bool) -> &mut Self {
     self.instruction.__remaining_accounts.push((account, is_writable, is_signer));
@@ -555,18 +508,12 @@ impl<'a, 'b> BuyVirtualTokenCpiBuilder<'a, 'b> {
   #[allow(clippy::clone_on_copy)]
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
-          let args = BuyVirtualTokenInstructionArgs {
-                                                              quote_amount: self.instruction.quote_amount.clone().expect("quote_amount is not set"),
-                                                                  base_amount_min: self.instruction.base_amount_min.clone().expect("base_amount_min is not set"),
-                                    };
-        let instruction = BuyVirtualTokenCpi {
+        let instruction = ClaimPlatformFeesCpi {
         __program: self.instruction.__program,
                   
-          payer: self.instruction.payer.expect("payer is not set"),
+          admin: self.instruction.admin.expect("admin is not set"),
                   
-          payer_ata: self.instruction.payer_ata.expect("payer_ata is not set"),
-                  
-          virtual_token_account: self.instruction.virtual_token_account.expect("virtual_token_account is not set"),
+          admin_ata: self.instruction.admin_ata.expect("admin_ata is not set"),
                   
           pool: self.instruction.pool.expect("pool is not set"),
                   
@@ -578,28 +525,27 @@ impl<'a, 'b> BuyVirtualTokenCpiBuilder<'a, 'b> {
                   
           token_program: self.instruction.token_program.expect("token_program is not set"),
                   
+          associated_token_program: self.instruction.associated_token_program.expect("associated_token_program is not set"),
+                  
           system_program: self.instruction.system_program.expect("system_program is not set"),
-                          __args: args,
-            };
+                    };
     instruction.invoke_signed_with_remaining_accounts(signers_seeds, &self.instruction.__remaining_accounts)
   }
 }
 
 #[derive(Clone, Debug)]
-struct BuyVirtualTokenCpiBuilderInstruction<'a, 'b> {
+struct ClaimPlatformFeesCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
-            payer: Option<&'b solana_account_info::AccountInfo<'a>>,
-                payer_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
-                virtual_token_account: Option<&'b solana_account_info::AccountInfo<'a>>,
+            admin: Option<&'b solana_account_info::AccountInfo<'a>>,
+                admin_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
                 pool: Option<&'b solana_account_info::AccountInfo<'a>>,
                 pool_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
                 platform_config: Option<&'b solana_account_info::AccountInfo<'a>>,
                 quote_mint: Option<&'b solana_account_info::AccountInfo<'a>>,
                 token_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                associated_token_program: Option<&'b solana_account_info::AccountInfo<'a>>,
                 system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        quote_amount: Option<u64>,
-                base_amount_min: Option<u64>,
-        /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
+                /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }
 

@@ -6,10 +6,18 @@
 //!
 
   pub(crate) mod r#burn_event;
+  pub(crate) mod r#burn_rate_config;
+  pub(crate) mod r#burn_rate_limiter;
+  pub(crate) mod r#burn_role;
+  pub(crate) mod r#burn_tier;
   pub(crate) mod r#buy_event;
   pub(crate) mod r#sell_event;
 
   pub use self::r#burn_event::*;
+  pub use self::r#burn_rate_config::*;
+  pub use self::r#burn_rate_limiter::*;
+  pub use self::r#burn_role::*;
+  pub use self::r#burn_tier::*;
   pub use self::r#buy_event::*;
   pub use self::r#sell_event::*;
 

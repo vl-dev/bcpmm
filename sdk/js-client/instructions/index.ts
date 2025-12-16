@@ -8,12 +8,13 @@
 
 export * from './burnVirtualToken';
 export * from './buyVirtualToken';
-export * from './claimAdminFees';
 export * from './claimCreatorFees';
+export * from './claimPlatformFees';
 export * from './closeUserBurnAllowance';
 export * from './closeVirtualTokenAccount';
 export * from './createPool';
-export * from './initializeCentralState';
+export * from './initializePlatformConfig';
 export * from './initializeUserBurnAllowance';
 export * from './initializeVirtualTokenAccount';
 export * from './sellVirtualToken';
+export * from './updatePlatformConfig';

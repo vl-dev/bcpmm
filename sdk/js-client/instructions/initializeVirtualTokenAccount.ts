@@ -186,7 +186,7 @@ export async function getInitializeVirtualTokenAccountInstructionAsync<
           ])
         ),
         getAddressEncoder().encode(expectAddress(accounts.pool.value)),
-        getAddressEncoder().encode(expectAddress(accounts.payer.value)),
+        getAddressEncoder().encode(expectAddress(accounts.owner.value)),
       ],
     });
   }

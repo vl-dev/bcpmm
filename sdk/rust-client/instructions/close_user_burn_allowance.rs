@@ -23,19 +23,19 @@ pub struct CloseUserBurnAllowance {
           pub user_burn_allowance: solana_pubkey::Pubkey,
           
               
-          pub burn_allowance_open_payer: solana_pubkey::Pubkey,
+          pub platform_config: solana_pubkey::Pubkey,
           
               
-          pub central_state: solana_pubkey::Pubkey,
+          pub burn_allowance_open_payer: solana_pubkey::Pubkey,
       }
 
 impl CloseUserBurnAllowance {
-  pub fn instruction(&self, args: CloseUserBurnAllowanceInstructionArgs) -> solana_instruction::Instruction {
-    self.instruction_with_remaining_accounts(args, &[])
+  pub fn instruction(&self) -> solana_instruction::Instruction {
+    self.instruction_with_remaining_accounts(&[])
   }
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
-  pub fn instruction_with_remaining_accounts(&self, args: CloseUserBurnAllowanceInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
+  pub fn instruction_with_remaining_accounts(&self, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
     let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.owner,
@@ -46,17 +46,15 @@ impl CloseUserBurnAllowance {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.burn_allowance_open_payer,
+            self.platform_config,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.central_state,
+            self.burn_allowance_open_payer,
             false
           ));
                       accounts.extend_from_slice(remaining_accounts);
-    let mut data = CloseUserBurnAllowanceInstructionData::new().try_to_vec().unwrap();
-          let mut args = args.try_to_vec().unwrap();
-      data.append(&mut args);
+    let data = CloseUserBurnAllowanceInstructionData::new().try_to_vec().unwrap();
     
     solana_instruction::Instruction {
       program_id: crate::CBMM_ID,
@@ -70,13 +68,13 @@ impl CloseUserBurnAllowance {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
  pub struct CloseUserBurnAllowanceInstructionData {
             discriminator: [u8; 8],
-            }
+      }
 
 impl CloseUserBurnAllowanceInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: [217, 24, 207, 62, 181, 123, 16, 187],
-                                }
+                  }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -90,17 +88,6 @@ impl Default for CloseUserBurnAllowanceInstructionData {
   }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
- pub struct CloseUserBurnAllowanceInstructionArgs {
-                  pub pool_owner: bool,
-      }
-
-impl CloseUserBurnAllowanceInstructionArgs {
-  pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-    borsh::to_vec(self)
-  }
-}
 
 
 /// Instruction builder for `CloseUserBurnAllowance`.
@@ -109,16 +96,15 @@ impl CloseUserBurnAllowanceInstructionArgs {
 ///
           ///   0. `[]` owner
                 ///   1. `[writable]` user_burn_allowance
-          ///   2. `[]` burn_allowance_open_payer
-          ///   3. `[]` central_state
+          ///   2. `[]` platform_config
+          ///   3. `[]` burn_allowance_open_payer
 #[derive(Clone, Debug, Default)]
 pub struct CloseUserBurnAllowanceBuilder {
             owner: Option<solana_pubkey::Pubkey>,
                 user_burn_allowance: Option<solana_pubkey::Pubkey>,
+                platform_config: Option<solana_pubkey::Pubkey>,
                 burn_allowance_open_payer: Option<solana_pubkey::Pubkey>,
-                central_state: Option<solana_pubkey::Pubkey>,
-                        pool_owner: Option<bool>,
-        __remaining_accounts: Vec<solana_instruction::AccountMeta>,
+                __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
 impl CloseUserBurnAllowanceBuilder {
@@ -137,21 +123,16 @@ impl CloseUserBurnAllowanceBuilder {
                     self
     }
             #[inline(always)]
+    pub fn platform_config(&mut self, platform_config: solana_pubkey::Pubkey) -> &mut Self {
+                        self.platform_config = Some(platform_config);
+                    self
+    }
+            #[inline(always)]
     pub fn burn_allowance_open_payer(&mut self, burn_allowance_open_payer: solana_pubkey::Pubkey) -> &mut Self {
                         self.burn_allowance_open_payer = Some(burn_allowance_open_payer);
                     self
     }
-            #[inline(always)]
-    pub fn central_state(&mut self, central_state: solana_pubkey::Pubkey) -> &mut Self {
-                        self.central_state = Some(central_state);
-                    self
-    }
-                    #[inline(always)]
-      pub fn pool_owner(&mut self, pool_owner: bool) -> &mut Self {
-        self.pool_owner = Some(pool_owner);
-        self
-      }
-        /// Add an additional account to the instruction.
+            /// Add an additional account to the instruction.
   #[inline(always)]
   pub fn add_remaining_account(&mut self, account: solana_instruction::AccountMeta) -> &mut Self {
     self.__remaining_accounts.push(account);
@@ -168,14 +149,11 @@ impl CloseUserBurnAllowanceBuilder {
     let accounts = CloseUserBurnAllowance {
                               owner: self.owner.expect("owner is not set"),
                                         user_burn_allowance: self.user_burn_allowance.expect("user_burn_allowance is not set"),
+                                        platform_config: self.platform_config.expect("platform_config is not set"),
                                         burn_allowance_open_payer: self.burn_allowance_open_payer.expect("burn_allowance_open_payer is not set"),
-                                        central_state: self.central_state.expect("central_state is not set"),
                       };
-          let args = CloseUserBurnAllowanceInstructionArgs {
-                                                              pool_owner: self.pool_owner.clone().expect("pool_owner is not set"),
-                                    };
     
-    accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
+    accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
   }
 }
 
@@ -191,10 +169,10 @@ impl CloseUserBurnAllowanceBuilder {
               pub user_burn_allowance: &'b solana_account_info::AccountInfo<'a>,
                 
                     
-              pub burn_allowance_open_payer: &'b solana_account_info::AccountInfo<'a>,
+              pub platform_config: &'b solana_account_info::AccountInfo<'a>,
                 
                     
-              pub central_state: &'b solana_account_info::AccountInfo<'a>,
+              pub burn_allowance_open_payer: &'b solana_account_info::AccountInfo<'a>,
             }
 
 /// `close_user_burn_allowance` CPI instruction.
@@ -211,28 +189,24 @@ pub struct CloseUserBurnAllowanceCpi<'a, 'b> {
           pub user_burn_allowance: &'b solana_account_info::AccountInfo<'a>,
           
               
-          pub burn_allowance_open_payer: &'b solana_account_info::AccountInfo<'a>,
+          pub platform_config: &'b solana_account_info::AccountInfo<'a>,
           
               
-          pub central_state: &'b solana_account_info::AccountInfo<'a>,
-            /// The arguments for the instruction.
-    pub __args: CloseUserBurnAllowanceInstructionArgs,
-  }
+          pub burn_allowance_open_payer: &'b solana_account_info::AccountInfo<'a>,
+        }
 
 impl<'a, 'b> CloseUserBurnAllowanceCpi<'a, 'b> {
   pub fn new(
     program: &'b solana_account_info::AccountInfo<'a>,
           accounts: CloseUserBurnAllowanceCpiAccounts<'a, 'b>,
-              args: CloseUserBurnAllowanceInstructionArgs,
-      ) -> Self {
+          ) -> Self {
     Self {
       __program: program,
               owner: accounts.owner,
               user_burn_allowance: accounts.user_burn_allowance,
+              platform_config: accounts.platform_config,
               burn_allowance_open_payer: accounts.burn_allowance_open_payer,
-              central_state: accounts.central_state,
-                    __args: args,
-          }
+                }
   }
   #[inline(always)]
   pub fn invoke(&self) -> solana_program_error::ProgramResult {
@@ -264,11 +238,11 @@ impl<'a, 'b> CloseUserBurnAllowanceCpi<'a, 'b> {
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.burn_allowance_open_payer.key,
+            *self.platform_config.key,
             false
           ));
                                           accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.central_state.key,
+            *self.burn_allowance_open_payer.key,
             false
           ));
                       remaining_accounts.iter().for_each(|remaining_account| {
@@ -278,9 +252,7 @@ impl<'a, 'b> CloseUserBurnAllowanceCpi<'a, 'b> {
           is_writable: remaining_account.2,
       })
     });
-    let mut data = CloseUserBurnAllowanceInstructionData::new().try_to_vec().unwrap();
-          let mut args = self.__args.try_to_vec().unwrap();
-      data.append(&mut args);
+    let data = CloseUserBurnAllowanceInstructionData::new().try_to_vec().unwrap();
     
     let instruction = solana_instruction::Instruction {
       program_id: crate::CBMM_ID,
@@ -291,8 +263,8 @@ impl<'a, 'b> CloseUserBurnAllowanceCpi<'a, 'b> {
     account_infos.push(self.__program.clone());
                   account_infos.push(self.owner.clone());
                         account_infos.push(self.user_burn_allowance.clone());
+                        account_infos.push(self.platform_config.clone());
                         account_infos.push(self.burn_allowance_open_payer.clone());
-                        account_infos.push(self.central_state.clone());
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
     if signers_seeds.is_empty() {
@@ -309,8 +281,8 @@ impl<'a, 'b> CloseUserBurnAllowanceCpi<'a, 'b> {
 ///
           ///   0. `[]` owner
                 ///   1. `[writable]` user_burn_allowance
-          ///   2. `[]` burn_allowance_open_payer
-          ///   3. `[]` central_state
+          ///   2. `[]` platform_config
+          ///   3. `[]` burn_allowance_open_payer
 #[derive(Clone, Debug)]
 pub struct CloseUserBurnAllowanceCpiBuilder<'a, 'b> {
   instruction: Box<CloseUserBurnAllowanceCpiBuilderInstruction<'a, 'b>>,
@@ -322,10 +294,9 @@ impl<'a, 'b> CloseUserBurnAllowanceCpiBuilder<'a, 'b> {
       __program: program,
               owner: None,
               user_burn_allowance: None,
+              platform_config: None,
               burn_allowance_open_payer: None,
-              central_state: None,
-                                            pool_owner: None,
-                    __remaining_accounts: Vec::new(),
+                                __remaining_accounts: Vec::new(),
     });
     Self { instruction }
   }
@@ -341,21 +312,16 @@ impl<'a, 'b> CloseUserBurnAllowanceCpiBuilder<'a, 'b> {
                     self
     }
       #[inline(always)]
+    pub fn platform_config(&mut self, platform_config: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.platform_config = Some(platform_config);
+                    self
+    }
+      #[inline(always)]
     pub fn burn_allowance_open_payer(&mut self, burn_allowance_open_payer: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
                         self.instruction.burn_allowance_open_payer = Some(burn_allowance_open_payer);
                     self
     }
-      #[inline(always)]
-    pub fn central_state(&mut self, central_state: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.central_state = Some(central_state);
-                    self
-    }
-                    #[inline(always)]
-      pub fn pool_owner(&mut self, pool_owner: bool) -> &mut Self {
-        self.instruction.pool_owner = Some(pool_owner);
-        self
-      }
-        /// Add an additional account to the instruction.
+            /// Add an additional account to the instruction.
   #[inline(always)]
   pub fn add_remaining_account(&mut self, account: &'b solana_account_info::AccountInfo<'a>, is_writable: bool, is_signer: bool) -> &mut Self {
     self.instruction.__remaining_accounts.push((account, is_writable, is_signer));
@@ -377,9 +343,6 @@ impl<'a, 'b> CloseUserBurnAllowanceCpiBuilder<'a, 'b> {
   #[allow(clippy::clone_on_copy)]
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
-          let args = CloseUserBurnAllowanceInstructionArgs {
-                                                              pool_owner: self.instruction.pool_owner.clone().expect("pool_owner is not set"),
-                                    };
         let instruction = CloseUserBurnAllowanceCpi {
         __program: self.instruction.__program,
                   
@@ -387,11 +350,10 @@ impl<'a, 'b> CloseUserBurnAllowanceCpiBuilder<'a, 'b> {
                   
           user_burn_allowance: self.instruction.user_burn_allowance.expect("user_burn_allowance is not set"),
                   
-          burn_allowance_open_payer: self.instruction.burn_allowance_open_payer.expect("burn_allowance_open_payer is not set"),
+          platform_config: self.instruction.platform_config.expect("platform_config is not set"),
                   
-          central_state: self.instruction.central_state.expect("central_state is not set"),
-                          __args: args,
-            };
+          burn_allowance_open_payer: self.instruction.burn_allowance_open_payer.expect("burn_allowance_open_payer is not set"),
+                    };
     instruction.invoke_signed_with_remaining_accounts(signers_seeds, &self.instruction.__remaining_accounts)
   }
 }
@@ -401,10 +363,9 @@ struct CloseUserBurnAllowanceCpiBuilderInstruction<'a, 'b> {
   __program: &'b solana_account_info::AccountInfo<'a>,
             owner: Option<&'b solana_account_info::AccountInfo<'a>>,
                 user_burn_allowance: Option<&'b solana_account_info::AccountInfo<'a>>,
+                platform_config: Option<&'b solana_account_info::AccountInfo<'a>>,
                 burn_allowance_open_payer: Option<&'b solana_account_info::AccountInfo<'a>>,
-                central_state: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        pool_owner: Option<bool>,
-        /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
+                /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }
 

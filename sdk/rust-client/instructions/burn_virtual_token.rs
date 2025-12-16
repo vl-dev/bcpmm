@@ -24,17 +24,23 @@ pub struct BurnVirtualToken {
           pub user_burn_allowance: solana_pubkey::Pubkey,
           
               
-          pub central_state: solana_pubkey::Pubkey,
+          pub platform_config: solana_pubkey::Pubkey,
+                /// Optional burn authority. Required and must match `platform_config.burn_authority`
+/// if that field is set; otherwise this account is ignored.
+
+    
+              
+          pub burn_authority: Option<solana_pubkey::Pubkey>,
       }
 
 impl BurnVirtualToken {
-  pub fn instruction(&self, args: BurnVirtualTokenInstructionArgs) -> solana_instruction::Instruction {
-    self.instruction_with_remaining_accounts(args, &[])
+  pub fn instruction(&self) -> solana_instruction::Instruction {
+    self.instruction_with_remaining_accounts(&[])
   }
   #[allow(clippy::arithmetic_side_effects)]
   #[allow(clippy::vec_init_then_push)]
-  pub fn instruction_with_remaining_accounts(&self, args: BurnVirtualTokenInstructionArgs, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
-    let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
+  pub fn instruction_with_remaining_accounts(&self, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
+    let mut accounts = Vec::with_capacity(5+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             self.signer,
             true
@@ -47,14 +53,23 @@ impl BurnVirtualToken {
             self.user_burn_allowance,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            self.central_state,
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.platform_config,
             false
           ));
-                      accounts.extend_from_slice(remaining_accounts);
-    let mut data = BurnVirtualTokenInstructionData::new().try_to_vec().unwrap();
-          let mut args = args.try_to_vec().unwrap();
-      data.append(&mut args);
+                                                      if let Some(burn_authority) = self.burn_authority {
+              accounts.push(solana_instruction::AccountMeta::new_readonly(
+                burn_authority,
+                true,
+              ));
+            } else {
+              accounts.push(solana_instruction::AccountMeta::new_readonly(
+                crate::CBMM_ID,
+                false,
+              ));
+            }
+                                accounts.extend_from_slice(remaining_accounts);
+    let data = BurnVirtualTokenInstructionData::new().try_to_vec().unwrap();
     
     solana_instruction::Instruction {
       program_id: crate::CBMM_ID,
@@ -68,13 +83,13 @@ impl BurnVirtualToken {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
  pub struct BurnVirtualTokenInstructionData {
             discriminator: [u8; 8],
-            }
+      }
 
 impl BurnVirtualTokenInstructionData {
   pub fn new() -> Self {
     Self {
                         discriminator: [27, 21, 118, 210, 92, 230, 68, 59],
-                                }
+                  }
   }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
@@ -88,17 +103,6 @@ impl Default for BurnVirtualTokenInstructionData {
   }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
- pub struct BurnVirtualTokenInstructionArgs {
-                  pub pool_owner: bool,
-      }
-
-impl BurnVirtualTokenInstructionArgs {
-  pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-    borsh::to_vec(self)
-  }
-}
 
 
 /// Instruction builder for `BurnVirtualToken`.
@@ -108,15 +112,16 @@ impl BurnVirtualTokenInstructionArgs {
                       ///   0. `[writable, signer]` signer
                 ///   1. `[writable]` pool
                 ///   2. `[writable]` user_burn_allowance
-                ///   3. `[writable]` central_state
+          ///   3. `[]` platform_config
+                      ///   4. `[signer, optional]` burn_authority
 #[derive(Clone, Debug, Default)]
 pub struct BurnVirtualTokenBuilder {
             signer: Option<solana_pubkey::Pubkey>,
                 pool: Option<solana_pubkey::Pubkey>,
                 user_burn_allowance: Option<solana_pubkey::Pubkey>,
-                central_state: Option<solana_pubkey::Pubkey>,
-                        pool_owner: Option<bool>,
-        __remaining_accounts: Vec<solana_instruction::AccountMeta>,
+                platform_config: Option<solana_pubkey::Pubkey>,
+                burn_authority: Option<solana_pubkey::Pubkey>,
+                __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
 impl BurnVirtualTokenBuilder {
@@ -139,16 +144,19 @@ impl BurnVirtualTokenBuilder {
                     self
     }
             #[inline(always)]
-    pub fn central_state(&mut self, central_state: solana_pubkey::Pubkey) -> &mut Self {
-                        self.central_state = Some(central_state);
+    pub fn platform_config(&mut self, platform_config: solana_pubkey::Pubkey) -> &mut Self {
+                        self.platform_config = Some(platform_config);
                     self
     }
-                    #[inline(always)]
-      pub fn pool_owner(&mut self, pool_owner: bool) -> &mut Self {
-        self.pool_owner = Some(pool_owner);
-        self
-      }
-        /// Add an additional account to the instruction.
+            /// `[optional account]`
+/// Optional burn authority. Required and must match `platform_config.burn_authority`
+/// if that field is set; otherwise this account is ignored.
+#[inline(always)]
+    pub fn burn_authority(&mut self, burn_authority: Option<solana_pubkey::Pubkey>) -> &mut Self {
+                        self.burn_authority = burn_authority;
+                    self
+    }
+            /// Add an additional account to the instruction.
   #[inline(always)]
   pub fn add_remaining_account(&mut self, account: solana_instruction::AccountMeta) -> &mut Self {
     self.__remaining_accounts.push(account);
@@ -166,13 +174,11 @@ impl BurnVirtualTokenBuilder {
                               signer: self.signer.expect("signer is not set"),
                                         pool: self.pool.expect("pool is not set"),
                                         user_burn_allowance: self.user_burn_allowance.expect("user_burn_allowance is not set"),
-                                        central_state: self.central_state.expect("central_state is not set"),
+                                        platform_config: self.platform_config.expect("platform_config is not set"),
+                                        burn_authority: self.burn_authority,
                       };
-          let args = BurnVirtualTokenInstructionArgs {
-                                                              pool_owner: self.pool_owner.clone().expect("pool_owner is not set"),
-                                    };
     
-    accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
+    accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
   }
 }
 
@@ -189,7 +195,13 @@ impl BurnVirtualTokenBuilder {
               pub user_burn_allowance: &'b solana_account_info::AccountInfo<'a>,
                 
                     
-              pub central_state: &'b solana_account_info::AccountInfo<'a>,
+              pub platform_config: &'b solana_account_info::AccountInfo<'a>,
+                        /// Optional burn authority. Required and must match `platform_config.burn_authority`
+/// if that field is set; otherwise this account is ignored.
+
+      
+                    
+              pub burn_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
             }
 
 /// `burn_virtual_token` CPI instruction.
@@ -207,25 +219,28 @@ pub struct BurnVirtualTokenCpi<'a, 'b> {
           pub user_burn_allowance: &'b solana_account_info::AccountInfo<'a>,
           
               
-          pub central_state: &'b solana_account_info::AccountInfo<'a>,
-            /// The arguments for the instruction.
-    pub __args: BurnVirtualTokenInstructionArgs,
-  }
+          pub platform_config: &'b solana_account_info::AccountInfo<'a>,
+                /// Optional burn authority. Required and must match `platform_config.burn_authority`
+/// if that field is set; otherwise this account is ignored.
+
+    
+              
+          pub burn_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+        }
 
 impl<'a, 'b> BurnVirtualTokenCpi<'a, 'b> {
   pub fn new(
     program: &'b solana_account_info::AccountInfo<'a>,
           accounts: BurnVirtualTokenCpiAccounts<'a, 'b>,
-              args: BurnVirtualTokenInstructionArgs,
-      ) -> Self {
+          ) -> Self {
     Self {
       __program: program,
               signer: accounts.signer,
               pool: accounts.pool,
               user_burn_allowance: accounts.user_burn_allowance,
-              central_state: accounts.central_state,
-                    __args: args,
-          }
+              platform_config: accounts.platform_config,
+              burn_authority: accounts.burn_authority,
+                }
   }
   #[inline(always)]
   pub fn invoke(&self) -> solana_program_error::ProgramResult {
@@ -247,7 +262,7 @@ impl<'a, 'b> BurnVirtualTokenCpi<'a, 'b> {
     signers_seeds: &[&[&[u8]]],
     remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
   ) -> solana_program_error::ProgramResult {
-    let mut accounts = Vec::with_capacity(4+ remaining_accounts.len());
+    let mut accounts = Vec::with_capacity(5+ remaining_accounts.len());
                             accounts.push(solana_instruction::AccountMeta::new(
             *self.signer.key,
             true
@@ -260,10 +275,21 @@ impl<'a, 'b> BurnVirtualTokenCpi<'a, 'b> {
             *self.user_burn_allowance.key,
             false
           ));
-                                          accounts.push(solana_instruction::AccountMeta::new(
-            *self.central_state.key,
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.platform_config.key,
             false
           ));
+                                          if let Some(burn_authority) = self.burn_authority {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+              *burn_authority.key,
+              true,
+            ));
+          } else {
+            accounts.push(solana_instruction::AccountMeta::new_readonly(
+              crate::CBMM_ID,
+              false,
+            ));
+          }
                       remaining_accounts.iter().for_each(|remaining_account| {
       accounts.push(solana_instruction::AccountMeta {
           pubkey: *remaining_account.0.key,
@@ -271,21 +297,22 @@ impl<'a, 'b> BurnVirtualTokenCpi<'a, 'b> {
           is_writable: remaining_account.2,
       })
     });
-    let mut data = BurnVirtualTokenInstructionData::new().try_to_vec().unwrap();
-          let mut args = self.__args.try_to_vec().unwrap();
-      data.append(&mut args);
+    let data = BurnVirtualTokenInstructionData::new().try_to_vec().unwrap();
     
     let instruction = solana_instruction::Instruction {
       program_id: crate::CBMM_ID,
       accounts,
       data,
     };
-    let mut account_infos = Vec::with_capacity(5 + remaining_accounts.len());
+    let mut account_infos = Vec::with_capacity(6 + remaining_accounts.len());
     account_infos.push(self.__program.clone());
                   account_infos.push(self.signer.clone());
                         account_infos.push(self.pool.clone());
                         account_infos.push(self.user_burn_allowance.clone());
-                        account_infos.push(self.central_state.clone());
+                        account_infos.push(self.platform_config.clone());
+                        if let Some(burn_authority) = self.burn_authority {
+          account_infos.push(burn_authority.clone());
+        }
               remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
     if signers_seeds.is_empty() {
@@ -303,7 +330,8 @@ impl<'a, 'b> BurnVirtualTokenCpi<'a, 'b> {
                       ///   0. `[writable, signer]` signer
                 ///   1. `[writable]` pool
                 ///   2. `[writable]` user_burn_allowance
-                ///   3. `[writable]` central_state
+          ///   3. `[]` platform_config
+                      ///   4. `[signer, optional]` burn_authority
 #[derive(Clone, Debug)]
 pub struct BurnVirtualTokenCpiBuilder<'a, 'b> {
   instruction: Box<BurnVirtualTokenCpiBuilderInstruction<'a, 'b>>,
@@ -316,9 +344,9 @@ impl<'a, 'b> BurnVirtualTokenCpiBuilder<'a, 'b> {
               signer: None,
               pool: None,
               user_burn_allowance: None,
-              central_state: None,
-                                            pool_owner: None,
-                    __remaining_accounts: Vec::new(),
+              platform_config: None,
+              burn_authority: None,
+                                __remaining_accounts: Vec::new(),
     });
     Self { instruction }
   }
@@ -338,16 +366,19 @@ impl<'a, 'b> BurnVirtualTokenCpiBuilder<'a, 'b> {
                     self
     }
       #[inline(always)]
-    pub fn central_state(&mut self, central_state: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-                        self.instruction.central_state = Some(central_state);
+    pub fn platform_config(&mut self, platform_config: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.platform_config = Some(platform_config);
                     self
     }
-                    #[inline(always)]
-      pub fn pool_owner(&mut self, pool_owner: bool) -> &mut Self {
-        self.instruction.pool_owner = Some(pool_owner);
-        self
-      }
-        /// Add an additional account to the instruction.
+      /// `[optional account]`
+/// Optional burn authority. Required and must match `platform_config.burn_authority`
+/// if that field is set; otherwise this account is ignored.
+#[inline(always)]
+    pub fn burn_authority(&mut self, burn_authority: Option<&'b solana_account_info::AccountInfo<'a>>) -> &mut Self {
+                        self.instruction.burn_authority = burn_authority;
+                    self
+    }
+            /// Add an additional account to the instruction.
   #[inline(always)]
   pub fn add_remaining_account(&mut self, account: &'b solana_account_info::AccountInfo<'a>, is_writable: bool, is_signer: bool) -> &mut Self {
     self.instruction.__remaining_accounts.push((account, is_writable, is_signer));
@@ -369,9 +400,6 @@ impl<'a, 'b> BurnVirtualTokenCpiBuilder<'a, 'b> {
   #[allow(clippy::clone_on_copy)]
   #[allow(clippy::vec_init_then_push)]
   pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
-          let args = BurnVirtualTokenInstructionArgs {
-                                                              pool_owner: self.instruction.pool_owner.clone().expect("pool_owner is not set"),
-                                    };
         let instruction = BurnVirtualTokenCpi {
         __program: self.instruction.__program,
                   
@@ -381,9 +409,10 @@ impl<'a, 'b> BurnVirtualTokenCpiBuilder<'a, 'b> {
                   
           user_burn_allowance: self.instruction.user_burn_allowance.expect("user_burn_allowance is not set"),
                   
-          central_state: self.instruction.central_state.expect("central_state is not set"),
-                          __args: args,
-            };
+          platform_config: self.instruction.platform_config.expect("platform_config is not set"),
+                  
+          burn_authority: self.instruction.burn_authority,
+                    };
     instruction.invoke_signed_with_remaining_accounts(signers_seeds, &self.instruction.__remaining_accounts)
   }
 }
@@ -394,9 +423,9 @@ struct BurnVirtualTokenCpiBuilderInstruction<'a, 'b> {
             signer: Option<&'b solana_account_info::AccountInfo<'a>>,
                 pool: Option<&'b solana_account_info::AccountInfo<'a>>,
                 user_burn_allowance: Option<&'b solana_account_info::AccountInfo<'a>>,
-                central_state: Option<&'b solana_account_info::AccountInfo<'a>>,
-                        pool_owner: Option<bool>,
-        /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
+                platform_config: Option<&'b solana_account_info::AccountInfo<'a>>,
+                burn_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
+                /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
   __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }
 

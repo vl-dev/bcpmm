@@ -10,13 +10,12 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
-  getBooleanDecoder,
-  getBooleanEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
+  getU8Decoder,
+  getU8Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -50,11 +49,12 @@ export type InitializeUserBurnAllowanceInstruction<
   TProgram extends string = typeof CBMM_PROGRAM_ADDRESS,
   TAccountPayer extends string | AccountMeta<string> = string,
   TAccountOwner extends string | AccountMeta<string> = string,
-  TAccountCentralState extends string | AccountMeta<string> = string,
   TAccountUserBurnAllowance extends string | AccountMeta<string> = string,
+  TAccountPlatformConfig extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends
     | string
     | AccountMeta<string> = '11111111111111111111111111111111',
+  TAccountPool extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -67,33 +67,36 @@ export type InitializeUserBurnAllowanceInstruction<
       TAccountOwner extends string
         ? ReadonlyAccount<TAccountOwner>
         : TAccountOwner,
-      TAccountCentralState extends string
-        ? ReadonlyAccount<TAccountCentralState>
-        : TAccountCentralState,
       TAccountUserBurnAllowance extends string
         ? WritableAccount<TAccountUserBurnAllowance>
         : TAccountUserBurnAllowance,
+      TAccountPlatformConfig extends string
+        ? ReadonlyAccount<TAccountPlatformConfig>
+        : TAccountPlatformConfig,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
+      TAccountPool extends string
+        ? ReadonlyAccount<TAccountPool>
+        : TAccountPool,
       ...TRemainingAccounts,
     ]
   >;
 
 export type InitializeUserBurnAllowanceInstructionData = {
   discriminator: ReadonlyUint8Array;
-  poolOwner: boolean;
+  burnTierIndex: number;
 };
 
 export type InitializeUserBurnAllowanceInstructionDataArgs = {
-  poolOwner: boolean;
+  burnTierIndex: number;
 };
 
 export function getInitializeUserBurnAllowanceInstructionDataEncoder(): FixedSizeEncoder<InitializeUserBurnAllowanceInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
-      ['poolOwner', getBooleanEncoder()],
+      ['burnTierIndex', getU8Encoder()],
     ]),
     (value) => ({
       ...value,
@@ -105,7 +108,7 @@ export function getInitializeUserBurnAllowanceInstructionDataEncoder(): FixedSiz
 export function getInitializeUserBurnAllowanceInstructionDataDecoder(): FixedSizeDecoder<InitializeUserBurnAllowanceInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-    ['poolOwner', getBooleanDecoder()],
+    ['burnTierIndex', getU8Decoder()],
   ]);
 }
 
@@ -119,150 +122,51 @@ export function getInitializeUserBurnAllowanceInstructionDataCodec(): FixedSizeC
   );
 }
 
-export type InitializeUserBurnAllowanceAsyncInput<
-  TAccountPayer extends string = string,
-  TAccountOwner extends string = string,
-  TAccountCentralState extends string = string,
-  TAccountUserBurnAllowance extends string = string,
-  TAccountSystemProgram extends string = string,
-> = {
-  payer: TransactionSigner<TAccountPayer>;
-  /** The user for whom the burn allowance is being initialized */
-  owner: Address<TAccountOwner>;
-  centralState?: Address<TAccountCentralState>;
-  userBurnAllowance: Address<TAccountUserBurnAllowance>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  poolOwner: InitializeUserBurnAllowanceInstructionDataArgs['poolOwner'];
-};
-
-export async function getInitializeUserBurnAllowanceInstructionAsync<
-  TAccountPayer extends string,
-  TAccountOwner extends string,
-  TAccountCentralState extends string,
-  TAccountUserBurnAllowance extends string,
-  TAccountSystemProgram extends string,
-  TProgramAddress extends Address = typeof CBMM_PROGRAM_ADDRESS,
->(
-  input: InitializeUserBurnAllowanceAsyncInput<
-    TAccountPayer,
-    TAccountOwner,
-    TAccountCentralState,
-    TAccountUserBurnAllowance,
-    TAccountSystemProgram
-  >,
-  config?: { programAddress?: TProgramAddress }
-): Promise<
-  InitializeUserBurnAllowanceInstruction<
-    TProgramAddress,
-    TAccountPayer,
-    TAccountOwner,
-    TAccountCentralState,
-    TAccountUserBurnAllowance,
-    TAccountSystemProgram
-  >
-> {
-  // Program address.
-  const programAddress = config?.programAddress ?? CBMM_PROGRAM_ADDRESS;
-
-  // Original accounts.
-  const originalAccounts = {
-    payer: { value: input.payer ?? null, isWritable: true },
-    owner: { value: input.owner ?? null, isWritable: false },
-    centralState: { value: input.centralState ?? null, isWritable: false },
-    userBurnAllowance: {
-      value: input.userBurnAllowance ?? null,
-      isWritable: true,
-    },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-  };
-  const accounts = originalAccounts as Record<
-    keyof typeof originalAccounts,
-    ResolvedAccount
-  >;
-
-  // Original args.
-  const args = { ...input };
-
-  // Resolve default values.
-  if (!accounts.centralState.value) {
-    accounts.centralState.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            99, 101, 110, 116, 114, 97, 108, 95, 115, 116, 97, 116, 101,
-          ])
-        ),
-      ],
-    });
-  }
-  if (!accounts.systemProgram.value) {
-    accounts.systemProgram.value =
-      '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>;
-  }
-
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId');
-  return Object.freeze({
-    accounts: [
-      getAccountMeta(accounts.payer),
-      getAccountMeta(accounts.owner),
-      getAccountMeta(accounts.centralState),
-      getAccountMeta(accounts.userBurnAllowance),
-      getAccountMeta(accounts.systemProgram),
-    ],
-    data: getInitializeUserBurnAllowanceInstructionDataEncoder().encode(
-      args as InitializeUserBurnAllowanceInstructionDataArgs
-    ),
-    programAddress,
-  } as InitializeUserBurnAllowanceInstruction<
-    TProgramAddress,
-    TAccountPayer,
-    TAccountOwner,
-    TAccountCentralState,
-    TAccountUserBurnAllowance,
-    TAccountSystemProgram
-  >);
-}
-
 export type InitializeUserBurnAllowanceInput<
   TAccountPayer extends string = string,
   TAccountOwner extends string = string,
-  TAccountCentralState extends string = string,
   TAccountUserBurnAllowance extends string = string,
+  TAccountPlatformConfig extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountPool extends string = string,
 > = {
   payer: TransactionSigner<TAccountPayer>;
   /** The user for whom the burn allowance is being initialized */
   owner: Address<TAccountOwner>;
-  centralState: Address<TAccountCentralState>;
   userBurnAllowance: Address<TAccountUserBurnAllowance>;
+  platformConfig: Address<TAccountPlatformConfig>;
   systemProgram?: Address<TAccountSystemProgram>;
-  poolOwner: InitializeUserBurnAllowanceInstructionDataArgs['poolOwner'];
+  /** Optional pool account - only needed if requesting a pool creator burn tier */
+  pool?: Address<TAccountPool>;
+  burnTierIndex: InitializeUserBurnAllowanceInstructionDataArgs['burnTierIndex'];
 };
 
 export function getInitializeUserBurnAllowanceInstruction<
   TAccountPayer extends string,
   TAccountOwner extends string,
-  TAccountCentralState extends string,
   TAccountUserBurnAllowance extends string,
+  TAccountPlatformConfig extends string,
   TAccountSystemProgram extends string,
+  TAccountPool extends string,
   TProgramAddress extends Address = typeof CBMM_PROGRAM_ADDRESS,
 >(
   input: InitializeUserBurnAllowanceInput<
     TAccountPayer,
     TAccountOwner,
-    TAccountCentralState,
     TAccountUserBurnAllowance,
-    TAccountSystemProgram
+    TAccountPlatformConfig,
+    TAccountSystemProgram,
+    TAccountPool
   >,
   config?: { programAddress?: TProgramAddress }
 ): InitializeUserBurnAllowanceInstruction<
   TProgramAddress,
   TAccountPayer,
   TAccountOwner,
-  TAccountCentralState,
   TAccountUserBurnAllowance,
-  TAccountSystemProgram
+  TAccountPlatformConfig,
+  TAccountSystemProgram,
+  TAccountPool
 > {
   // Program address.
   const programAddress = config?.programAddress ?? CBMM_PROGRAM_ADDRESS;
@@ -271,12 +175,13 @@ export function getInitializeUserBurnAllowanceInstruction<
   const originalAccounts = {
     payer: { value: input.payer ?? null, isWritable: true },
     owner: { value: input.owner ?? null, isWritable: false },
-    centralState: { value: input.centralState ?? null, isWritable: false },
     userBurnAllowance: {
       value: input.userBurnAllowance ?? null,
       isWritable: true,
     },
+    platformConfig: { value: input.platformConfig ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    pool: { value: input.pool ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -297,9 +202,10 @@ export function getInitializeUserBurnAllowanceInstruction<
     accounts: [
       getAccountMeta(accounts.payer),
       getAccountMeta(accounts.owner),
-      getAccountMeta(accounts.centralState),
       getAccountMeta(accounts.userBurnAllowance),
+      getAccountMeta(accounts.platformConfig),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.pool),
     ],
     data: getInitializeUserBurnAllowanceInstructionDataEncoder().encode(
       args as InitializeUserBurnAllowanceInstructionDataArgs
@@ -309,9 +215,10 @@ export function getInitializeUserBurnAllowanceInstruction<
     TProgramAddress,
     TAccountPayer,
     TAccountOwner,
-    TAccountCentralState,
     TAccountUserBurnAllowance,
-    TAccountSystemProgram
+    TAccountPlatformConfig,
+    TAccountSystemProgram,
+    TAccountPool
   >);
 }
 
@@ -324,9 +231,11 @@ export type ParsedInitializeUserBurnAllowanceInstruction<
     payer: TAccountMetas[0];
     /** The user for whom the burn allowance is being initialized */
     owner: TAccountMetas[1];
-    centralState: TAccountMetas[2];
-    userBurnAllowance: TAccountMetas[3];
+    userBurnAllowance: TAccountMetas[2];
+    platformConfig: TAccountMetas[3];
     systemProgram: TAccountMetas[4];
+    /** Optional pool account - only needed if requesting a pool creator burn tier */
+    pool?: TAccountMetas[5] | undefined;
   };
   data: InitializeUserBurnAllowanceInstructionData;
 };
@@ -339,7 +248,7 @@ export function parseInitializeUserBurnAllowanceInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>
 ): ParsedInitializeUserBurnAllowanceInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 5) {
+  if (instruction.accounts.length < 6) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
   }
@@ -349,14 +258,21 @@ export function parseInitializeUserBurnAllowanceInstruction<
     accountIndex += 1;
     return accountMeta;
   };
+  const getNextOptionalAccount = () => {
+    const accountMeta = getNextAccount();
+    return accountMeta.address === CBMM_PROGRAM_ADDRESS
+      ? undefined
+      : accountMeta;
+  };
   return {
     programAddress: instruction.programAddress,
     accounts: {
       payer: getNextAccount(),
       owner: getNextAccount(),
-      centralState: getNextAccount(),
       userBurnAllowance: getNextAccount(),
+      platformConfig: getNextAccount(),
       systemProgram: getNextAccount(),
+      pool: getNextOptionalAccount(),
     },
     data: getInitializeUserBurnAllowanceInstructionDataDecoder().decode(
       instruction.data

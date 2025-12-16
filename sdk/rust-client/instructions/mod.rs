@@ -7,25 +7,27 @@
 
   pub(crate) mod r#burn_virtual_token;
   pub(crate) mod r#buy_virtual_token;
-  pub(crate) mod r#claim_admin_fees;
   pub(crate) mod r#claim_creator_fees;
+  pub(crate) mod r#claim_platform_fees;
   pub(crate) mod r#close_user_burn_allowance;
   pub(crate) mod r#close_virtual_token_account;
   pub(crate) mod r#create_pool;
-  pub(crate) mod r#initialize_central_state;
+  pub(crate) mod r#initialize_platform_config;
   pub(crate) mod r#initialize_user_burn_allowance;
   pub(crate) mod r#initialize_virtual_token_account;
   pub(crate) mod r#sell_virtual_token;
+  pub(crate) mod r#update_platform_config;
 
   pub use self::r#burn_virtual_token::*;
   pub use self::r#buy_virtual_token::*;
-  pub use self::r#claim_admin_fees::*;
   pub use self::r#claim_creator_fees::*;
+  pub use self::r#claim_platform_fees::*;
   pub use self::r#close_user_burn_allowance::*;
   pub use self::r#close_virtual_token_account::*;
   pub use self::r#create_pool::*;
-  pub use self::r#initialize_central_state::*;
+  pub use self::r#initialize_platform_config::*;
   pub use self::r#initialize_user_burn_allowance::*;
   pub use self::r#initialize_virtual_token_account::*;
   pub use self::r#sell_virtual_token::*;
+  pub use self::r#update_platform_config::*;
 

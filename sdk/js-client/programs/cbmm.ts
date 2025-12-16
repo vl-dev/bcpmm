@@ -16,23 +16,24 @@ import {
 import {
   type ParsedBurnVirtualTokenInstruction,
   type ParsedBuyVirtualTokenInstruction,
-  type ParsedClaimAdminFeesInstruction,
   type ParsedClaimCreatorFeesInstruction,
+  type ParsedClaimPlatformFeesInstruction,
   type ParsedCloseUserBurnAllowanceInstruction,
   type ParsedCloseVirtualTokenAccountInstruction,
   type ParsedCreatePoolInstruction,
-  type ParsedInitializeCentralStateInstruction,
+  type ParsedInitializePlatformConfigInstruction,
   type ParsedInitializeUserBurnAllowanceInstruction,
   type ParsedInitializeVirtualTokenAccountInstruction,
   type ParsedSellVirtualTokenInstruction,
+  type ParsedUpdatePlatformConfigInstruction,
 } from '../instructions';
 
 export const CBMM_PROGRAM_ADDRESS =
   'CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj' as Address<'CBMMzs3HKfTMudbXifeNcw3NcHQhZX7izDBKoGDLRdjj'>;
 
 export enum CbmmAccount {
-  BcpmmPool,
-  CentralState,
+  CbmmPool,
+  PlatformConfig,
   UserBurnAllowance,
   VirtualTokenAccount,
 }
@@ -45,23 +46,23 @@ export function identifyCbmmAccount(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([176, 79, 229, 1, 239, 41, 66, 21])
+        new Uint8Array([211, 205, 194, 36, 162, 140, 123, 178])
       ),
       0
     )
   ) {
-    return CbmmAccount.BcpmmPool;
+    return CbmmAccount.CbmmPool;
   }
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([201, 49, 35, 231, 4, 164, 205, 91])
+        new Uint8Array([160, 78, 128, 0, 248, 83, 230, 160])
       ),
       0
     )
   ) {
-    return CbmmAccount.CentralState;
+    return CbmmAccount.PlatformConfig;
   }
   if (
     containsBytes(
@@ -93,15 +94,16 @@ export function identifyCbmmAccount(
 export enum CbmmInstruction {
   BurnVirtualToken,
   BuyVirtualToken,
-  ClaimAdminFees,
   ClaimCreatorFees,
+  ClaimPlatformFees,
   CloseUserBurnAllowance,
   CloseVirtualTokenAccount,
   CreatePool,
-  InitializeCentralState,
+  InitializePlatformConfig,
   InitializeUserBurnAllowance,
   InitializeVirtualTokenAccount,
   SellVirtualToken,
+  UpdatePlatformConfig,
 }
 
 export function identifyCbmmInstruction(
@@ -134,23 +136,23 @@ export function identifyCbmmInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([68, 216, 128, 44, 49, 31, 91, 149])
-      ),
-      0
-    )
-  ) {
-    return CbmmInstruction.ClaimAdminFees;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([0, 23, 125, 234, 156, 118, 134, 89])
       ),
       0
     )
   ) {
     return CbmmInstruction.ClaimCreatorFees;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([159, 129, 37, 35, 170, 99, 163, 16])
+      ),
+      0
+    )
+  ) {
+    return CbmmInstruction.ClaimPlatformFees;
   }
   if (
     containsBytes(
@@ -189,12 +191,12 @@ export function identifyCbmmInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([204, 64, 162, 125, 253, 90, 119, 4])
+        new Uint8Array([23, 52, 237, 53, 176, 235, 3, 187])
       ),
       0
     )
   ) {
-    return CbmmInstruction.InitializeCentralState;
+    return CbmmInstruction.InitializePlatformConfig;
   }
   if (
     containsBytes(
@@ -229,6 +231,17 @@ export function identifyCbmmInstruction(
   ) {
     return CbmmInstruction.SellVirtualToken;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([195, 60, 76, 129, 146, 45, 67, 143])
+      ),
+      0
+    )
+  ) {
+    return CbmmInstruction.UpdatePlatformConfig;
+  }
   throw new Error(
     'The provided instruction could not be identified as a cbmm instruction.'
   );
@@ -244,11 +257,11 @@ export type ParsedCbmmInstruction<
       instructionType: CbmmInstruction.BuyVirtualToken;
     } & ParsedBuyVirtualTokenInstruction<TProgram>)
   | ({
-      instructionType: CbmmInstruction.ClaimAdminFees;
-    } & ParsedClaimAdminFeesInstruction<TProgram>)
-  | ({
       instructionType: CbmmInstruction.ClaimCreatorFees;
     } & ParsedClaimCreatorFeesInstruction<TProgram>)
+  | ({
+      instructionType: CbmmInstruction.ClaimPlatformFees;
+    } & ParsedClaimPlatformFeesInstruction<TProgram>)
   | ({
       instructionType: CbmmInstruction.CloseUserBurnAllowance;
     } & ParsedCloseUserBurnAllowanceInstruction<TProgram>)
@@ -259,8 +272,8 @@ export type ParsedCbmmInstruction<
       instructionType: CbmmInstruction.CreatePool;
     } & ParsedCreatePoolInstruction<TProgram>)
   | ({
-      instructionType: CbmmInstruction.InitializeCentralState;
-    } & ParsedInitializeCentralStateInstruction<TProgram>)
+      instructionType: CbmmInstruction.InitializePlatformConfig;
+    } & ParsedInitializePlatformConfigInstruction<TProgram>)
   | ({
       instructionType: CbmmInstruction.InitializeUserBurnAllowance;
     } & ParsedInitializeUserBurnAllowanceInstruction<TProgram>)
@@ -269,4 +282,7 @@ export type ParsedCbmmInstruction<
     } & ParsedInitializeVirtualTokenAccountInstruction<TProgram>)
   | ({
       instructionType: CbmmInstruction.SellVirtualToken;
-    } & ParsedSellVirtualTokenInstruction<TProgram>);
+    } & ParsedSellVirtualTokenInstruction<TProgram>)
+  | ({
+      instructionType: CbmmInstruction.UpdatePlatformConfig;
+    } & ParsedUpdatePlatformConfigInstruction<TProgram>);

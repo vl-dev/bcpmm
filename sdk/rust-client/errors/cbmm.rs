@@ -55,6 +55,42 @@ pub enum CbmmError {
     /// 6014 - Invalid mint
     #[error("Invalid mint")]
     InvalidMint = 0x177E,
+    /// 6015 - Invalid platform admin
+    #[error("Invalid platform admin")]
+    InvalidPlatformAdmin = 0x177F,
+    /// 6016 - Invalid burn tiers
+    #[error("Invalid burn tiers")]
+    InvalidBurnTiers = 0x1780,
+    /// 6017 - Math overflow
+    #[error("Math overflow")]
+    MathOverflow = 0x1781,
+    /// 6018 - Invalid burn tier index
+    #[error("Invalid burn tier index")]
+    InvalidBurnTierIndex = 0x1782,
+    /// 6019 - Pool creator burn tier requires pool
+    #[error("Pool creator burn tier requires pool")]
+    PoolCreatorBurnTierRequiresPool = 0x1783,
+    /// 6020 - Invalid pool creator
+    #[error("Invalid pool creator")]
+    InvalidPoolCreator = 0x1784,
+    /// 6021 - Invalid platform config
+    #[error("Invalid platform config")]
+    InvalidPlatformConfig = 0x1785,
+    /// 6022 - Burn limit reached
+    #[error("Burn limit reached")]
+    BurnLimitReached = 0x1786,
+    /// 6023 - Invalid burn tiers length
+    #[error("Invalid burn tiers length")]
+    InvalidBurnTiersLength = 0x1787,
+    /// 6024 - Invalid burn rate
+    #[error("Invalid burn rate")]
+    InvalidBurnRate = 0x1788,
+    /// 6025 - Invalid or missing burn authority
+    #[error("Invalid or missing burn authority")]
+    InvalidBurnAuthority = 0x1789,
+    /// 6026 - Burn tiers were updated too recently
+    #[error("Burn tiers were updated too recently")]
+    BurnTiersUpdatedTooRecently = 0x178A,
 }
 
 impl From<CbmmError> for solana_program_error::ProgramError {

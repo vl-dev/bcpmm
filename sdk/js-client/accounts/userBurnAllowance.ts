@@ -55,17 +55,25 @@ export type UserBurnAllowance = {
   discriminator: ReadonlyUint8Array;
   bump: number;
   user: Address;
+  burnTierIndex: number;
+  burnTierUpdateTimestamp: bigint;
+  platformConfig: Address;
   payer: Address;
   burnsToday: number;
   lastBurnTimestamp: bigint;
+  createdAt: bigint;
 };
 
 export type UserBurnAllowanceArgs = {
   bump: number;
   user: Address;
+  burnTierIndex: number;
+  burnTierUpdateTimestamp: number | bigint;
+  platformConfig: Address;
   payer: Address;
   burnsToday: number;
   lastBurnTimestamp: number | bigint;
+  createdAt: number | bigint;
 };
 
 export function getUserBurnAllowanceEncoder(): FixedSizeEncoder<UserBurnAllowanceArgs> {
@@ -74,9 +82,13 @@ export function getUserBurnAllowanceEncoder(): FixedSizeEncoder<UserBurnAllowanc
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
       ['bump', getU8Encoder()],
       ['user', getAddressEncoder()],
+      ['burnTierIndex', getU8Encoder()],
+      ['burnTierUpdateTimestamp', getI64Encoder()],
+      ['platformConfig', getAddressEncoder()],
       ['payer', getAddressEncoder()],
       ['burnsToday', getU16Encoder()],
       ['lastBurnTimestamp', getI64Encoder()],
+      ['createdAt', getI64Encoder()],
     ]),
     (value) => ({ ...value, discriminator: USER_BURN_ALLOWANCE_DISCRIMINATOR })
   );
@@ -87,9 +99,13 @@ export function getUserBurnAllowanceDecoder(): FixedSizeDecoder<UserBurnAllowanc
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
     ['bump', getU8Decoder()],
     ['user', getAddressDecoder()],
+    ['burnTierIndex', getU8Decoder()],
+    ['burnTierUpdateTimestamp', getI64Decoder()],
+    ['platformConfig', getAddressDecoder()],
     ['payer', getAddressDecoder()],
     ['burnsToday', getU16Decoder()],
     ['lastBurnTimestamp', getI64Decoder()],
+    ['createdAt', getI64Decoder()],
   ]);
 }
 
@@ -167,5 +183,5 @@ export async function fetchAllMaybeUserBurnAllowance(
 }
 
 export function getUserBurnAllowanceSize(): number {
-  return 83;
+  return 132;
 }

@@ -16,7 +16,6 @@ pub burn_amount: u64,
 pub topup_accrued: u64,
 pub new_b_reserve: u64,
 pub new_a_reserve: u64,
-pub new_outstanding_topup: u64,
 pub new_virtual_reserve: u64,
 pub new_buyback_fees_balance: u64,
 #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]

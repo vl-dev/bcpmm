@@ -6,31 +6,65 @@
 //!
 
 use solana_pubkey::Pubkey;
+use crate::generated::types::BurnRateLimiter;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct VirtualTokenAccount {
+pub struct CbmmPool {
 pub discriminator: [u8; 8],
 /// Bump seed
 pub bump: u8,
-/// Pool address
+/// Pool creator address
 #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
-pub pool: Pubkey,
-/// Owner address
+pub creator: Pubkey,
+/// Pool index per creator
+pub pool_index: u32,
+/// Platform config used by this pool
 #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
-pub owner: Pubkey,
-/// Balance of Mint B including decimals
-pub balance: u64,
+pub platform_config: Pubkey,
+/// A mint address
+#[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
+pub quote_mint: Pubkey,
+/// A reserve including decimals
+pub quote_reserve: u64,
+/// A virtual reserve including decimals
+pub quote_virtual_reserve: u64,
+/// A optimal virtual reserve that keeps the worst-case exit price at the original value
+pub quote_optimal_virtual_reserve: u64,
+/// A starting virtual reserve that is used to calculate the optimal virtual reserve
+pub quote_starting_virtual_reserve: u64,
+/// B mint decimals
+pub base_mint_decimals: u8,
+/// B reserve including decimals
+pub base_reserve: u64,
+/// B starting total supply including decimals
+pub base_starting_total_supply: u64,
+/// B total supply including decimals
+pub base_total_supply: u64,
+/// Creator fees balance denominated in Mint A including decimals
+pub creator_fees_balance: u64,
+/// Total buyback fees accumulated in Mint A including decimals
+pub buyback_fees_balance: u64,
+/// Total platform fees accumulated in Mint A including decimals
+pub platform_fees_balance: u64,
+/// Creator fee basis points
+pub creator_fee_bp: u16,
+/// Buyback fee basis points
+pub buyback_fee_bp: u16,
+/// Platform fee basis points
+pub platform_fee_bp: u16,
+/// Burn rate limiter
+pub burn_limiter: BurnRateLimiter,
 }
 
 
-pub const VIRTUAL_TOKEN_ACCOUNT_DISCRIMINATOR: [u8; 8] = [213, 245, 54, 92, 159, 127, 14, 1];
+pub const CBMM_POOL_DISCRIMINATOR: [u8; 8] = [211, 205, 194, 36, 162, 140, 123, 178];
 
-impl VirtualTokenAccount {
-      pub const LEN: usize = 81;
+impl CbmmPool {
+      pub const LEN: usize = 220;
   
   
   
@@ -41,7 +75,7 @@ impl VirtualTokenAccount {
   }
 }
 
-impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for VirtualTokenAccount {
+impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for CbmmPool {
   type Error = std::io::Error;
 
   fn try_from(account_info: &solana_account_info::AccountInfo<'a>) -> Result<Self, Self::Error> {
@@ -51,53 +85,53 @@ impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for VirtualTokenAccount 
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_virtual_token_account(
+pub fn fetch_cbmm_pool(
   rpc: &solana_client::rpc_client::RpcClient,
   address: &solana_pubkey::Pubkey,
-) -> Result<crate::shared::DecodedAccount<VirtualTokenAccount>, std::io::Error> {
-  let accounts = fetch_all_virtual_token_account(rpc, &[*address])?;
+) -> Result<crate::shared::DecodedAccount<CbmmPool>, std::io::Error> {
+  let accounts = fetch_all_cbmm_pool(rpc, &[*address])?;
   Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_all_virtual_token_account(
+pub fn fetch_all_cbmm_pool(
   rpc: &solana_client::rpc_client::RpcClient,
   addresses: &[solana_pubkey::Pubkey],
-) -> Result<Vec<crate::shared::DecodedAccount<VirtualTokenAccount>>, std::io::Error> {
+) -> Result<Vec<crate::shared::DecodedAccount<CbmmPool>>, std::io::Error> {
     let accounts = rpc.get_multiple_accounts(addresses)
       .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let mut decoded_accounts: Vec<crate::shared::DecodedAccount<VirtualTokenAccount>> = Vec::new();
+    let mut decoded_accounts: Vec<crate::shared::DecodedAccount<CbmmPool>> = Vec::new();
     for i in 0..addresses.len() {
       let address = addresses[i];
       let account = accounts[i].as_ref()
         .ok_or(std::io::Error::new(std::io::ErrorKind::Other, format!("Account not found: {}", address)))?;
-      let data = VirtualTokenAccount::from_bytes(&account.data)?;
+      let data = CbmmPool::from_bytes(&account.data)?;
       decoded_accounts.push(crate::shared::DecodedAccount { address, account: account.clone(), data });
     }
     Ok(decoded_accounts)
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_maybe_virtual_token_account(
+pub fn fetch_maybe_cbmm_pool(
   rpc: &solana_client::rpc_client::RpcClient,
   address: &solana_pubkey::Pubkey,
-) -> Result<crate::shared::MaybeAccount<VirtualTokenAccount>, std::io::Error> {
-    let accounts = fetch_all_maybe_virtual_token_account(rpc, &[*address])?;
+) -> Result<crate::shared::MaybeAccount<CbmmPool>, std::io::Error> {
+    let accounts = fetch_all_maybe_cbmm_pool(rpc, &[*address])?;
     Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_all_maybe_virtual_token_account(
+pub fn fetch_all_maybe_cbmm_pool(
   rpc: &solana_client::rpc_client::RpcClient,
   addresses: &[solana_pubkey::Pubkey],
-) -> Result<Vec<crate::shared::MaybeAccount<VirtualTokenAccount>>, std::io::Error> {
+) -> Result<Vec<crate::shared::MaybeAccount<CbmmPool>>, std::io::Error> {
     let accounts = rpc.get_multiple_accounts(addresses)
       .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let mut decoded_accounts: Vec<crate::shared::MaybeAccount<VirtualTokenAccount>> = Vec::new();
+    let mut decoded_accounts: Vec<crate::shared::MaybeAccount<CbmmPool>> = Vec::new();
     for i in 0..addresses.len() {
       let address = addresses[i];
       if let Some(account) = accounts[i].as_ref() {
-        let data = VirtualTokenAccount::from_bytes(&account.data)?;
+        let data = CbmmPool::from_bytes(&account.data)?;
         decoded_accounts.push(crate::shared::MaybeAccount::Exists(crate::shared::DecodedAccount { address, account: account.clone(), data }));
       } else {
         decoded_accounts.push(crate::shared::MaybeAccount::NotFound(address));
@@ -107,28 +141,28 @@ pub fn fetch_all_maybe_virtual_token_account(
 }
 
   #[cfg(feature = "anchor")]
-  impl anchor_lang::AccountDeserialize for VirtualTokenAccount {
+  impl anchor_lang::AccountDeserialize for CbmmPool {
       fn try_deserialize_unchecked(buf: &mut &[u8]) -> anchor_lang::Result<Self> {
         Ok(Self::deserialize(buf)?)
       }
   }
 
   #[cfg(feature = "anchor")]
-  impl anchor_lang::AccountSerialize for VirtualTokenAccount {}
+  impl anchor_lang::AccountSerialize for CbmmPool {}
 
   #[cfg(feature = "anchor")]
-  impl anchor_lang::Owner for VirtualTokenAccount {
+  impl anchor_lang::Owner for CbmmPool {
       fn owner() -> Pubkey {
         crate::CBMM_ID
       }
   }
 
   #[cfg(feature = "anchor-idl-build")]
-  impl anchor_lang::IdlBuild for VirtualTokenAccount {}
+  impl anchor_lang::IdlBuild for CbmmPool {}
 
   
   #[cfg(feature = "anchor-idl-build")]
-  impl anchor_lang::Discriminator for VirtualTokenAccount {
+  impl anchor_lang::Discriminator for CbmmPool {
     const DISCRIMINATOR: &[u8] = &[0; 8];
   }
 

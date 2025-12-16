@@ -5,23 +5,15 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use solana_pubkey::Pubkey;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct BuyEvent {
-pub quote_input: u64,
-pub base_output: u64,
-pub fees: u64,
-pub topup_paid: u64,
-pub new_base_reserve: u64,
-pub new_quote_reserve: u64,
-#[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
-pub buyer: Pubkey,
-#[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
-pub pool: Pubkey,
+pub struct BurnRateConfig {
+pub burn_limit_bp_x100: u64,
+pub burn_min_bp_x100: u64,
+pub decay_rate_per_sec_bp_x100: u64,
 }
 
 

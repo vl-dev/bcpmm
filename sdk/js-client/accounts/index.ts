@@ -6,7 +6,7 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from './bcpmmPool';
-export * from './centralState';
+export * from './cbmmPool';
+export * from './platformConfig';
 export * from './userBurnAllowance';
 export * from './virtualTokenAccount';

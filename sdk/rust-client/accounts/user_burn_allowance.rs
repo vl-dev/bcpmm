@@ -17,17 +17,22 @@ pub discriminator: [u8; 8],
 pub bump: u8,
 #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
 pub user: Pubkey,
+pub burn_tier_index: u8,
+pub burn_tier_update_timestamp: i64,
+#[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
+pub platform_config: Pubkey,
 #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
 pub payer: Pubkey,
 pub burns_today: u16,
 pub last_burn_timestamp: i64,
+pub created_at: i64,
 }
 
 
 pub const USER_BURN_ALLOWANCE_DISCRIMINATOR: [u8; 8] = [154, 213, 227, 142, 136, 30, 145, 155];
 
 impl UserBurnAllowance {
-      pub const LEN: usize = 83;
+      pub const LEN: usize = 132;
   
   
   

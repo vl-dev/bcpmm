@@ -7,5 +7,9 @@
  */
 
 export * from './burnEvent';
+export * from './burnRateConfig';
+export * from './burnRateLimiter';
+export * from './burnRole';
+export * from './burnTier';
 export * from './buyEvent';
 export * from './sellEvent';

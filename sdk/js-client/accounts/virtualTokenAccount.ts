@@ -59,8 +59,6 @@ export type VirtualTokenAccount = {
   owner: Address;
   /** Balance of Mint B including decimals */
   balance: bigint;
-  /** All fees paid when buying and selling tokens to this account. Denominated in Mint A including decimals */
-  feesPaid: bigint;
 };
 
 export type VirtualTokenAccountArgs = {
@@ -72,8 +70,6 @@ export type VirtualTokenAccountArgs = {
   owner: Address;
   /** Balance of Mint B including decimals */
   balance: number | bigint;
-  /** All fees paid when buying and selling tokens to this account. Denominated in Mint A including decimals */
-  feesPaid: number | bigint;
 };
 
 export function getVirtualTokenAccountEncoder(): FixedSizeEncoder<VirtualTokenAccountArgs> {
@@ -84,7 +80,6 @@ export function getVirtualTokenAccountEncoder(): FixedSizeEncoder<VirtualTokenAc
       ['pool', getAddressEncoder()],
       ['owner', getAddressEncoder()],
       ['balance', getU64Encoder()],
-      ['feesPaid', getU64Encoder()],
     ]),
     (value) => ({
       ...value,
@@ -100,7 +95,6 @@ export function getVirtualTokenAccountDecoder(): FixedSizeDecoder<VirtualTokenAc
     ['pool', getAddressDecoder()],
     ['owner', getAddressDecoder()],
     ['balance', getU64Decoder()],
-    ['feesPaid', getU64Decoder()],
   ]);
 }
 
@@ -184,5 +178,5 @@ export async function fetchAllMaybeVirtualTokenAccount(
 }
 
 export function getVirtualTokenAccountSize(): number {
-  return 89;
+  return 81;
 }

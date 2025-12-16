@@ -58,9 +58,8 @@ export type BuyVirtualTokenInstruction<
   TAccountVirtualTokenAccount extends string | AccountMeta<string> = string,
   TAccountPool extends string | AccountMeta<string> = string,
   TAccountPoolAta extends string | AccountMeta<string> = string,
-  TAccountCentralStateAta extends string | AccountMeta<string> = string,
-  TAccountCentralState extends string | AccountMeta<string> = string,
-  TAccountAMint extends string | AccountMeta<string> = string,
+  TAccountPlatformConfig extends string | AccountMeta<string> = string,
+  TAccountQuoteMint extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends
     | string
     | AccountMeta<string> = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
@@ -88,15 +87,12 @@ export type BuyVirtualTokenInstruction<
       TAccountPoolAta extends string
         ? WritableAccount<TAccountPoolAta>
         : TAccountPoolAta,
-      TAccountCentralStateAta extends string
-        ? WritableAccount<TAccountCentralStateAta>
-        : TAccountCentralStateAta,
-      TAccountCentralState extends string
-        ? WritableAccount<TAccountCentralState>
-        : TAccountCentralState,
-      TAccountAMint extends string
-        ? ReadonlyAccount<TAccountAMint>
-        : TAccountAMint,
+      TAccountPlatformConfig extends string
+        ? ReadonlyAccount<TAccountPlatformConfig>
+        : TAccountPlatformConfig,
+      TAccountQuoteMint extends string
+        ? ReadonlyAccount<TAccountQuoteMint>
+        : TAccountQuoteMint,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
@@ -109,25 +105,25 @@ export type BuyVirtualTokenInstruction<
 
 export type BuyVirtualTokenInstructionData = {
   discriminator: ReadonlyUint8Array;
-  /** a_amount is the amount of Mint A to swap for Mint B. Includes decimals. */
-  aAmount: bigint;
+  /** quote_amount is the amount of Mint A to swap for Mint B. Includes decimals. */
+  quoteAmount: bigint;
   /** The minimum amount of Mint B to receive. If below this, the transaction will fail. */
-  bAmountMin: bigint;
+  baseAmountMin: bigint;
 };
 
 export type BuyVirtualTokenInstructionDataArgs = {
-  /** a_amount is the amount of Mint A to swap for Mint B. Includes decimals. */
-  aAmount: number | bigint;
+  /** quote_amount is the amount of Mint A to swap for Mint B. Includes decimals. */
+  quoteAmount: number | bigint;
   /** The minimum amount of Mint B to receive. If below this, the transaction will fail. */
-  bAmountMin: number | bigint;
+  baseAmountMin: number | bigint;
 };
 
 export function getBuyVirtualTokenInstructionDataEncoder(): FixedSizeEncoder<BuyVirtualTokenInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ['discriminator', fixEncoderSize(getBytesEncoder(), 8)],
-      ['aAmount', getU64Encoder()],
-      ['bAmountMin', getU64Encoder()],
+      ['quoteAmount', getU64Encoder()],
+      ['baseAmountMin', getU64Encoder()],
     ]),
     (value) => ({ ...value, discriminator: BUY_VIRTUAL_TOKEN_DISCRIMINATOR })
   );
@@ -136,8 +132,8 @@ export function getBuyVirtualTokenInstructionDataEncoder(): FixedSizeEncoder<Buy
 export function getBuyVirtualTokenInstructionDataDecoder(): FixedSizeDecoder<BuyVirtualTokenInstructionData> {
   return getStructDecoder([
     ['discriminator', fixDecoderSize(getBytesDecoder(), 8)],
-    ['aAmount', getU64Decoder()],
-    ['bAmountMin', getU64Decoder()],
+    ['quoteAmount', getU64Decoder()],
+    ['baseAmountMin', getU64Decoder()],
   ]);
 }
 
@@ -157,9 +153,8 @@ export type BuyVirtualTokenAsyncInput<
   TAccountVirtualTokenAccount extends string = string,
   TAccountPool extends string = string,
   TAccountPoolAta extends string = string,
-  TAccountCentralStateAta extends string = string,
-  TAccountCentralState extends string = string,
-  TAccountAMint extends string = string,
+  TAccountPlatformConfig extends string = string,
+  TAccountQuoteMint extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
@@ -168,13 +163,12 @@ export type BuyVirtualTokenAsyncInput<
   virtualTokenAccount?: Address<TAccountVirtualTokenAccount>;
   pool: Address<TAccountPool>;
   poolAta?: Address<TAccountPoolAta>;
-  centralStateAta?: Address<TAccountCentralStateAta>;
-  centralState?: Address<TAccountCentralState>;
-  aMint: Address<TAccountAMint>;
+  platformConfig: Address<TAccountPlatformConfig>;
+  quoteMint: Address<TAccountQuoteMint>;
   tokenProgram?: Address<TAccountTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
-  aAmount: BuyVirtualTokenInstructionDataArgs['aAmount'];
-  bAmountMin: BuyVirtualTokenInstructionDataArgs['bAmountMin'];
+  quoteAmount: BuyVirtualTokenInstructionDataArgs['quoteAmount'];
+  baseAmountMin: BuyVirtualTokenInstructionDataArgs['baseAmountMin'];
 };
 
 export async function getBuyVirtualTokenInstructionAsync<
@@ -183,9 +177,8 @@ export async function getBuyVirtualTokenInstructionAsync<
   TAccountVirtualTokenAccount extends string,
   TAccountPool extends string,
   TAccountPoolAta extends string,
-  TAccountCentralStateAta extends string,
-  TAccountCentralState extends string,
-  TAccountAMint extends string,
+  TAccountPlatformConfig extends string,
+  TAccountQuoteMint extends string,
   TAccountTokenProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof CBMM_PROGRAM_ADDRESS,
@@ -196,9 +189,8 @@ export async function getBuyVirtualTokenInstructionAsync<
     TAccountVirtualTokenAccount,
     TAccountPool,
     TAccountPoolAta,
-    TAccountCentralStateAta,
-    TAccountCentralState,
-    TAccountAMint,
+    TAccountPlatformConfig,
+    TAccountQuoteMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >,
@@ -211,9 +203,8 @@ export async function getBuyVirtualTokenInstructionAsync<
     TAccountVirtualTokenAccount,
     TAccountPool,
     TAccountPoolAta,
-    TAccountCentralStateAta,
-    TAccountCentralState,
-    TAccountAMint,
+    TAccountPlatformConfig,
+    TAccountQuoteMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >
@@ -231,9 +222,8 @@ export async function getBuyVirtualTokenInstructionAsync<
     },
     pool: { value: input.pool ?? null, isWritable: true },
     poolAta: { value: input.poolAta ?? null, isWritable: true },
-    centralStateAta: { value: input.centralStateAta ?? null, isWritable: true },
-    centralState: { value: input.centralState ?? null, isWritable: true },
-    aMint: { value: input.aMint ?? null, isWritable: false },
+    platformConfig: { value: input.platformConfig ?? null, isWritable: false },
+    quoteMint: { value: input.quoteMint ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
@@ -257,7 +247,7 @@ export async function getBuyVirtualTokenInstructionAsync<
       seeds: [
         getAddressEncoder().encode(expectAddress(accounts.payer.value)),
         getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
-        getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
+        getAddressEncoder().encode(expectAddress(accounts.quoteMint.value)),
       ],
     });
   }
@@ -283,30 +273,7 @@ export async function getBuyVirtualTokenInstructionAsync<
       seeds: [
         getAddressEncoder().encode(expectAddress(accounts.pool.value)),
         getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
-        getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
-      ],
-    });
-  }
-  if (!accounts.centralState.value) {
-    accounts.centralState.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            99, 101, 110, 116, 114, 97, 108, 95, 115, 116, 97, 116, 101,
-          ])
-        ),
-      ],
-    });
-  }
-  if (!accounts.centralStateAta.value) {
-    accounts.centralStateAta.value = await getProgramDerivedAddress({
-      programAddress:
-        'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>,
-      seeds: [
-        getAddressEncoder().encode(expectAddress(accounts.centralState.value)),
-        getAddressEncoder().encode(expectAddress(accounts.tokenProgram.value)),
-        getAddressEncoder().encode(expectAddress(accounts.aMint.value)),
+        getAddressEncoder().encode(expectAddress(accounts.quoteMint.value)),
       ],
     });
   }
@@ -323,9 +290,8 @@ export async function getBuyVirtualTokenInstructionAsync<
       getAccountMeta(accounts.virtualTokenAccount),
       getAccountMeta(accounts.pool),
       getAccountMeta(accounts.poolAta),
-      getAccountMeta(accounts.centralStateAta),
-      getAccountMeta(accounts.centralState),
-      getAccountMeta(accounts.aMint),
+      getAccountMeta(accounts.platformConfig),
+      getAccountMeta(accounts.quoteMint),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.systemProgram),
     ],
@@ -340,9 +306,8 @@ export async function getBuyVirtualTokenInstructionAsync<
     TAccountVirtualTokenAccount,
     TAccountPool,
     TAccountPoolAta,
-    TAccountCentralStateAta,
-    TAccountCentralState,
-    TAccountAMint,
+    TAccountPlatformConfig,
+    TAccountQuoteMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >);
@@ -354,9 +319,8 @@ export type BuyVirtualTokenInput<
   TAccountVirtualTokenAccount extends string = string,
   TAccountPool extends string = string,
   TAccountPoolAta extends string = string,
-  TAccountCentralStateAta extends string = string,
-  TAccountCentralState extends string = string,
-  TAccountAMint extends string = string,
+  TAccountPlatformConfig extends string = string,
+  TAccountQuoteMint extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
@@ -365,13 +329,12 @@ export type BuyVirtualTokenInput<
   virtualTokenAccount: Address<TAccountVirtualTokenAccount>;
   pool: Address<TAccountPool>;
   poolAta: Address<TAccountPoolAta>;
-  centralStateAta: Address<TAccountCentralStateAta>;
-  centralState: Address<TAccountCentralState>;
-  aMint: Address<TAccountAMint>;
+  platformConfig: Address<TAccountPlatformConfig>;
+  quoteMint: Address<TAccountQuoteMint>;
   tokenProgram?: Address<TAccountTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
-  aAmount: BuyVirtualTokenInstructionDataArgs['aAmount'];
-  bAmountMin: BuyVirtualTokenInstructionDataArgs['bAmountMin'];
+  quoteAmount: BuyVirtualTokenInstructionDataArgs['quoteAmount'];
+  baseAmountMin: BuyVirtualTokenInstructionDataArgs['baseAmountMin'];
 };
 
 export function getBuyVirtualTokenInstruction<
@@ -380,9 +343,8 @@ export function getBuyVirtualTokenInstruction<
   TAccountVirtualTokenAccount extends string,
   TAccountPool extends string,
   TAccountPoolAta extends string,
-  TAccountCentralStateAta extends string,
-  TAccountCentralState extends string,
-  TAccountAMint extends string,
+  TAccountPlatformConfig extends string,
+  TAccountQuoteMint extends string,
   TAccountTokenProgram extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof CBMM_PROGRAM_ADDRESS,
@@ -393,9 +355,8 @@ export function getBuyVirtualTokenInstruction<
     TAccountVirtualTokenAccount,
     TAccountPool,
     TAccountPoolAta,
-    TAccountCentralStateAta,
-    TAccountCentralState,
-    TAccountAMint,
+    TAccountPlatformConfig,
+    TAccountQuoteMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >,
@@ -407,9 +368,8 @@ export function getBuyVirtualTokenInstruction<
   TAccountVirtualTokenAccount,
   TAccountPool,
   TAccountPoolAta,
-  TAccountCentralStateAta,
-  TAccountCentralState,
-  TAccountAMint,
+  TAccountPlatformConfig,
+  TAccountQuoteMint,
   TAccountTokenProgram,
   TAccountSystemProgram
 > {
@@ -426,9 +386,8 @@ export function getBuyVirtualTokenInstruction<
     },
     pool: { value: input.pool ?? null, isWritable: true },
     poolAta: { value: input.poolAta ?? null, isWritable: true },
-    centralStateAta: { value: input.centralStateAta ?? null, isWritable: true },
-    centralState: { value: input.centralState ?? null, isWritable: true },
-    aMint: { value: input.aMint ?? null, isWritable: false },
+    platformConfig: { value: input.platformConfig ?? null, isWritable: false },
+    quoteMint: { value: input.quoteMint ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
@@ -458,9 +417,8 @@ export function getBuyVirtualTokenInstruction<
       getAccountMeta(accounts.virtualTokenAccount),
       getAccountMeta(accounts.pool),
       getAccountMeta(accounts.poolAta),
-      getAccountMeta(accounts.centralStateAta),
-      getAccountMeta(accounts.centralState),
-      getAccountMeta(accounts.aMint),
+      getAccountMeta(accounts.platformConfig),
+      getAccountMeta(accounts.quoteMint),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.systemProgram),
     ],
@@ -475,9 +433,8 @@ export function getBuyVirtualTokenInstruction<
     TAccountVirtualTokenAccount,
     TAccountPool,
     TAccountPoolAta,
-    TAccountCentralStateAta,
-    TAccountCentralState,
-    TAccountAMint,
+    TAccountPlatformConfig,
+    TAccountQuoteMint,
     TAccountTokenProgram,
     TAccountSystemProgram
   >);
@@ -494,11 +451,10 @@ export type ParsedBuyVirtualTokenInstruction<
     virtualTokenAccount: TAccountMetas[2];
     pool: TAccountMetas[3];
     poolAta: TAccountMetas[4];
-    centralStateAta: TAccountMetas[5];
-    centralState: TAccountMetas[6];
-    aMint: TAccountMetas[7];
-    tokenProgram: TAccountMetas[8];
-    systemProgram: TAccountMetas[9];
+    platformConfig: TAccountMetas[5];
+    quoteMint: TAccountMetas[6];
+    tokenProgram: TAccountMetas[7];
+    systemProgram: TAccountMetas[8];
   };
   data: BuyVirtualTokenInstructionData;
 };
@@ -511,7 +467,7 @@ export function parseBuyVirtualTokenInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>
 ): ParsedBuyVirtualTokenInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 10) {
+  if (instruction.accounts.length < 9) {
     // TODO: Coded error.
     throw new Error('Not enough accounts');
   }
@@ -529,9 +485,8 @@ export function parseBuyVirtualTokenInstruction<
       virtualTokenAccount: getNextAccount(),
       pool: getNextAccount(),
       poolAta: getNextAccount(),
-      centralStateAta: getNextAccount(),
-      centralState: getNextAccount(),
-      aMint: getNextAccount(),
+      platformConfig: getNextAccount(),
+      quoteMint: getNextAccount(),
       tokenProgram: getNextAccount(),
       systemProgram: getNextAccount(),
     },

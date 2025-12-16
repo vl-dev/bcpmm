@@ -5,557 +5,472 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-use borsh::BorshDeserialize;
 use borsh::BorshSerialize;
+use borsh::BorshDeserialize;
 
 pub const CLAIM_CREATOR_FEES_DISCRIMINATOR: [u8; 8] = [0, 23, 125, 234, 156, 118, 134, 89];
 
 /// Accounts.
 #[derive(Debug)]
 pub struct ClaimCreatorFees {
-    pub owner: solana_pubkey::Pubkey,
-
-    pub owner_ata: solana_pubkey::Pubkey,
-
-    pub central_state: solana_pubkey::Pubkey,
-
-    pub pool: solana_pubkey::Pubkey,
-
-    pub pool_ata: solana_pubkey::Pubkey,
-
-    pub quote_mint: solana_pubkey::Pubkey,
-
-    pub token_program: solana_pubkey::Pubkey,
-
-    pub system_program: solana_pubkey::Pubkey,
-}
+      
+              
+          pub owner: solana_pubkey::Pubkey,
+          
+              
+          pub owner_ata: solana_pubkey::Pubkey,
+          
+              
+          pub pool: solana_pubkey::Pubkey,
+          
+              
+          pub pool_ata: solana_pubkey::Pubkey,
+          
+              
+          pub quote_mint: solana_pubkey::Pubkey,
+          
+              
+          pub token_program: solana_pubkey::Pubkey,
+          
+              
+          pub system_program: solana_pubkey::Pubkey,
+      }
 
 impl ClaimCreatorFees {
-    pub fn instruction(
-        &self,
-        args: ClaimCreatorFeesInstructionArgs,
-    ) -> solana_instruction::Instruction {
-        self.instruction_with_remaining_accounts(args, &[])
-    }
-    #[allow(clippy::arithmetic_side_effects)]
-    #[allow(clippy::vec_init_then_push)]
-    pub fn instruction_with_remaining_accounts(
-        &self,
-        args: ClaimCreatorFeesInstructionArgs,
-        remaining_accounts: &[solana_instruction::AccountMeta],
-    ) -> solana_instruction::Instruction {
-        let mut accounts = Vec::with_capacity(8 + remaining_accounts.len());
-        accounts.push(solana_instruction::AccountMeta::new(self.owner, true));
-        accounts.push(solana_instruction::AccountMeta::new(self.owner_ata, false));
-        accounts.push(solana_instruction::AccountMeta::new(
-            self.central_state,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new(self.pool, false));
-        accounts.push(solana_instruction::AccountMeta::new(self.pool_ata, false));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.a_mint,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
+  pub fn instruction(&self) -> solana_instruction::Instruction {
+    self.instruction_with_remaining_accounts(&[])
+  }
+  #[allow(clippy::arithmetic_side_effects)]
+  #[allow(clippy::vec_init_then_push)]
+  pub fn instruction_with_remaining_accounts(&self, remaining_accounts: &[solana_instruction::AccountMeta]) -> solana_instruction::Instruction {
+    let mut accounts = Vec::with_capacity(7+ remaining_accounts.len());
+                            accounts.push(solana_instruction::AccountMeta::new(
+            self.owner,
+            true
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            self.owner_ata,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            self.pool,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            self.pool_ata,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.quote_mint,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.token_program,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
             self.system_program,
-            false,
-        ));
-        accounts.extend_from_slice(remaining_accounts);
-        let mut data = ClaimCreatorFeesInstructionData::new().try_to_vec().unwrap();
-        let mut args = args.try_to_vec().unwrap();
-        data.append(&mut args);
-
-        solana_instruction::Instruction {
-            program_id: crate::CBMM_ID,
-            accounts,
-            data,
-        }
+            false
+          ));
+                      accounts.extend_from_slice(remaining_accounts);
+    let data = ClaimCreatorFeesInstructionData::new().try_to_vec().unwrap();
+    
+    solana_instruction::Instruction {
+      program_id: crate::CBMM_ID,
+      accounts,
+      data,
     }
+  }
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ClaimCreatorFeesInstructionData {
-    discriminator: [u8; 8],
-}
+ pub struct ClaimCreatorFeesInstructionData {
+            discriminator: [u8; 8],
+      }
 
 impl ClaimCreatorFeesInstructionData {
-    pub fn new() -> Self {
-        Self {
-            discriminator: [0, 23, 125, 234, 156, 118, 134, 89],
-        }
-    }
+  pub fn new() -> Self {
+    Self {
+                        discriminator: [0, 23, 125, 234, 156, 118, 134, 89],
+                  }
+  }
 
     pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-        borsh::to_vec(self)
-    }
-}
+    borsh::to_vec(self)
+  }
+  }
 
 impl Default for ClaimCreatorFeesInstructionData {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ClaimCreatorFeesInstructionArgs {
-    pub amount: u64,
-}
 
-impl ClaimCreatorFeesInstructionArgs {
-    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
-        borsh::to_vec(self)
-    }
-}
 
 /// Instruction builder for `ClaimCreatorFees`.
 ///
 /// ### Accounts:
 ///
-///   0. `[writable, signer]` owner
-///   1. `[writable]` owner_ata
-///   2. `[writable]` central_state
-///   3. `[writable]` pool
-///   4. `[writable]` pool_ata
-///   5. `[]` quote_mint
-///   6. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
-///   7. `[optional]` system_program (default to `11111111111111111111111111111111`)
+                      ///   0. `[writable, signer]` owner
+                ///   1. `[writable]` owner_ata
+                ///   2. `[writable]` pool
+                ///   3. `[writable]` pool_ata
+          ///   4. `[]` quote_mint
+                ///   5. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+                ///   6. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct ClaimCreatorFeesBuilder {
-    owner: Option<solana_pubkey::Pubkey>,
-    owner_ata: Option<solana_pubkey::Pubkey>,
-    central_state: Option<solana_pubkey::Pubkey>,
-    pool: Option<solana_pubkey::Pubkey>,
-    pool_ata: Option<solana_pubkey::Pubkey>,
-    quote_mint: Option<solana_pubkey::Pubkey>,
-    token_program: Option<solana_pubkey::Pubkey>,
-    system_program: Option<solana_pubkey::Pubkey>,
-    amount: Option<u64>,
-    __remaining_accounts: Vec<solana_instruction::AccountMeta>,
+            owner: Option<solana_pubkey::Pubkey>,
+                owner_ata: Option<solana_pubkey::Pubkey>,
+                pool: Option<solana_pubkey::Pubkey>,
+                pool_ata: Option<solana_pubkey::Pubkey>,
+                quote_mint: Option<solana_pubkey::Pubkey>,
+                token_program: Option<solana_pubkey::Pubkey>,
+                system_program: Option<solana_pubkey::Pubkey>,
+                __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
 impl ClaimCreatorFeesBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-    #[inline(always)]
+  pub fn new() -> Self {
+    Self::default()
+  }
+            #[inline(always)]
     pub fn owner(&mut self, owner: solana_pubkey::Pubkey) -> &mut Self {
-        self.owner = Some(owner);
-        self
+                        self.owner = Some(owner);
+                    self
     }
-    #[inline(always)]
+            #[inline(always)]
     pub fn owner_ata(&mut self, owner_ata: solana_pubkey::Pubkey) -> &mut Self {
-        self.owner_ata = Some(owner_ata);
-        self
+                        self.owner_ata = Some(owner_ata);
+                    self
     }
-    #[inline(always)]
-    pub fn central_state(&mut self, central_state: solana_pubkey::Pubkey) -> &mut Self {
-        self.central_state = Some(central_state);
-        self
-    }
-    #[inline(always)]
+            #[inline(always)]
     pub fn pool(&mut self, pool: solana_pubkey::Pubkey) -> &mut Self {
-        self.pool = Some(pool);
-        self
+                        self.pool = Some(pool);
+                    self
     }
-    #[inline(always)]
+            #[inline(always)]
     pub fn pool_ata(&mut self, pool_ata: solana_pubkey::Pubkey) -> &mut Self {
-        self.pool_ata = Some(pool_ata);
-        self
+                        self.pool_ata = Some(pool_ata);
+                    self
     }
-    #[inline(always)]
+            #[inline(always)]
     pub fn quote_mint(&mut self, quote_mint: solana_pubkey::Pubkey) -> &mut Self {
-        self.a_mint = Some(a_mint);
-        self
+                        self.quote_mint = Some(quote_mint);
+                    self
     }
-    /// `[optional account, default to 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA']`
-    #[inline(always)]
+            /// `[optional account, default to 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA']`
+#[inline(always)]
     pub fn token_program(&mut self, token_program: solana_pubkey::Pubkey) -> &mut Self {
-        self.token_program = Some(token_program);
-        self
+                        self.token_program = Some(token_program);
+                    self
     }
-    /// `[optional account, default to '11111111111111111111111111111111']`
-    #[inline(always)]
+            /// `[optional account, default to '11111111111111111111111111111111']`
+#[inline(always)]
     pub fn system_program(&mut self, system_program: solana_pubkey::Pubkey) -> &mut Self {
-        self.system_program = Some(system_program);
-        self
+                        self.system_program = Some(system_program);
+                    self
     }
-    #[inline(always)]
-    pub fn amount(&mut self, amount: u64) -> &mut Self {
-        self.amount = Some(amount);
-        self
-    }
-    /// Add an additional account to the instruction.
-    #[inline(always)]
-    pub fn add_remaining_account(&mut self, account: solana_instruction::AccountMeta) -> &mut Self {
-        self.__remaining_accounts.push(account);
-        self
-    }
-    /// Add additional accounts to the instruction.
-    #[inline(always)]
-    pub fn add_remaining_accounts(
-        &mut self,
-        accounts: &[solana_instruction::AccountMeta],
-    ) -> &mut Self {
-        self.__remaining_accounts.extend_from_slice(accounts);
-        self
-    }
-    #[allow(clippy::clone_on_copy)]
-    pub fn instruction(&self) -> solana_instruction::Instruction {
-        let accounts = ClaimCreatorFees {
-            owner: self.owner.expect("owner is not set"),
-            owner_ata: self.owner_ata.expect("owner_ata is not set"),
-            central_state: self.central_state.expect("central_state is not set"),
-            pool: self.pool.expect("pool is not set"),
-            pool_ata: self.pool_ata.expect("pool_ata is not set"),
-            quote_mint: self.a_mint.expect("a_mint is not set"),
-            token_program: self.token_program.unwrap_or(solana_pubkey::pubkey!(
-                "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-            )),
-            system_program: self
-                .system_program
-                .unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
-        };
-        let args = ClaimCreatorFeesInstructionArgs {
-            amount: self.amount.clone().expect("amount is not set"),
-        };
-
-        accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
-    }
+            /// Add an additional account to the instruction.
+  #[inline(always)]
+  pub fn add_remaining_account(&mut self, account: solana_instruction::AccountMeta) -> &mut Self {
+    self.__remaining_accounts.push(account);
+    self
+  }
+  /// Add additional accounts to the instruction.
+  #[inline(always)]
+  pub fn add_remaining_accounts(&mut self, accounts: &[solana_instruction::AccountMeta]) -> &mut Self {
+    self.__remaining_accounts.extend_from_slice(accounts);
+    self
+  }
+  #[allow(clippy::clone_on_copy)]
+  pub fn instruction(&self) -> solana_instruction::Instruction {
+    let accounts = ClaimCreatorFees {
+                              owner: self.owner.expect("owner is not set"),
+                                        owner_ata: self.owner_ata.expect("owner_ata is not set"),
+                                        pool: self.pool.expect("pool is not set"),
+                                        pool_ata: self.pool_ata.expect("pool_ata is not set"),
+                                        quote_mint: self.quote_mint.expect("quote_mint is not set"),
+                                        token_program: self.token_program.unwrap_or(solana_pubkey::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")),
+                                        system_program: self.system_program.unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
+                      };
+    
+    accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
+  }
 }
 
-/// `claim_creator_fees` CPI accounts.
-pub struct ClaimCreatorFeesCpiAccounts<'a, 'b> {
-    pub owner: &'b solana_account_info::AccountInfo<'a>,
-
-    pub owner_ata: &'b solana_account_info::AccountInfo<'a>,
-
-    pub central_state: &'b solana_account_info::AccountInfo<'a>,
-
-    pub pool: &'b solana_account_info::AccountInfo<'a>,
-
-    pub pool_ata: &'b solana_account_info::AccountInfo<'a>,
-
-    pub quote_mint: &'b solana_account_info::AccountInfo<'a>,
-
-    pub token_program: &'b solana_account_info::AccountInfo<'a>,
-
-    pub system_program: &'b solana_account_info::AccountInfo<'a>,
-}
+  /// `claim_creator_fees` CPI accounts.
+  pub struct ClaimCreatorFeesCpiAccounts<'a, 'b> {
+          
+                    
+              pub owner: &'b solana_account_info::AccountInfo<'a>,
+                
+                    
+              pub owner_ata: &'b solana_account_info::AccountInfo<'a>,
+                
+                    
+              pub pool: &'b solana_account_info::AccountInfo<'a>,
+                
+                    
+              pub pool_ata: &'b solana_account_info::AccountInfo<'a>,
+                
+                    
+              pub quote_mint: &'b solana_account_info::AccountInfo<'a>,
+                
+                    
+              pub token_program: &'b solana_account_info::AccountInfo<'a>,
+                
+                    
+              pub system_program: &'b solana_account_info::AccountInfo<'a>,
+            }
 
 /// `claim_creator_fees` CPI instruction.
 pub struct ClaimCreatorFeesCpi<'a, 'b> {
-    /// The program to invoke.
-    pub __program: &'b solana_account_info::AccountInfo<'a>,
-
-    pub owner: &'b solana_account_info::AccountInfo<'a>,
-
-    pub owner_ata: &'b solana_account_info::AccountInfo<'a>,
-
-    pub central_state: &'b solana_account_info::AccountInfo<'a>,
-
-    pub pool: &'b solana_account_info::AccountInfo<'a>,
-
-    pub pool_ata: &'b solana_account_info::AccountInfo<'a>,
-
-    pub quote_mint: &'b solana_account_info::AccountInfo<'a>,
-
-    pub token_program: &'b solana_account_info::AccountInfo<'a>,
-
-    pub system_program: &'b solana_account_info::AccountInfo<'a>,
-    /// The arguments for the instruction.
-    pub __args: ClaimCreatorFeesInstructionArgs,
-}
+  /// The program to invoke.
+  pub __program: &'b solana_account_info::AccountInfo<'a>,
+      
+              
+          pub owner: &'b solana_account_info::AccountInfo<'a>,
+          
+              
+          pub owner_ata: &'b solana_account_info::AccountInfo<'a>,
+          
+              
+          pub pool: &'b solana_account_info::AccountInfo<'a>,
+          
+              
+          pub pool_ata: &'b solana_account_info::AccountInfo<'a>,
+          
+              
+          pub quote_mint: &'b solana_account_info::AccountInfo<'a>,
+          
+              
+          pub token_program: &'b solana_account_info::AccountInfo<'a>,
+          
+              
+          pub system_program: &'b solana_account_info::AccountInfo<'a>,
+        }
 
 impl<'a, 'b> ClaimCreatorFeesCpi<'a, 'b> {
-    pub fn new(
-        program: &'b solana_account_info::AccountInfo<'a>,
-        accounts: ClaimCreatorFeesCpiAccounts<'a, 'b>,
-        args: ClaimCreatorFeesInstructionArgs,
-    ) -> Self {
-        Self {
-            __program: program,
-            owner: accounts.owner,
-            owner_ata: accounts.owner_ata,
-            central_state: accounts.central_state,
-            pool: accounts.pool,
-            pool_ata: accounts.pool_ata,
-            quote_mint: accounts.a_mint,
-            token_program: accounts.token_program,
-            system_program: accounts.system_program,
-            __args: args,
-        }
-    }
-    #[inline(always)]
-    pub fn invoke(&self) -> solana_program_error::ProgramResult {
-        self.invoke_signed_with_remaining_accounts(&[], &[])
-    }
-    #[inline(always)]
-    pub fn invoke_with_remaining_accounts(
-        &self,
-        remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
-    ) -> solana_program_error::ProgramResult {
-        self.invoke_signed_with_remaining_accounts(&[], remaining_accounts)
-    }
-    #[inline(always)]
-    pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
-        self.invoke_signed_with_remaining_accounts(signers_seeds, &[])
-    }
-    #[allow(clippy::arithmetic_side_effects)]
-    #[allow(clippy::clone_on_copy)]
-    #[allow(clippy::vec_init_then_push)]
-    pub fn invoke_signed_with_remaining_accounts(
-        &self,
-        signers_seeds: &[&[&[u8]]],
-        remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
-    ) -> solana_program_error::ProgramResult {
-        let mut accounts = Vec::with_capacity(8 + remaining_accounts.len());
-        accounts.push(solana_instruction::AccountMeta::new(*self.owner.key, true));
-        accounts.push(solana_instruction::AccountMeta::new(
+  pub fn new(
+    program: &'b solana_account_info::AccountInfo<'a>,
+          accounts: ClaimCreatorFeesCpiAccounts<'a, 'b>,
+          ) -> Self {
+    Self {
+      __program: program,
+              owner: accounts.owner,
+              owner_ata: accounts.owner_ata,
+              pool: accounts.pool,
+              pool_ata: accounts.pool_ata,
+              quote_mint: accounts.quote_mint,
+              token_program: accounts.token_program,
+              system_program: accounts.system_program,
+                }
+  }
+  #[inline(always)]
+  pub fn invoke(&self) -> solana_program_error::ProgramResult {
+    self.invoke_signed_with_remaining_accounts(&[], &[])
+  }
+  #[inline(always)]
+  pub fn invoke_with_remaining_accounts(&self, remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]) -> solana_program_error::ProgramResult {
+    self.invoke_signed_with_remaining_accounts(&[], remaining_accounts)
+  }
+  #[inline(always)]
+  pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
+    self.invoke_signed_with_remaining_accounts(signers_seeds, &[])
+  }
+  #[allow(clippy::arithmetic_side_effects)]
+  #[allow(clippy::clone_on_copy)]
+  #[allow(clippy::vec_init_then_push)]
+  pub fn invoke_signed_with_remaining_accounts(
+    &self,
+    signers_seeds: &[&[&[u8]]],
+    remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]
+  ) -> solana_program_error::ProgramResult {
+    let mut accounts = Vec::with_capacity(7+ remaining_accounts.len());
+                            accounts.push(solana_instruction::AccountMeta::new(
+            *self.owner.key,
+            true
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
             *self.owner_ata.key,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new(
-            *self.central_state.key,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new(*self.pool.key, false));
-        accounts.push(solana_instruction::AccountMeta::new(
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
+            *self.pool.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new(
             *self.pool_ata.key,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.a_mint.key,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.quote_mint.key,
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.token_program.key,
-            false,
-        ));
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            false
+          ));
+                                          accounts.push(solana_instruction::AccountMeta::new_readonly(
             *self.system_program.key,
-            false,
-        ));
-        remaining_accounts.iter().for_each(|remaining_account| {
-            accounts.push(solana_instruction::AccountMeta {
-                pubkey: *remaining_account.0.key,
-                is_signer: remaining_account.1,
-                is_writable: remaining_account.2,
-            })
-        });
-        let mut data = ClaimCreatorFeesInstructionData::new().try_to_vec().unwrap();
-        let mut args = self.__args.try_to_vec().unwrap();
-        data.append(&mut args);
+            false
+          ));
+                      remaining_accounts.iter().for_each(|remaining_account| {
+      accounts.push(solana_instruction::AccountMeta {
+          pubkey: *remaining_account.0.key,
+          is_signer: remaining_account.1,
+          is_writable: remaining_account.2,
+      })
+    });
+    let data = ClaimCreatorFeesInstructionData::new().try_to_vec().unwrap();
+    
+    let instruction = solana_instruction::Instruction {
+      program_id: crate::CBMM_ID,
+      accounts,
+      data,
+    };
+    let mut account_infos = Vec::with_capacity(8 + remaining_accounts.len());
+    account_infos.push(self.__program.clone());
+                  account_infos.push(self.owner.clone());
+                        account_infos.push(self.owner_ata.clone());
+                        account_infos.push(self.pool.clone());
+                        account_infos.push(self.pool_ata.clone());
+                        account_infos.push(self.quote_mint.clone());
+                        account_infos.push(self.token_program.clone());
+                        account_infos.push(self.system_program.clone());
+              remaining_accounts.iter().for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
 
-        let instruction = solana_instruction::Instruction {
-            program_id: crate::CBMM_ID,
-            accounts,
-            data,
-        };
-        let mut account_infos = Vec::with_capacity(9 + remaining_accounts.len());
-        account_infos.push(self.__program.clone());
-        account_infos.push(self.owner.clone());
-        account_infos.push(self.owner_ata.clone());
-        account_infos.push(self.central_state.clone());
-        account_infos.push(self.pool.clone());
-        account_infos.push(self.pool_ata.clone());
-        account_infos.push(self.a_mint.clone());
-        account_infos.push(self.token_program.clone());
-        account_infos.push(self.system_program.clone());
-        remaining_accounts
-            .iter()
-            .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
-
-        if signers_seeds.is_empty() {
-            solana_cpi::invoke(&instruction, &account_infos)
-        } else {
-            solana_cpi::invoke_signed(&instruction, &account_infos, signers_seeds)
-        }
+    if signers_seeds.is_empty() {
+      solana_cpi::invoke(&instruction, &account_infos)
+    } else {
+      solana_cpi::invoke_signed(&instruction, &account_infos, signers_seeds)
     }
+  }
 }
 
 /// Instruction builder for `ClaimCreatorFees` via CPI.
 ///
 /// ### Accounts:
 ///
-///   0. `[writable, signer]` owner
-///   1. `[writable]` owner_ata
-///   2. `[writable]` central_state
-///   3. `[writable]` pool
-///   4. `[writable]` pool_ata
-///   5. `[]` quote_mint
-///   6. `[]` token_program
-///   7. `[]` system_program
+                      ///   0. `[writable, signer]` owner
+                ///   1. `[writable]` owner_ata
+                ///   2. `[writable]` pool
+                ///   3. `[writable]` pool_ata
+          ///   4. `[]` quote_mint
+          ///   5. `[]` token_program
+          ///   6. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct ClaimCreatorFeesCpiBuilder<'a, 'b> {
-    instruction: Box<ClaimCreatorFeesCpiBuilderInstruction<'a, 'b>>,
+  instruction: Box<ClaimCreatorFeesCpiBuilderInstruction<'a, 'b>>,
 }
 
 impl<'a, 'b> ClaimCreatorFeesCpiBuilder<'a, 'b> {
-    pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
-        let instruction = Box::new(ClaimCreatorFeesCpiBuilderInstruction {
-            __program: program,
-            owner: None,
-            owner_ata: None,
-            central_state: None,
-            pool: None,
-            pool_ata: None,
-            quote_mint: None,
-            token_program: None,
-            system_program: None,
-            amount: None,
-            __remaining_accounts: Vec::new(),
-        });
-        Self { instruction }
-    }
-    #[inline(always)]
+  pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
+    let instruction = Box::new(ClaimCreatorFeesCpiBuilderInstruction {
+      __program: program,
+              owner: None,
+              owner_ata: None,
+              pool: None,
+              pool_ata: None,
+              quote_mint: None,
+              token_program: None,
+              system_program: None,
+                                __remaining_accounts: Vec::new(),
+    });
+    Self { instruction }
+  }
+      #[inline(always)]
     pub fn owner(&mut self, owner: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-        self.instruction.owner = Some(owner);
-        self
+                        self.instruction.owner = Some(owner);
+                    self
     }
-    #[inline(always)]
+      #[inline(always)]
     pub fn owner_ata(&mut self, owner_ata: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-        self.instruction.owner_ata = Some(owner_ata);
-        self
+                        self.instruction.owner_ata = Some(owner_ata);
+                    self
     }
-    #[inline(always)]
-    pub fn central_state(
-        &mut self,
-        central_state: &'b solana_account_info::AccountInfo<'a>,
-    ) -> &mut Self {
-        self.instruction.central_state = Some(central_state);
-        self
-    }
-    #[inline(always)]
+      #[inline(always)]
     pub fn pool(&mut self, pool: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-        self.instruction.pool = Some(pool);
-        self
+                        self.instruction.pool = Some(pool);
+                    self
     }
-    #[inline(always)]
+      #[inline(always)]
     pub fn pool_ata(&mut self, pool_ata: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
-        self.instruction.pool_ata = Some(pool_ata);
-        self
+                        self.instruction.pool_ata = Some(pool_ata);
+                    self
     }
-    #[inline(always)]
-    pub fn quote_mint(
-        &mut self,
-        quote_mint: &'b solana_account_info::AccountInfo<'a>,
-    ) -> &mut Self {
-        self.instruction.a_mint = Some(a_mint);
-        self
+      #[inline(always)]
+    pub fn quote_mint(&mut self, quote_mint: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.quote_mint = Some(quote_mint);
+                    self
     }
-    #[inline(always)]
-    pub fn token_program(
-        &mut self,
-        token_program: &'b solana_account_info::AccountInfo<'a>,
-    ) -> &mut Self {
-        self.instruction.token_program = Some(token_program);
-        self
+      #[inline(always)]
+    pub fn token_program(&mut self, token_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.token_program = Some(token_program);
+                    self
     }
-    #[inline(always)]
-    pub fn system_program(
-        &mut self,
-        system_program: &'b solana_account_info::AccountInfo<'a>,
-    ) -> &mut Self {
-        self.instruction.system_program = Some(system_program);
-        self
+      #[inline(always)]
+    pub fn system_program(&mut self, system_program: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
+                        self.instruction.system_program = Some(system_program);
+                    self
     }
-    #[inline(always)]
-    pub fn amount(&mut self, amount: u64) -> &mut Self {
-        self.instruction.amount = Some(amount);
-        self
-    }
-    /// Add an additional account to the instruction.
-    #[inline(always)]
-    pub fn add_remaining_account(
-        &mut self,
-        account: &'b solana_account_info::AccountInfo<'a>,
-        is_writable: bool,
-        is_signer: bool,
-    ) -> &mut Self {
-        self.instruction
-            .__remaining_accounts
-            .push((account, is_writable, is_signer));
-        self
-    }
-    /// Add additional accounts to the instruction.
-    ///
-    /// Each account is represented by a tuple of the `AccountInfo`, a `bool` indicating whether the account is writable or not,
-    /// and a `bool` indicating whether the account is a signer or not.
-    #[inline(always)]
-    pub fn add_remaining_accounts(
-        &mut self,
-        accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
-    ) -> &mut Self {
-        self.instruction
-            .__remaining_accounts
-            .extend_from_slice(accounts);
-        self
-    }
-    #[inline(always)]
-    pub fn invoke(&self) -> solana_program_error::ProgramResult {
-        self.invoke_signed(&[])
-    }
-    #[allow(clippy::clone_on_copy)]
-    #[allow(clippy::vec_init_then_push)]
-    pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
-        let args = ClaimCreatorFeesInstructionArgs {
-            amount: self.instruction.amount.clone().expect("amount is not set"),
-        };
+            /// Add an additional account to the instruction.
+  #[inline(always)]
+  pub fn add_remaining_account(&mut self, account: &'b solana_account_info::AccountInfo<'a>, is_writable: bool, is_signer: bool) -> &mut Self {
+    self.instruction.__remaining_accounts.push((account, is_writable, is_signer));
+    self
+  }
+  /// Add additional accounts to the instruction.
+  ///
+  /// Each account is represented by a tuple of the `AccountInfo`, a `bool` indicating whether the account is writable or not,
+  /// and a `bool` indicating whether the account is a signer or not.
+  #[inline(always)]
+  pub fn add_remaining_accounts(&mut self, accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)]) -> &mut Self {
+    self.instruction.__remaining_accounts.extend_from_slice(accounts);
+    self
+  }
+  #[inline(always)]
+  pub fn invoke(&self) -> solana_program_error::ProgramResult {
+    self.invoke_signed(&[])
+  }
+  #[allow(clippy::clone_on_copy)]
+  #[allow(clippy::vec_init_then_push)]
+  pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
         let instruction = ClaimCreatorFeesCpi {
-            __program: self.instruction.__program,
-
-            owner: self.instruction.owner.expect("owner is not set"),
-
-            owner_ata: self.instruction.owner_ata.expect("owner_ata is not set"),
-
-            central_state: self
-                .instruction
-                .central_state
-                .expect("central_state is not set"),
-
-            pool: self.instruction.pool.expect("pool is not set"),
-
-            pool_ata: self.instruction.pool_ata.expect("pool_ata is not set"),
-
-            quote_mint: self.instruction.a_mint.expect("a_mint is not set"),
-
-            token_program: self
-                .instruction
-                .token_program
-                .expect("token_program is not set"),
-
-            system_program: self
-                .instruction
-                .system_program
-                .expect("system_program is not set"),
-            __args: args,
-        };
-        instruction.invoke_signed_with_remaining_accounts(
-            signers_seeds,
-            &self.instruction.__remaining_accounts,
-        )
-    }
+        __program: self.instruction.__program,
+                  
+          owner: self.instruction.owner.expect("owner is not set"),
+                  
+          owner_ata: self.instruction.owner_ata.expect("owner_ata is not set"),
+                  
+          pool: self.instruction.pool.expect("pool is not set"),
+                  
+          pool_ata: self.instruction.pool_ata.expect("pool_ata is not set"),
+                  
+          quote_mint: self.instruction.quote_mint.expect("quote_mint is not set"),
+                  
+          token_program: self.instruction.token_program.expect("token_program is not set"),
+                  
+          system_program: self.instruction.system_program.expect("system_program is not set"),
+                    };
+    instruction.invoke_signed_with_remaining_accounts(signers_seeds, &self.instruction.__remaining_accounts)
+  }
 }
 
 #[derive(Clone, Debug)]
 struct ClaimCreatorFeesCpiBuilderInstruction<'a, 'b> {
-    __program: &'b solana_account_info::AccountInfo<'a>,
-    owner: Option<&'b solana_account_info::AccountInfo<'a>>,
-    owner_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
-    central_state: Option<&'b solana_account_info::AccountInfo<'a>>,
-    pool: Option<&'b solana_account_info::AccountInfo<'a>>,
-    pool_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
-    quote_mint: Option<&'b solana_account_info::AccountInfo<'a>>,
-    token_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-    system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-    amount: Option<u64>,
-    /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
-    __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
+  __program: &'b solana_account_info::AccountInfo<'a>,
+            owner: Option<&'b solana_account_info::AccountInfo<'a>>,
+                owner_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
+                pool: Option<&'b solana_account_info::AccountInfo<'a>>,
+                pool_ata: Option<&'b solana_account_info::AccountInfo<'a>>,
+                quote_mint: Option<&'b solana_account_info::AccountInfo<'a>>,
+                token_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+                /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
+  __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }
+

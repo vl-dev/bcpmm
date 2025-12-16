@@ -6,31 +6,37 @@
 //!
 
 use solana_pubkey::Pubkey;
+use crate::generated::types::BurnRateConfig;
+use crate::generated::types::BurnTier;
 use borsh::BorshSerialize;
 use borsh::BorshDeserialize;
 
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct VirtualTokenAccount {
+pub struct PlatformConfig {
 pub discriminator: [u8; 8],
-/// Bump seed
 pub bump: u8,
-/// Pool address
 #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
-pub pool: Pubkey,
-/// Owner address
+pub admin: Pubkey,
 #[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
-pub owner: Pubkey,
-/// Balance of Mint B including decimals
-pub balance: u64,
+pub creator: Pubkey,
+#[cfg_attr(feature = "serde", serde(with = "serde_with::As::<serde_with::DisplayFromStr>"))]
+pub quote_mint: Pubkey,
+pub pool_creator_fee_bp: u16,
+pub pool_topup_fee_bp: u16,
+pub platform_fee_bp: u16,
+/// Optional global burn authority. If set, every burn instruction on this platform must be signed by this authority.
+pub burn_authority: Option<Pubkey>,
+pub burn_rate_config: BurnRateConfig,
+pub burn_tiers_updated_at: i64,
+pub burn_tiers: Vec<BurnTier>,
 }
 
 
-pub const VIRTUAL_TOKEN_ACCOUNT_DISCRIMINATOR: [u8; 8] = [213, 245, 54, 92, 159, 127, 14, 1];
+pub const PLATFORM_CONFIG_DISCRIMINATOR: [u8; 8] = [160, 78, 128, 0, 248, 83, 230, 160];
 
-impl VirtualTokenAccount {
-      pub const LEN: usize = 81;
+impl PlatformConfig {
   
   
   
@@ -41,7 +47,7 @@ impl VirtualTokenAccount {
   }
 }
 
-impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for VirtualTokenAccount {
+impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for PlatformConfig {
   type Error = std::io::Error;
 
   fn try_from(account_info: &solana_account_info::AccountInfo<'a>) -> Result<Self, Self::Error> {
@@ -51,53 +57,53 @@ impl<'a> TryFrom<&solana_account_info::AccountInfo<'a>> for VirtualTokenAccount 
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_virtual_token_account(
+pub fn fetch_platform_config(
   rpc: &solana_client::rpc_client::RpcClient,
   address: &solana_pubkey::Pubkey,
-) -> Result<crate::shared::DecodedAccount<VirtualTokenAccount>, std::io::Error> {
-  let accounts = fetch_all_virtual_token_account(rpc, &[*address])?;
+) -> Result<crate::shared::DecodedAccount<PlatformConfig>, std::io::Error> {
+  let accounts = fetch_all_platform_config(rpc, &[*address])?;
   Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_all_virtual_token_account(
+pub fn fetch_all_platform_config(
   rpc: &solana_client::rpc_client::RpcClient,
   addresses: &[solana_pubkey::Pubkey],
-) -> Result<Vec<crate::shared::DecodedAccount<VirtualTokenAccount>>, std::io::Error> {
+) -> Result<Vec<crate::shared::DecodedAccount<PlatformConfig>>, std::io::Error> {
     let accounts = rpc.get_multiple_accounts(addresses)
       .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let mut decoded_accounts: Vec<crate::shared::DecodedAccount<VirtualTokenAccount>> = Vec::new();
+    let mut decoded_accounts: Vec<crate::shared::DecodedAccount<PlatformConfig>> = Vec::new();
     for i in 0..addresses.len() {
       let address = addresses[i];
       let account = accounts[i].as_ref()
         .ok_or(std::io::Error::new(std::io::ErrorKind::Other, format!("Account not found: {}", address)))?;
-      let data = VirtualTokenAccount::from_bytes(&account.data)?;
+      let data = PlatformConfig::from_bytes(&account.data)?;
       decoded_accounts.push(crate::shared::DecodedAccount { address, account: account.clone(), data });
     }
     Ok(decoded_accounts)
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_maybe_virtual_token_account(
+pub fn fetch_maybe_platform_config(
   rpc: &solana_client::rpc_client::RpcClient,
   address: &solana_pubkey::Pubkey,
-) -> Result<crate::shared::MaybeAccount<VirtualTokenAccount>, std::io::Error> {
-    let accounts = fetch_all_maybe_virtual_token_account(rpc, &[*address])?;
+) -> Result<crate::shared::MaybeAccount<PlatformConfig>, std::io::Error> {
+    let accounts = fetch_all_maybe_platform_config(rpc, &[*address])?;
     Ok(accounts[0].clone())
 }
 
 #[cfg(feature = "fetch")]
-pub fn fetch_all_maybe_virtual_token_account(
+pub fn fetch_all_maybe_platform_config(
   rpc: &solana_client::rpc_client::RpcClient,
   addresses: &[solana_pubkey::Pubkey],
-) -> Result<Vec<crate::shared::MaybeAccount<VirtualTokenAccount>>, std::io::Error> {
+) -> Result<Vec<crate::shared::MaybeAccount<PlatformConfig>>, std::io::Error> {
     let accounts = rpc.get_multiple_accounts(addresses)
       .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let mut decoded_accounts: Vec<crate::shared::MaybeAccount<VirtualTokenAccount>> = Vec::new();
+    let mut decoded_accounts: Vec<crate::shared::MaybeAccount<PlatformConfig>> = Vec::new();
     for i in 0..addresses.len() {
       let address = addresses[i];
       if let Some(account) = accounts[i].as_ref() {
-        let data = VirtualTokenAccount::from_bytes(&account.data)?;
+        let data = PlatformConfig::from_bytes(&account.data)?;
         decoded_accounts.push(crate::shared::MaybeAccount::Exists(crate::shared::DecodedAccount { address, account: account.clone(), data }));
       } else {
         decoded_accounts.push(crate::shared::MaybeAccount::NotFound(address));
@@ -107,28 +113,28 @@ pub fn fetch_all_maybe_virtual_token_account(
 }
 
   #[cfg(feature = "anchor")]
-  impl anchor_lang::AccountDeserialize for VirtualTokenAccount {
+  impl anchor_lang::AccountDeserialize for PlatformConfig {
       fn try_deserialize_unchecked(buf: &mut &[u8]) -> anchor_lang::Result<Self> {
         Ok(Self::deserialize(buf)?)
       }
   }
 
   #[cfg(feature = "anchor")]
-  impl anchor_lang::AccountSerialize for VirtualTokenAccount {}
+  impl anchor_lang::AccountSerialize for PlatformConfig {}
 
   #[cfg(feature = "anchor")]
-  impl anchor_lang::Owner for VirtualTokenAccount {
+  impl anchor_lang::Owner for PlatformConfig {
       fn owner() -> Pubkey {
         crate::CBMM_ID
       }
   }
 
   #[cfg(feature = "anchor-idl-build")]
-  impl anchor_lang::IdlBuild for VirtualTokenAccount {}
+  impl anchor_lang::IdlBuild for PlatformConfig {}
 
   
   #[cfg(feature = "anchor-idl-build")]
-  impl anchor_lang::Discriminator for VirtualTokenAccount {
+  impl anchor_lang::Discriminator for PlatformConfig {
     const DISCRIMINATOR: &[u8] = &[0; 8];
   }
 
