@@ -71,4 +71,10 @@ pub mod cbmm {
     pub fn claim_platform_fees(ctx: Context<ClaimPlatformFees>) -> Result<()> {
         instructions::claim_platform_fees(ctx)
     }
+    pub fn update_platform_config(
+        ctx: Context<UpdatePlatformConfig>,
+        args: UpdatePlatformConfigArgs,
+    ) -> Result<()> {
+        instructions::update_platform_config(ctx, args)
+    }
 }

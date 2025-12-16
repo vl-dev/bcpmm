@@ -54,4 +54,6 @@ pub enum CbmmError {
     InvalidBurnRate,
     #[msg("Invalid or missing burn authority")]
     InvalidBurnAuthority,
+    #[msg("Burn tiers were updated too recently")]
+    BurnTiersUpdatedTooRecently,
 }

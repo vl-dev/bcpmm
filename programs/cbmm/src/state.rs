@@ -45,13 +45,12 @@ pub struct PlatformConfig {
     pub creator: Pubkey,
     pub quote_mint: Pubkey,
 
-    /// Optional global burn authority. If set, every burn instruction
-    /// on this platform must be signed by this authority.
-    pub burn_authority: Option<Pubkey>,
-
     pub pool_creator_fee_bp: u16,
     pub pool_topup_fee_bp: u16,
     pub platform_fee_bp: u16,
+
+    /// Optional global burn authority. If set, every burn instruction on this platform must be signed by this authority.
+    pub burn_authority: Option<Pubkey>,
 
     pub burn_rate_config: BurnRateConfig,
 
@@ -72,18 +71,12 @@ impl PlatformConfig {
     // 10 bp (1000 bp_x100) hard limit for unrestricted role
     pub const MAX_DAILY_BURN_BP_X100_ANYONE: u64 = 1_000;
 
-    pub fn validate_fees_and_burn_config(
-        pool_creator_fee_bp: u16,
-        pool_topup_fee_bp: u16,
-        platform_fee_bp: u16,
-        burn_tiers: &[BurnTier],
-        burn_limit_bp_x100: u64,
-        burn_decay_rate_per_sec_bp_x100: u64,
-    ) -> Result<()> {
+    pub fn validate_fees_and_burn_config(&self) -> Result<()> {
         // 1. Validate fee constraints
-        let total_fees = pool_creator_fee_bp
-            .checked_add(pool_topup_fee_bp)
-            .and_then(|sum| sum.checked_add(platform_fee_bp))
+        let total_fees = self
+            .pool_creator_fee_bp
+            .checked_add(self.pool_topup_fee_bp)
+            .and_then(|sum| sum.checked_add(self.platform_fee_bp))
             .ok_or(CbmmError::MathOverflow)?;
 
         require!(
@@ -91,11 +84,11 @@ impl PlatformConfig {
             CbmmError::InvalidFeeBasisPoints
         );
         require!(
-            pool_topup_fee_bp >= Self::MIN_TOPUP_FEE_BP,
+            self.pool_topup_fee_bp >= Self::MIN_TOPUP_FEE_BP,
             CbmmError::InvalidFeeBasisPoints
         );
         require!(
-            platform_fee_bp <= Self::MAX_PLATFORM_FEE_BP,
+            self.platform_fee_bp <= Self::MAX_PLATFORM_FEE_BP,
             CbmmError::InvalidFeeBasisPoints
         );
 
@@ -105,7 +98,7 @@ impl PlatformConfig {
         // Safe max is set to 3/4 of total fees percentage
         let safe_max_bp_x100 = (total_fees_bp_x100 * 3) / 4;
 
-        for tier in burn_tiers {
+        for tier in &self.burn_tiers {
             match &tier.role {
                 BurnRole::Anyone => {
                     require!(
@@ -124,24 +117,25 @@ impl PlatformConfig {
 
         // 3. Validate burn rate config
         require!(
-            burn_limit_bp_x100 < total_fees_bp_x100,
+            self.burn_rate_config.burn_limit_bp_x100 < total_fees_bp_x100,
             CbmmError::InvalidBurnTiers
         );
 
         // Decay should throttle to at least 15 minute full recovery
-        let max_decay = burn_limit_bp_x100 / Self::BURN_LIMIT_TIME_WINDOW_SECONDS as u64;
+        let max_decay =
+            self.burn_rate_config.burn_limit_bp_x100 / Self::BURN_LIMIT_TIME_WINDOW_SECONDS as u64;
 
         // Require at least some decay rate (Allow 99% tolerance downward (slower decay is safer)
         let min_decay = max_decay / 100;
 
         require_gte!(
-            burn_decay_rate_per_sec_bp_x100,
+            self.burn_rate_config.decay_rate_per_sec_bp_x100,
             min_decay,
             CbmmError::InvalidBurnRate
         );
         require_gte!(
             max_decay,
-            burn_decay_rate_per_sec_bp_x100,
+            self.burn_rate_config.decay_rate_per_sec_bp_x100,
             CbmmError::InvalidBurnRate
         );
 
@@ -164,22 +158,13 @@ impl PlatformConfig {
     ) -> Result<Self> {
         require!(burn_tiers.len() <= 5, CbmmError::InvalidBurnTiers);
 
-        Self::validate_fees_and_burn_config(
-            pool_creator_fee_bp,
-            pool_topup_fee_bp,
-            platform_fee_bp,
-            &burn_tiers,
-            burn_limit_bp_x100,
-            burn_decay_rate_per_sec_bp_x100,
-        )?;
-
         let burn_config = BurnRateConfig::new(
             burn_limit_bp_x100,
             burn_min_bp_x100,
             burn_decay_rate_per_sec_bp_x100,
         );
 
-        Ok(Self {
+        let config = Self {
             bump,
             admin,
             creator,
@@ -191,7 +176,11 @@ impl PlatformConfig {
             pool_creator_fee_bp,
             pool_topup_fee_bp,
             platform_fee_bp,
-        })
+        };
+
+        config.validate_fees_and_burn_config()?;
+
+        Ok(config)
     }
 
     /// If a global burn authority is configured, require the provided authority
