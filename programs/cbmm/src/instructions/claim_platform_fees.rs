@@ -108,6 +108,7 @@ mod tests {
             creator_fee_bp,
             buyback_fee_bp,
             platform_fee_bp,
+            None,
         );
 
         let pool_created = runner.create_pool_mock(

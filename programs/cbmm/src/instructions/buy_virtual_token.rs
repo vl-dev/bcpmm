@@ -166,6 +166,7 @@ mod tests {
             creator_fee_bp,
             buyback_fee_bp,
             platform_fee_bp,
+            None,
         );
         // platform config ata
         runner.create_associated_token_account(&payer, quote_mint, &platform_config);

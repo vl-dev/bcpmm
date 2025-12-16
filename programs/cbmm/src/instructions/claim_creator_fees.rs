@@ -89,7 +89,8 @@ mod tests {
         let quote_mint = runner.create_mint(&owner, 9);
         let owner_ata = runner.create_associated_token_account(&owner, quote_mint, &owner.pubkey());
 
-        let platform_config = runner.create_platform_config_mock(&owner,
+        let platform_config = runner.create_platform_config_mock(
+            &owner,
             quote_mint,
             5,
             5,
@@ -98,6 +99,7 @@ mod tests {
             creator_fee_bp,
             buyback_fee_bp,
             platform_fee_bp,
+            None,
         );
 
         let pool_created = runner.create_pool_mock(

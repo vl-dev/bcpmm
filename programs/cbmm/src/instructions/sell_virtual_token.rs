@@ -159,7 +159,18 @@ mod tests {
         let payer_ata = runner.create_associated_token_account(&payer, quote_mint, &payer.pubkey());
         runner.mint_to(&payer, &quote_mint, payer_ata, 10_000_000_000);
         
-        let platform_config = runner.create_platform_config_mock(&payer, quote_mint, 5, 5, 2, 1, creator_fee_bp, buyback_fee_bp, platform_fee_bp);
+        let platform_config = runner.create_platform_config_mock(
+            &payer,
+            quote_mint,
+            5,
+            5,
+            2,
+            1,
+            creator_fee_bp,
+            buyback_fee_bp,
+            platform_fee_bp,
+            None,
+        );
 
         // platform config ata
         runner.create_associated_token_account(&payer, quote_mint, &platform_config);
