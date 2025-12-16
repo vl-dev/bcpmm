@@ -45,6 +45,10 @@ pub struct PlatformConfig {
     pub creator: Pubkey,
     pub quote_mint: Pubkey,
 
+    /// Optional global burn authority. If set, every burn instruction
+    /// on this platform must be signed by this authority.
+    pub burn_authority: Option<Pubkey>,
+
     pub pool_creator_fee_bp: u16,
     pub pool_topup_fee_bp: u16,
     pub platform_fee_bp: u16,
@@ -149,6 +153,7 @@ impl PlatformConfig {
         admin: Pubkey,
         creator: Pubkey,
         quote_mint: Pubkey,
+        burn_authority: Option<Pubkey>,
         burn_tiers: Vec<BurnTier>,
         pool_creator_fee_bp: u16,
         pool_topup_fee_bp: u16,
@@ -179,6 +184,7 @@ impl PlatformConfig {
             admin,
             creator,
             quote_mint,
+            burn_authority,
             burn_tiers,
             burn_tiers_updated_at: Clock::get()?.unix_timestamp,
             burn_rate_config: burn_config,
@@ -186,6 +192,16 @@ impl PlatformConfig {
             pool_topup_fee_bp,
             platform_fee_bp,
         })
+    }
+
+    /// If a global burn authority is configured, require the provided authority
+    /// to be present and to match. If no authority is configured, then no
+    /// authority must be provided.
+    pub fn check_burn_authority(&self, provided_burn_authority: Option<Pubkey>) -> Result<()> {
+        if self.burn_authority != provided_burn_authority {
+            return err!(CbmmError::InvalidBurnAuthority);
+        }
+        Ok(())
     }
 }
 

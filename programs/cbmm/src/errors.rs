@@ -52,4 +52,6 @@ pub enum CbmmError {
     InvalidBurnTiersLength,
     #[msg("Invalid burn rate")]
     InvalidBurnRate,
+    #[msg("Invalid or missing burn authority")]
+    InvalidBurnAuthority,
 }

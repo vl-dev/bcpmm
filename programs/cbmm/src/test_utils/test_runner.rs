@@ -1,7 +1,9 @@
 use super::compute_metrics::send_and_record;
+use crate::helpers::BurnRateLimiter;
 use crate::instructions::BuyVirtualTokenArgs;
 use crate::state::{self as cpmm_state, CBMM_POOL_INDEX_SEED};
 use anchor_lang::prelude::*;
+use anchor_lang::system_program;
 use litesvm::LiteSVM;
 use litesvm_token::{CreateAssociatedTokenAccount, CreateMint, MintTo};
 use solana_sdk::clock::Clock;
@@ -12,7 +14,6 @@ use solana_sdk::{
     transaction::Transaction,
 };
 
-use crate::helpers::BurnRateLimiter;
 const POOL_INDEX: u32 = CBMM_POOL_INDEX_SEED;
 
 #[derive(Debug)]
@@ -124,6 +125,7 @@ impl TestRunner {
         creator_fee_bp: u16,
         buyback_fee_bp: u16,
         platform_fee_bp: u16,
+        burn_authority: Option<anchor_lang::prelude::Pubkey>,
     ) -> Pubkey {
         let (platform_config_pda, platform_config_bump) = Pubkey::find_program_address(
             &[cpmm_state::PLATFORM_CONFIG_SEED, creator.pubkey().as_ref()],
@@ -160,6 +162,7 @@ impl TestRunner {
             admin: anchor_lang::prelude::Pubkey::new_from_array(creator.pubkey().to_bytes()),
             creator: anchor_lang::prelude::Pubkey::new_from_array(creator.pubkey().to_bytes()),
             quote_mint: anchor_lang::prelude::Pubkey::new_from_array(quote_mint.to_bytes()),
+            burn_authority,
             pool_creator_fee_bp: creator_fee_bp,
             pool_topup_fee_bp: buyback_fee_bp,
             platform_fee_bp,
@@ -179,6 +182,7 @@ impl TestRunner {
         burns_today: u16,
         last_burn_timestamp: i64,
         is_pool_owner: bool,
+        created_at: i64,
     ) -> Pubkey {
         // Get platform config to read burn_tiers_updated_at
         let platform_config_account = self.svm.get_account(&platform_config).unwrap();
@@ -211,7 +215,7 @@ impl TestRunner {
             payer: anchor_lang::prelude::Pubkey::new_from_array(payer.to_bytes()),
             burns_today,
             last_burn_timestamp,
-            created_at: 0,
+            created_at,
             burn_tier_index,
             burn_tier_update_timestamp: platform_config_data.burn_tiers_updated_at,
         };
@@ -524,6 +528,7 @@ impl TestRunner {
         payer: &Keypair,
         pool: Pubkey,
         user_burn_allowance: Pubkey,
+        burn_authority: Option<&Keypair>,
     ) -> std::result::Result<(), TransactionError> {
         // Get platform_config from pool account
         let pool_account = self.svm.get_account(&pool).unwrap();
@@ -531,14 +536,24 @@ impl TestRunner {
             cpmm_state::CbmmPool::try_deserialize(&mut pool_account.data.as_slice()).unwrap();
         let platform_config_pda = pool_data.platform_config;
 
-        let accounts = vec![
+        let mut accounts = vec![
             AccountMeta::new(payer.pubkey(), true),
             AccountMeta::new(pool, false),
             AccountMeta::new(user_burn_allowance, false),
             AccountMeta::new(Pubkey::from(platform_config_pda.to_bytes()), false),
         ];
 
-        self.send_instruction("burn_virtual_token", accounts, (), &[payer])
+        let mut signers: Vec<&Keypair> = vec![payer];
+
+        // Always include the burn_authority account (Anchor's Option<Signer> still requires the account to be present)
+        if let Some(auth) = burn_authority {
+            accounts.push(AccountMeta::new(auth.pubkey(), true));
+            signers.push(auth);
+        } else {
+            accounts.push(AccountMeta::new_readonly(self.program_id, false));
+        }
+
+        self.send_instruction("burn_virtual_token", accounts, (), &signers)
     }
 
     pub fn get_user_burn_allowance(

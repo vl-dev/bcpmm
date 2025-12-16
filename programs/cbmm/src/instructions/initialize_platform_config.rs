@@ -8,6 +8,9 @@ pub struct InitializePlatformConfigArgs {
     pub topup_fee_bp: u16,
     pub platform_fee_bp: u16,
 
+    /// Optional global burn authority required to sign all burns on this platform
+    pub burn_authority: Option<Pubkey>,
+
     pub burn_limit_bp_x100: u64,
     pub burn_min_burn_bp_x100: u64,
     pub burn_decay_rate_per_sec_bp_x100: u64,
@@ -41,6 +44,7 @@ pub fn initialize_platform_config(
             ctx.accounts.creator.key(),
             ctx.accounts.creator.key(),
             ctx.accounts.quote_mint.key(),
+            args.burn_authority,
             args.burn_tiers,
             args.creator_fee_bp,
             args.topup_fee_bp,
